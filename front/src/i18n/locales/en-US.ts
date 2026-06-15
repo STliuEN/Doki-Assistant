@@ -1,5 +1,5 @@
 const enUS = {
-  app: { name: '云笺集' },
+  app: { name: 'Doki Assistant' },
   nav: {
     notes: 'Notes',
     chat: 'AI Chat',
@@ -131,7 +131,7 @@ const enUS = {
   },
   about: {
     title: 'About',
-    description: '云笺集 is an intelligent note-taking and knowledge management platform that leverages AI capabilities to help you better record, organize, and review knowledge.',
+    description: 'Doki Assistant is an intelligent note-taking and knowledge management platform that leverages AI capabilities to help you better record, organize, and review knowledge.',
     techStack: 'Tech Stack',
     features: 'Features',
     featureList: {

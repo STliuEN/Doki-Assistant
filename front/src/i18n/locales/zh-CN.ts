@@ -1,5 +1,5 @@
 const zhCN = {
-  app: { name: '云笺集' },
+  app: { name: 'Doki Assistant' },
   nav: {
     notes: '笔记',
     chat: 'AI 对话',
@@ -130,7 +130,7 @@ const zhCN = {
   },
   about: {
     title: '关于我们',
-    description: '云笺集是一个智能笔记与知识管理平台，结合 AI 大模型能力，帮助你更好地记录、整理和回顾知识。',
+    description: 'Doki助手 是一个智能笔记与知识管理平台，结合 AI 大模型能力，帮助你更好地记录、整理和回顾知识。',
     techStack: '技术栈',
     features: '功能特性',
     featureList: {

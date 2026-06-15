@@ -67,10 +67,65 @@ AI 驱动的个人知识管理工具，融合 **笔记管理 + RAG 知识库 + A
 - **🤖 AI 写作助手**：续写、扩写、摘要生成，SSE 流式输出
 - **🔗 跨源关联推荐**：编辑笔记时，从笔记库和知识库双向检索 Top k 相关文档
 - **💬 智能问答**：基于 RAG 技术的 Agent 对话，支持文档引用来源展示
+- **🧠 多模型接入**：工程默认模型兜底，用户可接入 OpenAI-compatible API 或 Ollama 本地模型
 - **💾 会话持久化**：MySQL 存储对话历史，随时回溯
 - **📄 文档管理**：支持 TXT / PDF / MD / PPTX / DOCX 上传，可视化切片详情
 - **🌐 多语言支持**：前端 i18n，中英文界面切换
 - **⛑️ 安全隔离**：用户级知识库隔离，RAG 检索只能访问本人数据
+
+## 项目架构
+
+系统采用前后端分离 + 独立用户服务的架构：
+
+```mermaid
+flowchart TD
+  U[用户浏览器] --> F[React + Vite 前端]
+  F --> B[FastAPI 后端]
+  F --> D[Django 用户服务]
+  D --> UserDB[(MySQL user_service)]
+  B --> AppDB[(MySQL chat_history)]
+  B --> Redis[(Redis)]
+  B --> Chroma[(ChromaDB)]
+  B --> Agent[LangChain Agent + Tools]
+  Agent --> DefaultLLM[工程默认模型 .env]
+  Agent --> UserLLM[用户模型配置]
+  UserLLM --> CleanOpenAI[OpenAI-Compatible Clean HTTP 调用器]
+  UserLLM --> Ollama[Ollama 本地模型]
+  B --> Reranker[本地重排序模型 bge-reranker-v2-m3]
+```
+
+### 模型调用架构
+
+模型系统分为两层：
+
+- **工程默认模型**：由 `backend/.env` 中的 `LLM_TYPE`、`ALIYUN_*`、`OLLAMA_*` 决定，固定作为前端模型列表第一项，用作兜底配置。用户不需要创建任何模型配置也能直接使用 AI 对话。
+- **用户模型配置**：用户可在前端 `模型选择` 页面添加自己的模型配置，存入 FastAPI 后端的 `user_model_configs` 表。AI 对话页可按会话选择某个用户模型；未选择时走工程默认模型。
+
+当前支持三类调用路径：
+
+| 类型 | 用途 | 调用方式 |
+|------|------|----------|
+| 工程默认配置 | 系统兜底模型 | 读取 `.env`，使用阿里云百炼或 Ollama |
+| 通用模型 | OpenAI Chat Completions 兼容中转站/API | 使用项目内置 Clean HTTP 调用器，请求 `{base_url}/chat/completions` |
+| Ollama 本地 | 本机轻量模型部署 | 使用 `ChatOllama`，默认地址 `http://localhost:11434` |
+
+通用模型没有直接使用 OpenAI SDK 默认请求链路，而是通过 `backend/app/utils/clean_openai_chat.py` 发起干净的 `httpx` 请求，避免部分中转站拦截 `AsyncOpenAI/Python`、`X-Stainless-*` 等 SDK 默认请求头。
+
+### 模型选择页面
+
+`模型选择` 页面提供按用户隔离的模型管理：
+
+- 列表第一条固定显示工程 `.env` 默认模型，不可编辑、不可删除、不可设默认。
+- 用户新增的模型从第二条开始展示，即使被标记为默认，也不会移动到第一条。
+- `通用` 类型需要填写供应商、模型名称、Base URL 和 API SK。
+- `Ollama 本地` 类型默认使用 `http://localhost:11434`，隐藏供应商和 API SK，前端可通过 `GET /model-config/ollama/models` 读取本机 `/api/tags` 并以下拉菜单选择已安装模型。
+- 模型测试接口返回结构化诊断结果，便于区分认证失败、服务不可达、模型不存在、供应商拦截等问题。
+
+### Agent 与 RAG 流程
+
+AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传入的 `model_config_id` 决定使用用户模型；未传入时使用工程默认模型。工具层封装了笔记创建、笔记搜索、统计查询、今日回顾、RAG 总结、关联笔记等能力。
+
+知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。
 
 ## 项目演示
 
@@ -240,7 +295,8 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 | MySQL | 关系型数据库（chat_history / notes / reviews） |
 | Redis | 缓存 |
 | DashScope API | 大语言模型服务（Qwen3-Max） |
-| Ollama | 本地模型部署（qwen3.5:0.8b 联机补全） |
+| Ollama | 本地模型部署，支持读取 `/api/tags` 选择已安装模型 |
+| Clean OpenAI-Compatible Caller | 基于 httpx 的干净 Chat Completions 调用器，兼容 OpenAI 格式中转站 |
 | Hugging Face / ModelScope | 重排序模型（BAAI/bge-reranker-v2-m3） |
 | Sentence-Transformers | 句子嵌入模型 |
 
@@ -271,10 +327,11 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── config/              # 配置文件（chroma.yaml 等）
 │   │   ├── core/                # 核心工具（限流、响应封装、日志）
 │   │   ├── db/                  # 数据库配置（MySQL + Redis）
-│   │   ├── model/               # SQLAlchemy ORM 模型
+│   │   ├── models/              # SQLAlchemy ORM 模型
 │   │   │   ├── note.py          # 笔记模型
 │   │   │   ├── review_record.py # 回顾记录模型
-│   │   │   └── chat_history.py  # 对话历史模型
+│   │   │   ├── chat_history.py  # 对话历史模型
+│   │   │   └── model_config.py  # 用户模型配置
 │   │   ├── prompt/              # 提示词模板（8个）
 │   │   ├── rag/                 # RAG 核心功能
 │   │   │   ├── rag_service.py   # RAG 服务（HyDE + 混合检索）
@@ -286,6 +343,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   └── task_queue.py    # 后台处理队列
 │   │   ├── router/              # API 路由
 │   │   │   ├── chat.py          # 聊天 & Agent 路由
+│   │   │   ├── model_config_router.py # 用户模型配置与测试
 │   │   │   ├── note_router.py   # 笔记 CRUD & AI 路由
 │   │   │   ├── review_router.py # 间隔重复回顾路由
 │   │   │   ├── knowledge_router.py
@@ -294,8 +352,11 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── schemas/             # Pydantic 数据模型
 │   │   ├── services/            # 业务服务层
 │   │   │   ├── note_service.py  # 笔记服务（CRUD + 向量化 + AI 写作）
+│   │   │   ├── model_config_service.py # 模型配置服务
 │   │   │   └── review_service.py# 回顾服务（艾宾浩斯算法）
 │   │   └── utils/               # 工具函数
+│   │       ├── clean_openai_chat.py # OpenAI-compatible 干净调用器
+│   │       └── model_provider.py    # 模型工厂与路由
 │   ├── data/                    # 数据存储目录
 │   ├── main.py                  # 应用入口
 │   └── pyproject.toml
@@ -306,6 +367,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── chat.ts          # 聊天接口
 │   │   │   ├── notes.ts         # 笔记接口
 │   │   │   ├── knowledge.ts     # 知识库接口
+│   │   │   ├── modelConfig.ts   # 模型配置接口
 │   │   │   ├── review.ts        # 回顾接口
 │   │   │   └── sessions.ts      # 会话接口
 │   │   ├── components/          # 组件
@@ -323,6 +385,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── NoteList.tsx     # 笔记列表
 │   │   │   ├── DailyReview.tsx  # 每日回顾
 │   │   │   ├── AIChat.tsx       # AI 聊天
+│   │   │   ├── ModelSettings.tsx# 模型选择与用户模型配置
 │   │   │   ├── Sessions.tsx     # 会话管理
 │   │   │   ├── KnowledgeBase.tsx# 知识库管理
 │   │   │   ├── Login.tsx / Register.tsx
@@ -367,10 +430,30 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 
 ### LLM 模型切换
 
-系统支持 **阿里云百炼（DashScope）** 和 **Ollama（本地部署）**两种模式：
+系统支持 **工程默认模型 + 用户模型配置** 两层模型来源：
 
-- **LLM_TYPE=ALIYUN**：使用 Qwen3-Max 大模型 + text-embedding-v4 嵌入
-- **LLM_TYPE=OLLAMA**：使用本地 Ollama 模型
+- **工程默认模型**：由 `backend/.env` 中的 `LLM_TYPE` 决定，作为 AI 对话和模型列表第一项兜底配置。
+- **用户模型配置**：登录用户可在前端 `模型选择` 页面新增模型，按用户隔离保存，可在 AI 对话页下拉选择。
+
+工程默认模型支持：
+
+- **LLM_TYPE=ALIYUN**：使用阿里云百炼兼容模式模型。
+- **LLM_TYPE=OLLAMA**：使用本地 Ollama 模型。
+
+用户模型配置支持：
+
+| 类型 | 填写方式 |
+|------|----------|
+| 通用 | 填写供应商、模型名称、Base URL、API SK；Base URL 可填根地址或 `/v1` 地址，后端会规范化到 OpenAI Chat Completions 路径 |
+| Ollama 本地 | 默认地址 `http://localhost:11434`，点击刷新读取本地 `/api/tags`，从下拉菜单选择已安装模型，API SK 留空 |
+
+Ollama 常用轻量模型示例：
+
+```bash
+ollama pull qwen3:0.6b
+ollama pull qwen3:1.7b
+ollama list
+```
 
 ### 重排序模型
 
