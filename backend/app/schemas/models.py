@@ -6,6 +6,7 @@ class QueryRequest(BaseModel):
     """查询请求模型"""
     session_id: str | None = None
     model_config_id: str | None = None
+    prompt_type: str | None = None
     query: str
 
 

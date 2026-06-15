@@ -13,8 +13,38 @@ from app.router.chat_service import ChatService, get_router_service
 from app.schemas.models import QueryRequest, RAGRequest, RAGResponse, ReorderRequest, ReorderResponse, SessionResponse
 from app.services.model_config_service import get_model_config_service
 from app.utils.auth_utils import get_current_user_id
+from app.utils.prompt_loader import load_prompt
 
 chat_router = APIRouter(prefix="/chat", tags=["chat"])
+
+CHAT_PROMPT_MODES = {
+    "main_prompt": "默认助手",
+    "chat_creative_prompt": "创意伙伴",
+    "chat_strict_prompt": "严谨助手",
+    "chat_teacher_prompt": "教学助手",
+}
+
+
+def build_chat_system_prompt(prompt_type: str) -> str:
+    base_prompt = load_prompt("main_prompt")
+    if prompt_type == "main_prompt":
+        return base_prompt
+
+    mode_prompt = load_prompt(prompt_type)
+    return "\n\n".join([
+        base_prompt,
+        "## 当前 AI 模式补充规则",
+        mode_prompt,
+        "请同时遵守基础 Agent 规则和当前 AI 模式补充规则；如果两者冲突，优先保证工具、RAG、笔记管理等基础能力正常工作，再体现当前模式的回答风格。",
+    ])
+
+
+@chat_router.get("/prompt-modes")
+async def get_prompt_modes():
+    return success_response(data=[
+        {"value": value, "label": label}
+        for value, label in CHAT_PROMPT_MODES.items()
+    ])
 
 
 @chat_router.post("/agent/query/stream")
@@ -34,8 +64,19 @@ async def query_stream(
     else:
         model_config = None
 
+    prompt_type = request.prompt_type or "main_prompt"
+    if prompt_type not in CHAT_PROMPT_MODES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="unsupported prompt_type")
+    system_prompt = build_chat_system_prompt(prompt_type)
+
     return StreamingResponse(
-        get_agent_stream_response(request.query, session_id, user_id, model_config=model_config),
+        get_agent_stream_response(
+            request.query,
+            session_id,
+            user_id,
+            model_config=model_config,
+            custom_system_prompt=system_prompt,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

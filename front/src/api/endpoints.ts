@@ -12,6 +12,7 @@ export const endpoints = {
 
   // AI Chat
   agentQueryStream: '/chat/agent/query/stream',
+  chatPromptModes: '/chat/prompt-modes',
   ragQuery: '/chat/rag/query',
   dialogueTranslateStream: '/translate/dialogue/stream',
 

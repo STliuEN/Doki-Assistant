@@ -15,6 +15,7 @@ type DialogueItem = {
   error?: string
 }
 
+const TRANSLATE_MODEL_STORAGE_KEY = 'translate_selected_model_id'
 const languageOptions = ['中文', '日语', '英语', '韩语', '法语', '德语', '西班牙语', '俄语', '阿拉伯语']
 
 function modelLabel(config: ModelConfig): string {
@@ -35,7 +36,7 @@ export default function RealtimeTranslate() {
   const [documentOutput, setDocumentOutput] = useState('')
   const [dialogueInput, setDialogueInput] = useState('')
   const [dialogueItems, setDialogueItems] = useState<DialogueItem[]>([])
-  const [selectedModelId, setSelectedModelId] = useState('')
+  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem(TRANSLATE_MODEL_STORAGE_KEY) || '')
   const [customInstruction, setCustomInstruction] = useState('')
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([])
   const [message, setMessage] = useState('')
@@ -57,6 +58,10 @@ export default function RealtimeTranslate() {
       .then((res) => setModelConfigs(res.data || []))
       .catch(() => showMessage('模型配置加载失败'))
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem(TRANSLATE_MODEL_STORAGE_KEY, selectedModelId)
+  }, [selectedModelId])
 
   useEffect(() => {
     dialogueEndRef.current?.scrollIntoView({ behavior: 'smooth' })

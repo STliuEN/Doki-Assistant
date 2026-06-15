@@ -20,6 +20,7 @@ export default defineConfig({
       '/chat/rag/': { target: BACKEND_TARGET, changeOrigin: true },
       '/chat/session/': { target: BACKEND_TARGET, changeOrigin: true },
       '/chat/sessions': { target: BACKEND_TARGET, changeOrigin: true },
+      '/chat/prompt-modes': { target: BACKEND_TARGET, changeOrigin: true },
       '/chat/reorder': { target: BACKEND_TARGET, changeOrigin: true },
       '/knowledge/': { target: BACKEND_TARGET, changeOrigin: true },
       '/note/': { target: BACKEND_TARGET, changeOrigin: true },

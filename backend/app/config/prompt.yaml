@@ -7,3 +7,6 @@ review_question_prompt: app/prompt/review_question_prompt.txt
 autocomplete_prompt: app/prompt/autocomplete_prompt.txt
 write_assistant_prompt: app/prompt/write_assistant_prompt.txt
 bidirectional_translate_prompt: app/prompt/bidirectional_translate_prompt.txt
+chat_creative_prompt: app/prompt/chat_creative_prompt.txt
+chat_strict_prompt: app/prompt/chat_strict_prompt.txt
+chat_teacher_prompt: app/prompt/chat_teacher_prompt.txt

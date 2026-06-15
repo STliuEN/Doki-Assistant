@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
 import { useSSE } from '../hooks/useSSE'
+import { chatApi, type ChatPromptMode } from '../api/chat'
 import { modelConfigApi } from '../api/modelConfig'
 import { sessionsApi } from '../api/sessions'
 import { useThemeStore } from '../stores/useThemeStore'
@@ -17,6 +18,9 @@ interface Message {
   thinking?: string
   steps?: string[]
 }
+
+const CHAT_MODEL_STORAGE_KEY = 'ai_chat_selected_model_id'
+const CHAT_PROMPT_STORAGE_KEY = 'ai_chat_prompt_type'
 
 const quickQuestions = [
   '帮我写一篇关于机器学习的笔记',
@@ -37,7 +41,11 @@ export default function AIChat() {
   const [showThinking, setShowThinking] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([])
-  const [selectedModelId, setSelectedModelId] = useState('')
+  const [promptModes, setPromptModes] = useState<ChatPromptMode[]>([
+    { value: 'main_prompt', label: '默认助手' },
+  ])
+  const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem(CHAT_MODEL_STORAGE_KEY) || '')
+  const [selectedPromptType, setSelectedPromptType] = useState(() => localStorage.getItem(CHAT_PROMPT_STORAGE_KEY) || 'main_prompt')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef('')
   const rafRef = useRef<number | null>(null)
@@ -69,7 +77,19 @@ export default function AIChat() {
       const list = res.data || []
       setModelConfigs(list)
     }).catch(() => {})
+    chatApi.promptModes().then((res) => {
+      const list = res.data || []
+      if (list.length > 0) setPromptModes(list)
+    }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem(CHAT_MODEL_STORAGE_KEY, selectedModelId)
+  }, [selectedModelId])
+
+  useEffect(() => {
+    localStorage.setItem(CHAT_PROMPT_STORAGE_KEY, selectedPromptType)
+  }, [selectedPromptType])
 
   useEffect(() => {
     if (sessionId) {
@@ -115,7 +135,12 @@ export default function AIChat() {
 
     await start(
       '/chat/agent/query/stream',
-      { query, session_id: sessionId, ...(selectedModelId ? { model_config_id: selectedModelId } : {}) },
+      {
+        query,
+        session_id: sessionId,
+        prompt_type: selectedPromptType,
+        ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
+      },
       {
         onThinking: (stage, content) => {
           if (!steps.includes(stage)) steps.push(stage)
@@ -156,7 +181,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [loading, sessionId, selectedModelId, start, navigate, flushContent])
+  }, [loading, sessionId, selectedModelId, selectedPromptType, start, navigate, flushContent])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -321,6 +346,16 @@ export default function AIChat() {
                   {[config.provider, config.model_name].filter(Boolean).join(' / ') || '未命名模型'}
                   {config.is_default ? '（默认）' : ''}
                 </option>
+              ))}
+            </select>
+            <span>AI 模式</span>
+            <select
+              value={selectedPromptType}
+              onChange={(e) => setSelectedPromptType(e.target.value)}
+              className="h-8 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+            >
+              {promptModes.map((mode) => (
+                <option key={mode.value} value={mode.value}>{mode.label}</option>
               ))}
             </select>
           </div>

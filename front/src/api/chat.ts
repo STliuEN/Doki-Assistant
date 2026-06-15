@@ -1,15 +1,15 @@
+import client from './client'
 import { endpoints } from './endpoints'
+import type { ApiResponse } from '../types/api'
+
+export interface ChatPromptMode {
+  value: string
+  label: string
+}
 
 export const chatApi = {
-  queryStream: (body: { query: string; session_id?: string; model_config_id?: string }) => {
-    const token = localStorage.getItem('jwt_token')
-    return fetch(endpoints.agentQueryStream, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(body),
-    })
+  promptModes: async () => {
+    const res = await client.get<ApiResponse<ChatPromptMode[]>>(endpoints.chatPromptModes)
+    return res.data
   },
 }

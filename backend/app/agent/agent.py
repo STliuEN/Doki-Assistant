@@ -301,11 +301,12 @@ async def get_agent_stream_response(
             agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, model_config=model_config, **kwargs)
 
             full_response = []
+            system_prompt = kwargs.get("custom_system_prompt") or agent_factory.default_system_prompt
 
             async for chunk in agent_executor.astream({
                 "input": query,
                 "chat_history": chat_history,
-                "system_prompt": agent_factory.default_system_prompt
+                "system_prompt": system_prompt
             }):
                 if "output" in chunk:
                     full_response.append(chunk["output"])
