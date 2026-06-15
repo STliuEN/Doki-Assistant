@@ -2,7 +2,7 @@
 name = "backend"
 version = "0.1.0"
 description = "A FastAPI + LangChain project for LLM applications"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = "MIT"
 authors = [
     { name = "RMA-MUN", email = "n3032747608@163.com" }
@@ -80,6 +80,7 @@ default = true
 [[tool.uv.index]]
 name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu126" }
@@ -88,3 +89,6 @@ torchaudio = { index = "pytorch-cu126" }
 
 [tool.uv]
 index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+cache-dir = ".uv-cache"
+python-downloads = "never"
+python-preference = "only-system"

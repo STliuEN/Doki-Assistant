@@ -151,14 +151,14 @@ googleapis-common-protos==1.75.0
     #   opentelemetry-exporter-otlp-proto-grpc
 greenlet==3.5.0
     # via sqlalchemy
-grpcio==1.80.0
+grpcio==1.78.0
     # via
     #   chromadb
     #   google-api-core
     #   google-cloud-vision
     #   grpcio-status
     #   opentelemetry-exporter-otlp-proto-grpc
-grpcio-status==1.80.0
+grpcio-status==1.78.0
     # via google-api-core
 h11==0.16.0
     # via

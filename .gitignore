@@ -10,6 +10,9 @@ dist/
 
 # Virtual Environment
 .venv/
+backend/.uv-cache/
+backend/models/
+DjangoUserService/.uv-cache/
 env/
 venv/
 ENV/

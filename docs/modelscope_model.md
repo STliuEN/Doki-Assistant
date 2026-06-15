@@ -38,7 +38,7 @@ uv add sentence-transformers torch
 1. 访问模型页面：[BAAI/bge-reranker-v2-m3 · 模型库](https://www.modelscope.cn/models/BAAI/bge-reranker-v2-m3)
 2. 下载完整模型文件到本地目录，推荐路径：
    ```
-   D:\Hugging_Face\models\bge-reranker-v2-m3
+   ./models/bge-reranker-v2-m3
    ```
 
 ## 环境变量配置
@@ -47,7 +47,7 @@ uv add sentence-transformers torch
 
 ```env
 # 重排序模型配置（可选）
-RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3
+RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
 ```
 
 ### 硬件要求

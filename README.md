@@ -157,7 +157,7 @@ LANGCHAIN_API_KEY=your_langsmith_api_key
 LANGCHAIN_PROJECT=my-fastapi-langchain-project
 
 # ==================== 重排序模型配置 ====================
-RERANKER_MODEL_PATH=D:\Hugging_Face\models\bge-reranker-v2-m3
+RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
 
 # ==================== JWT 身份验证配置 ====================
 SECRET_KEY=MY_JWT_SECRET_KEY
