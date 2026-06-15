@@ -1,4 +1,4 @@
-# RAG NoteBook— 智能笔记助手
+# LangChain-RAG-FastAPI-Service — 多功能智能 Agent 平台
 
 <div align="center">
 <a href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service/stargazers">
@@ -11,21 +11,21 @@
 </div>
 
 
-AI 驱动的个人知识管理工具，融合 **笔记管理 + RAG 知识库 + AI 写作辅助**，解决"笔记写了从不回看、知识散落成孤岛"的问题。
+AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent 对话 + 实时翻译 + 笔记管理 + RAG 知识库 + 可扩展工具链**，让系统从“会问答的笔记工具”升级为“可持续演进的智能 Agent 平台”。
 
 ---
 
 ## 项目变迁
 
-本项目最初是一个**基础 RAG 对话系统**，我们做了一次重要转型，从基础的 RAG，转型为解决实际问题的 RAG NoteBook：
+本项目从一个**基础 RAG 对话系统**逐步演进，经历了三次比较明显的形态变化：
 
-| | 阶段一（base-rag 分支） | 阶段二（master 分支） |
-|--|-----------------------|:--------------------|
-| **定位** | 纯 RAG 对话服务，开箱即用 | 智能笔记助手，以 RAG 为核心的 NoteBook 工具 |
-| **能力** | 文档上传 → 向量检索 → AI 问答 | 笔记管理 + RAG + 间隔重复 + AI 写作 |
-| **适合谁** | 想快速集成 RAG 能力的开发者或希望学习RAG技术的个人 | 需要AI管理笔记和知识库的个人以及简历需要RAG项目的求职者 |
+| | 阶段一（base-rag 分支） | 阶段二（master 早期） | 阶段三（当前 master） |
+|--|------------------------|--------------------|--------------------|
+| **定位** | 纯 RAG 对话服务 | 智能笔记助手 | 多功能智能 Agent 平台 |
+| **能力** | 文档上传 → 向量检索 → AI 问答 | 笔记管理 + RAG + 间隔重复 + AI 写作 | 多模型接入 + 模型选择 + 实时翻译 + Agent 工具编排 + 笔记/RAG 协同 |
+| **适合谁** | 想学习 RAG 的开发者 | 需要笔记与知识管理的人 | 想做个人 AI 工作台、Agent 平台或多场景智能应用的人 |
 
-**RAG 始终是整个系统的核心引擎。** 基础 RAG 代码已永久保留在 `base-rag` 分支供学习使用，如果只需要纯 RAG 服务，切换到`base-rag`即可开箱使用。
+**RAG 仍然是知识底座，Agent 负责编排。** 基础 RAG 代码已永久保留在 `base-rag` 分支供学习使用，如果只需要纯 RAG 服务，切换到 `base-rag` 即可。
 
 > 📄 [查看完整项目变迁 →](./docs/project_develop.md)
 
@@ -48,8 +48,12 @@ AI 驱动的个人知识管理工具，融合 **笔记管理 + RAG 知识库 + A
 
 ## 项目简介
 
-基于 **FastAPI + LangChain** 构建的智能笔记助手，核心能力包括：
+基于 **FastAPI + LangChain** 构建的智能 Agent 平台，当前核心能力包括：
 
+- **多模型接入**：支持工程默认配置、OpenAI-compatible 模型和 Ollama 本地模型
+- **模型选择**：用户可按账号保存自己的模型配置，并在对话和翻译页切换
+- **AI 对话**：支持多种 prompt 模式，保留默认角色，同时可切换不同风格
+- **实时翻译**：支持双语实时对话式翻译和整篇翻译两种模式
 - **笔记管理**：Markdown 编辑器、智能标签（LLM 自动分类）、语义搜索、Markdown 导出
 - **RAG 知识库**：多格式文档上传（txt/pdf/md/pptx/docx），基于向量检索的精准问答
 - **间隔重复回顾**：艾宾浩斯遗忘曲线算法，对抗遗忘
@@ -75,7 +79,7 @@ AI 驱动的个人知识管理工具，融合 **笔记管理 + RAG 知识库 + A
 
 ## 项目架构
 
-系统采用前后端分离 + 独立用户服务的架构：
+系统采用前后端分离 + 独立用户服务 + 模型配置服务的架构：
 
 ```mermaid
 flowchart TD
@@ -86,7 +90,8 @@ flowchart TD
   B --> AppDB[(MySQL chat_history)]
   B --> Redis[(Redis)]
   B --> Chroma[(ChromaDB)]
-  B --> Agent[LangChain Agent + Tools]
+  B --> Agent[LangChain Agent + Tools + Prompt Composer]
+  B --> Translate[实时翻译服务]
   Agent --> DefaultLLM[工程默认模型 .env]
   Agent --> UserLLM[用户模型配置]
   UserLLM --> CleanOpenAI[OpenAI-Compatible Clean HTTP 调用器]
@@ -125,7 +130,7 @@ flowchart TD
 
 AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传入的 `model_config_id` 决定使用用户模型；未传入时使用工程默认模型。工具层封装了笔记创建、笔记搜索、统计查询、今日回顾、RAG 总结、关联笔记等能力。
 
-知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。
+知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。实时翻译和对话模式则通过统一的模型选择与 prompt 组合层进行路由。
 
 ## 项目演示
 
@@ -323,7 +328,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 ├── backend/                     # FastAPI 后端服务
 │   ├── app/
 │   │   ├── agent/               # Agent 智能代理模块
-│   │   │   └── agent.py         # AgentFactory + Tool 定义
+│   │   │   └── agent.py         # AgentFactory + Tool + Prompt 组合
 │   │   ├── config/              # 配置文件（chroma.yaml 等）
 │   │   ├── core/                # 核心工具（限流、响应封装、日志）
 │   │   ├── db/                  # 数据库配置（MySQL + Redis）
@@ -332,7 +337,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── review_record.py # 回顾记录模型
 │   │   │   ├── chat_history.py  # 对话历史模型
 │   │   │   └── model_config.py  # 用户模型配置
-│   │   ├── prompt/              # 提示词模板（8个）
+│   │   ├── prompt/              # 提示词模板（对话 / 翻译 / 写作 / RAG）
 │   │   ├── rag/                 # RAG 核心功能
 │   │   │   ├── rag_service.py   # RAG 服务（HyDE + 混合检索）
 │   │   │   ├── reorder_service.py
@@ -343,6 +348,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   └── task_queue.py    # 后台处理队列
 │   │   ├── router/              # API 路由
 │   │   │   ├── chat.py          # 聊天 & Agent 路由
+│   │   │   ├── translate.py     # 实时翻译路由
 │   │   │   ├── model_config_router.py # 用户模型配置与测试
 │   │   │   ├── note_router.py   # 笔记 CRUD & AI 路由
 │   │   │   ├── review_router.py # 间隔重复回顾路由
@@ -353,10 +359,12 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── services/            # 业务服务层
 │   │   │   ├── note_service.py  # 笔记服务（CRUD + 向量化 + AI 写作）
 │   │   │   ├── model_config_service.py # 模型配置服务
+│   │   │   ├── translate_service.py # 实时翻译服务
 │   │   │   └── review_service.py# 回顾服务（艾宾浩斯算法）
 │   │   └── utils/               # 工具函数
 │   │       ├── clean_openai_chat.py # OpenAI-compatible 干净调用器
-│   │       └── model_provider.py    # 模型工厂与路由
+│   │       ├── model_provider.py    # 模型工厂与路由
+│   │       └── prompt_loader.py     # 提示词加载器
 │   ├── data/                    # 数据存储目录
 │   ├── main.py                  # 应用入口
 │   └── pyproject.toml
@@ -365,6 +373,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── api/                 # API 请求层
 │   │   │   ├── auth.ts          # 认证接口
 │   │   │   ├── chat.ts          # 聊天接口
+│   │   │   ├── translate.ts     # 实时翻译接口
 │   │   │   ├── notes.ts         # 笔记接口
 │   │   │   ├── knowledge.ts     # 知识库接口
 │   │   │   ├── modelConfig.ts   # 模型配置接口
@@ -386,6 +395,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── DailyReview.tsx  # 每日回顾
 │   │   │   ├── AIChat.tsx       # AI 聊天
 │   │   │   ├── ModelSettings.tsx# 模型选择与用户模型配置
+│   │   │   ├── RealtimeTranslate.tsx # 实时翻译页面
 │   │   │   ├── Sessions.tsx     # 会话管理
 │   │   │   ├── KnowledgeBase.tsx# 知识库管理
 │   │   │   ├── Login.tsx / Register.tsx
