@@ -9,7 +9,6 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
 from langchain_ollama import ChatOllama
-from langsmith import traceable
 
 from app.agent.agent_middleware import get_middleware
 from app.agent.agent_tools import (
@@ -26,7 +25,9 @@ from app.agent.agent_tools import (
     what_time_is_now,
 )
 from app.core.logger_handler import logger
+from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm
+from app.utils.model_provider import create_chat_model_from_config
 from app.utils.prompt_loader import load_prompt
 
 
@@ -84,8 +85,12 @@ class AgentFactory:
         """获取默认系统提示词"""
         return load_prompt('main_prompt')
 
-    def _create_chat_model(self, custom_model: str | None = None):
+    def _create_chat_model(self, custom_model: str | None = None, model_config: UserModelConfig | None = None):
         """内部方法：根据LLM_TYPE创建聊天模型实例"""
+        if model_config is not None:
+            logger.info(f"Agent using user model config: {model_config.provider} / {model_config.model_name}")
+            return create_chat_model_from_config(model_config, streaming=True)
+
         llm_type = os.getenv("LLM_TYPE", "ALIYUN").upper()
 
         if llm_type == "OLLAMA":
@@ -132,6 +137,7 @@ class AgentFactory:
             self,
             custom_tools: list[BaseTool] | None = None,
             custom_model: str | None = None,
+            model_config: UserModelConfig | None = None,
             custom_system_prompt: str | None = None,
             verbose: bool = True,
             return_intermediate_steps: bool = True,
@@ -150,7 +156,7 @@ class AgentFactory:
         :return: 全新的 AgentExecutor 实例
         """
         # 1. 创建组件（每次都重新创建，避免全局状态污染）
-        chat_model = self._create_chat_model(custom_model)
+        chat_model = self._create_chat_model(custom_model, model_config)
         prompt = self._create_prompt()
         tools = custom_tools or self.default_tools
 
@@ -249,11 +255,11 @@ async def get_agent_response(
             "steps": []
         }
 
-@traceable
 async def get_agent_stream_response(
         query: str,
         session_id: str,
         user_id: str,
+        model_config: UserModelConfig | None = None,
         custom_tools: list[BaseTool] | None = None,
         **kwargs
 ) -> AsyncGenerator[str, None]:
@@ -292,7 +298,7 @@ async def get_agent_stream_response(
                     chat_history.append(HumanMessage(content=user_msg))
                     chat_history.append(AIMessage(content=assistant_msg))
 
-            agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, **kwargs)
+            agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, model_config=model_config, **kwargs)
 
             full_response = []
 

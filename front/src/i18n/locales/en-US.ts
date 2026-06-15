@@ -7,6 +7,7 @@ const enUS = {
     review: 'Daily Review',
     knowledge: 'Knowledge Base',
     profile: 'Profile',
+    modelSettings: 'Model Settings',
     settings: 'Settings',
     about: 'About',
     logout: 'Logout',

@@ -73,6 +73,32 @@ export interface ChatSession {
   updated_at: string
 }
 
+export type ModelType = 'default' | 'ollama' | 'openai_compatible'
+
+export interface ModelConfig {
+  id: string
+  user_id: string
+  model_type: ModelType
+  provider: string
+  model_name: string
+  base_url: string
+  api_key_masked: string
+  is_default: boolean
+  is_active: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface ModelConfigPayload {
+  model_type: ModelType
+  provider: string
+  model_name: string
+  base_url: string
+  api_key?: string
+  is_default?: boolean
+  is_active?: boolean
+}
+
 export interface ChatMessage {
   id: number
   session_id: string

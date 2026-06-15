@@ -1,14 +1,17 @@
 import uuid
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.agent import get_agent_stream_response
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
+from app.db.db_config import get_db
 from app.router.chat_service import ChatService, get_router_service
 from app.schemas.models import QueryRequest, RAGRequest, RAGResponse, ReorderRequest, ReorderResponse, SessionResponse
+from app.services.model_config_service import get_model_config_service
 from app.utils.auth_utils import get_current_user_id
 
 chat_router = APIRouter(prefix="/chat", tags=["chat"])
@@ -18,13 +21,21 @@ chat_router = APIRouter(prefix="/chat", tags=["chat"])
 async def query_stream(
         request: QueryRequest,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
     """查询Agent流式响应"""
     session_id = request.session_id or str(uuid.uuid4())
+    svc = get_model_config_service()
+    if request.model_config_id:
+        model_config = await svc.get_config(db, user_id, request.model_config_id)
+        if model_config is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="model config not found")
+    else:
+        model_config = None
 
     return StreamingResponse(
-        get_agent_stream_response(request.query, session_id, user_id),
+        get_agent_stream_response(request.query, session_id, user_id, model_config=model_config),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

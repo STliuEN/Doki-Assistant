@@ -8,6 +8,7 @@ import {
   Library,
   Settings,
   User,
+  SlidersHorizontal,
   Info,
   LogOut,
   Columns2,
@@ -25,6 +26,7 @@ const navItems = [
 
 const bottomItems = [
   { path: '/profile', icon: User, labelKey: 'nav.profile' },
+  { path: '/model-settings', icon: SlidersHorizontal, labelKey: 'nav.modelSettings' },
   { path: '/settings', icon: Settings, labelKey: 'nav.settings' },
   { path: '/about', icon: Info, labelKey: 'nav.about' },
 ]
@@ -38,6 +40,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const logout = useUserStore((s) => s.logout)
+  const navLabel = (labelKey: string) => labelKey === 'nav.modelSettings' ? '模型选择' : t(labelKey)
 
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* ignore */ }
@@ -79,10 +82,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'
               } ${collapsed ? 'justify-center' : ''}`
             }
-            title={collapsed ? t(labelKey) : undefined}
+            title={collapsed ? navLabel(labelKey) : undefined}
           >
             <Icon size={18} />
-            {!collapsed && t(labelKey)}
+            {!collapsed && navLabel(labelKey)}
           </NavLink>
         ))}
       </nav>
@@ -99,10 +102,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'
               } ${collapsed ? 'justify-center' : ''}`
             }
-            title={collapsed ? t(labelKey) : undefined}
+            title={collapsed ? navLabel(labelKey) : undefined}
           >
             <Icon size={18} />
-            {!collapsed && t(labelKey)}
+            {!collapsed && navLabel(labelKey)}
           </NavLink>
         ))}
         <button

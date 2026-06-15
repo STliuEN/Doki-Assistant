@@ -1,7 +1,7 @@
 import { endpoints } from './endpoints'
 
 export const chatApi = {
-  queryStream: (body: { query: string; session_id?: string }) => {
+  queryStream: (body: { query: string; session_id?: string; model_config_id?: string }) => {
     const token = localStorage.getItem('jwt_token')
     return fetch(endpoints.agentQueryStream, {
       method: 'POST',

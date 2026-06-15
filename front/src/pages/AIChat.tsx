@@ -6,8 +6,10 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
 import { useSSE } from '../hooks/useSSE'
+import { modelConfigApi } from '../api/modelConfig'
 import { sessionsApi } from '../api/sessions'
 import { useThemeStore } from '../stores/useThemeStore'
+import type { ModelConfig } from '../types/api'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -34,6 +36,8 @@ export default function AIChat() {
   const [currentSteps, setCurrentSteps] = useState<string[]>([])
   const [showThinking, setShowThinking] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([])
+  const [selectedModelId, setSelectedModelId] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef('')
   const rafRef = useRef<number | null>(null)
@@ -58,6 +62,13 @@ export default function AIChat() {
         rafRef.current = null
       }
     }
+  }, [])
+
+  useEffect(() => {
+    modelConfigApi.list().then((res) => {
+      const list = res.data || []
+      setModelConfigs(list)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -104,7 +115,7 @@ export default function AIChat() {
 
     await start(
       '/chat/agent/query/stream',
-      { query, session_id: sessionId },
+      { query, session_id: sessionId, ...(selectedModelId ? { model_config_id: selectedModelId } : {}) },
       {
         onThinking: (stage, content) => {
           if (!steps.includes(stage)) steps.push(stage)
@@ -145,7 +156,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [loading, sessionId, start, navigate, flushContent])
+  }, [loading, sessionId, selectedModelId, start, navigate, flushContent])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -296,22 +307,40 @@ export default function AIChat() {
       </div>
 
       <div className="border-t border-[var(--color-border)] bg-[var(--color-card)] px-6 py-4">
-        <div className="max-w-3xl mx-auto flex gap-3">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('chat.input')}
-            rows={1}
-            className="flex-1 px-4 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          />
-          <button
-            onClick={() => handleSend(input)}
-            disabled={!input.trim() || loading}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--color-accent)] text-white hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          </button>
+        <div className="max-w-3xl mx-auto space-y-2">
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+            <span>模型</span>
+            <select
+              value={selectedModelId}
+              onChange={(e) => setSelectedModelId(e.target.value)}
+              className="h-8 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+            >
+              <option value="">默认配置</option>
+              {modelConfigs.map((config) => (
+                <option key={config.id} value={config.id}>
+                  {[config.provider, config.model_name].filter(Boolean).join(' / ') || '未命名模型'}
+                  {config.is_default ? '（默认）' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-3">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('chat.input')}
+              rows={1}
+              className="flex-1 px-4 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            />
+            <button
+              onClick={() => handleSend(input)}
+              disabled={!input.trim() || loading}
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--color-accent)] text-white hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
         </div>
       </div>
     </div>

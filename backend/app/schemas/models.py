@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class QueryRequest(BaseModel):
     """查询请求模型"""
     session_id: str | None = None
+    model_config_id: str | None = None
     query: str
 
 

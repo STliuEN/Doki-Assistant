@@ -13,6 +13,7 @@ const Sessions = lazy(() => import('../pages/Sessions'))
 const KnowledgeBase = lazy(() => import('../pages/KnowledgeBase'))
 const DailyReview = lazy(() => import('../pages/DailyReview'))
 const Profile = lazy(() => import('../pages/Profile'))
+const ModelSettings = lazy(() => import('../pages/ModelSettings'))
 const Settings = lazy(() => import('../pages/Settings'))
 const AboutUs = lazy(() => import('../pages/AboutUs'))
 
@@ -45,6 +46,7 @@ const routes: RouteObject[] = [
       { path: 'review', element: <LazyLoad><DailyReview /></LazyLoad> },
       { path: 'knowledge', element: <LazyLoad><KnowledgeBase /></LazyLoad> },
       { path: 'profile', element: <LazyLoad><Profile /></LazyLoad> },
+      { path: 'model-settings', element: <LazyLoad><ModelSettings /></LazyLoad> },
       { path: 'settings', element: <LazyLoad><Settings /></LazyLoad> },
       { path: 'about', element: <LazyLoad><AboutUs /></LazyLoad> },
     ],

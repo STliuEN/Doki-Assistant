@@ -14,6 +14,15 @@ export const endpoints = {
   agentQueryStream: '/chat/agent/query/stream',
   ragQuery: '/chat/rag/query',
 
+  // Model Config
+  modelConfigList: '/model-config/list',
+  modelConfigCreate: '/model-config/create',
+  modelConfigUpdate: (id: string) => `/model-config/${id}`,
+  modelConfigDelete: (id: string) => `/model-config/${id}`,
+  modelConfigSetDefault: (id: string) => `/model-config/${id}/set-default`,
+  modelConfigTest: '/model-config/test',
+  modelConfigTestSaved: (id: string) => `/model-config/${id}/test`,
+
   // Sessions
   getSession: (id: string) => `/chat/session/${id}`,
   deleteSession: (id: string) => `/chat/session/${id}`,
