@@ -1,13 +1,10 @@
 # LangChain-RAG-FastAPI-Service — 多功能智能 Agent 平台
 
 <div align="center">
-<a href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service/stargazers">
-  <img src="https://img.shields.io/github/stars/RMA-MUN/LangChain-RAG-FastAPI-Service?style=flat-square&label=Stars&color=orange" alt="Stars">
-</a>
-<a href="https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service/network/members">
-  <img src="https://img.shields.io/github/forks/RMA-MUN/LangChain-RAG-FastAPI-Service?style=flat-square&label=Forks&color=green" alt="Forks">
-</a>
-  <img src="https://img.shields.io/badge/python-v3.12.4-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-Agent_Platform-009688.svg" alt="FastAPI Agent Platform">
+  <img src="https://img.shields.io/badge/LangChain-RAG_%2B_Tools-2b6cb0.svg" alt="LangChain RAG Tools">
+  <img src="https://img.shields.io/badge/Frontend-React_19-61dafb.svg" alt="React 19">
 </div>
 
 
@@ -44,7 +41,6 @@ AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent
 - [部署指南](#部署指南)
 - [开发指南](#开发指南)
 - [故障排除](#故障排除)
-- [联系方式](#联系方式)
 
 ## 项目简介
 
@@ -151,10 +147,9 @@ AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传
 | uv | 0.11.9 |
 | Node.js | 16+ |
 
-### 克隆项目
+### 进入项目目录
 
 ```bash
-git clone https://github.com/RMA-MUN/LangChain-RAG-FastAPI-Service.git
 cd LangChain-RAG-FastAPI-Service
 ```
 
@@ -480,23 +475,6 @@ ollama list
 - **ChromaDB 异常**：检查 `chroma.yaml` 中的路径配置
 - **重排序模型加载失败**：确认 `RERANKER_MODEL_PATH` 指向正确的模型路径
 - **Ollama 连接失败**：确认 `ollama serve` 已运行且模型已拉取
-
-## 联系方式
-
-如有任何问题或建议，欢迎提交 GitHub Issues 或联系作者：
-
-- Email: n3032747608@163.com
-- QQ: 3032747608
-
-## Star History
-
-
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=RMA-MUN/LangChain-RAG-FastAPI-Service&type=date&legend=top-left" />
- </picture>
-
 
 ## License
 
