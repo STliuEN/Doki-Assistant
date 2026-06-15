@@ -1,17 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  FileText,
-  MessageSquare,
-  History,
-  GraduationCap,
-  Library,
-  Settings,
-  User,
-  SlidersHorizontal,
-  Info,
-  LogOut,
   Columns2,
+  FileText,
+  GraduationCap,
+  History,
+  Info,
+  Languages,
+  Library,
+  LogOut,
+  MessageSquare,
+  Settings,
+  SlidersHorizontal,
+  User,
 } from 'lucide-react'
 import { useUserStore } from '../../stores/useUserStore'
 import { authApi } from '../../api/auth'
@@ -19,6 +20,7 @@ import { authApi } from '../../api/auth'
 const navItems = [
   { path: '/notes', icon: FileText, labelKey: 'nav.notes' },
   { path: '/chat', icon: MessageSquare, labelKey: 'nav.chat' },
+  { path: '/translate', icon: Languages, labelKey: 'nav.translate' },
   { path: '/sessions', icon: History, labelKey: 'nav.sessions' },
   { path: '/review', icon: GraduationCap, labelKey: 'nav.review' },
   { path: '/knowledge', icon: Library, labelKey: 'nav.knowledge' },
@@ -40,10 +42,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const logout = useUserStore((s) => s.logout)
-  const navLabel = (labelKey: string) => labelKey === 'nav.modelSettings' ? '模型选择' : t(labelKey)
+
+  const navLabel = (labelKey: string) => {
+    if (labelKey === 'nav.modelSettings') return '模型选择'
+    if (labelKey === 'nav.translate') return '实时翻译'
+    return t(labelKey)
+  }
 
   const handleLogout = async () => {
-    try { await authApi.logout() } catch { /* ignore */ }
+    try {
+      await authApi.logout()
+    } catch {
+      // ignore
+    }
     logout()
     navigate('/login')
   }

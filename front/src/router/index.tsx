@@ -9,6 +9,7 @@ const Register = lazy(() => import('../pages/Register'))
 const NoteList = lazy(() => import('../pages/NoteList'))
 const NoteEditor = lazy(() => import('../pages/NoteEditor'))
 const AIChat = lazy(() => import('../pages/AIChat'))
+const RealtimeTranslate = lazy(() => import('../pages/RealtimeTranslate'))
 const Sessions = lazy(() => import('../pages/Sessions'))
 const KnowledgeBase = lazy(() => import('../pages/KnowledgeBase'))
 const DailyReview = lazy(() => import('../pages/DailyReview'))
@@ -42,6 +43,7 @@ const routes: RouteObject[] = [
       { path: 'notes/new', element: <LazyLoad><NoteEditor /></LazyLoad> },
       { path: 'chat', element: <LazyLoad><AIChat /></LazyLoad> },
       { path: 'chat/:sessionId', element: <LazyLoad><AIChat /></LazyLoad> },
+      { path: 'translate', element: <LazyLoad><RealtimeTranslate /></LazyLoad> },
       { path: 'sessions', element: <LazyLoad><Sessions /></LazyLoad> },
       { path: 'review', element: <LazyLoad><DailyReview /></LazyLoad> },
       { path: 'knowledge', element: <LazyLoad><KnowledgeBase /></LazyLoad> },

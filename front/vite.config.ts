@@ -26,6 +26,7 @@ export default defineConfig({
       '/note-template/': { target: BACKEND_TARGET, changeOrigin: true },
       '/review/': { target: BACKEND_TARGET, changeOrigin: true },
       '/model-config/': { target: BACKEND_TARGET, changeOrigin: true },
+      '/translate/': { target: BACKEND_TARGET, changeOrigin: true },
       '/health': { target: BACKEND_TARGET, changeOrigin: true },
       '/user': { target: USER_TARGET, changeOrigin: true },
       '/file': { target: USER_TARGET, changeOrigin: true },
