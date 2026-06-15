@@ -1,5 +1,6 @@
 import uuid
 
+import httpx
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage
 from sqlalchemy import select, update
@@ -13,6 +14,7 @@ from app.utils.model_provider import create_chat_model_from_config
 
 SUPPORTED_MODEL_TYPES = {"default", "ollama", "openai_compatible"}
 USER_EDITABLE_MODEL_TYPES = {"ollama", "openai_compatible"}
+DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 
 class ModelConfigService:
@@ -50,7 +52,7 @@ class ModelConfigService:
         stmt = (
             select(UserModelConfig)
             .where(UserModelConfig.user_id == user_id)
-            .order_by(UserModelConfig.is_default.desc(), UserModelConfig.created_at.desc())
+            .order_by(UserModelConfig.created_at.desc())
         )
         result = await db.execute(stmt)
         return [self._to_response(config) for config in result.scalars().all()]
@@ -68,6 +70,33 @@ class ModelConfigService:
         )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
+
+    def get_system_default_config(self) -> ModelConfigResponse:
+        import os
+
+        llm_type = os.getenv("LLM_TYPE", "ALIYUN").upper()
+        if llm_type == "OLLAMA":
+            provider = "ollama"
+            model_name = os.getenv("OLLAMA_MODEL_NAME", "")
+            base_url = os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
+        else:
+            provider = "aliyun"
+            model_name = os.getenv("ALIYUN_MODEL_NAME", os.getenv("CHAT_MODEL_NAME", "qwen3-max"))
+            base_url = os.getenv("ALIYUN_BASE_URL", "")
+
+        return ModelConfigResponse(
+            id="system-default",
+            user_id="system",
+            model_type="default",
+            provider=provider,
+            model_name=model_name,
+            base_url=base_url,
+            api_key_masked="环境变量",
+            is_default=True,
+            is_active=True,
+            created_at=None,
+            updated_at=None,
+        )
 
     async def create_config(self, db: AsyncSession, user_id: str, payload: ModelConfigCreate) -> ModelConfigResponse:
         self._validate_user_editable_model_type(payload.model_type)
@@ -162,7 +191,29 @@ class ModelConfigService:
             return None
         return await self._ping_config(config)
 
-    async def _ping_config(self, config: UserModelConfig) -> dict:
+    async def test_system_default(self) -> dict:
+        return await self._ping_config(None)
+
+    async def list_ollama_models(self, base_url: str | None = None) -> dict:
+        url = (base_url or DEFAULT_OLLAMA_BASE_URL).strip().rstrip("/")
+        if not url:
+            url = DEFAULT_OLLAMA_BASE_URL
+
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(f"{url}/api/tags")
+            response.raise_for_status()
+            data = response.json()
+            models = [
+                item.get("name")
+                for item in data.get("models", [])
+                if isinstance(item, dict) and item.get("name")
+            ]
+            return {"ok": True, "base_url": url, "models": models, "error": ""}
+        except Exception as exc:
+            return {"ok": False, "base_url": url, "models": [], "error": str(exc)}
+
+    async def _ping_config(self, config: UserModelConfig | None) -> dict:
         try:
             model = create_chat_model_from_config(config, streaming=False)
             response = await model.ainvoke([HumanMessage(content="Please answer with one word: ok")])

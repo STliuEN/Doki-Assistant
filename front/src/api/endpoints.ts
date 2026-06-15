@@ -16,12 +16,15 @@ export const endpoints = {
 
   // Model Config
   modelConfigList: '/model-config/list',
+  modelConfigSystemDefault: '/model-config/system-default',
   modelConfigCreate: '/model-config/create',
   modelConfigUpdate: (id: string) => `/model-config/${id}`,
   modelConfigDelete: (id: string) => `/model-config/${id}`,
   modelConfigSetDefault: (id: string) => `/model-config/${id}/set-default`,
   modelConfigTest: '/model-config/test',
+  modelConfigTestSystemDefault: '/model-config/system-default/test',
   modelConfigTestSaved: (id: string) => `/model-config/${id}/test`,
+  modelConfigOllamaModels: '/model-config/ollama/models',
 
   // Sessions
   getSession: (id: string) => `/chat/session/${id}`,

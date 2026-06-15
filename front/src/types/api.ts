@@ -99,6 +99,13 @@ export interface ModelConfigPayload {
   is_active?: boolean
 }
 
+export interface OllamaModelsResponse {
+  ok: boolean
+  base_url: string
+  models: string[]
+  error: string
+}
+
 export interface ChatMessage {
   id: number
   session_id: string

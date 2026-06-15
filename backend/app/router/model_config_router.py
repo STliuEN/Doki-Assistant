@@ -32,6 +32,36 @@ async def get_default_model_config(
     return success_response(data=svc._to_response(config) if config else None)
 
 
+@model_config_router.get("/system-default")
+async def get_system_default_model_config(
+    user_id: str = Depends(get_current_user_id),
+):
+    svc = get_model_config_service()
+    config = svc.get_system_default_config()
+    return success_response(data={**config.model_dump(), "user_id": user_id})
+
+
+@model_config_router.get("/ollama/models")
+async def list_ollama_models(
+    base_url: str = "http://localhost:11434",
+    user_id: str = Depends(get_current_user_id),
+    _: None = Depends(rate_limit(limit=20, window=60)),
+):
+    svc = get_model_config_service()
+    result = await svc.list_ollama_models(base_url)
+    return success_response(message="ollama models fetched", data={**result, "user_id": user_id})
+
+
+@model_config_router.post("/system-default/test")
+async def test_system_default_model_config(
+    user_id: str = Depends(get_current_user_id),
+    _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    svc = get_model_config_service()
+    result = await svc.test_system_default()
+    return success_response(message="system default model config test completed", data={**result, "user_id": user_id})
+
+
 @model_config_router.post("/create")
 async def create_model_config(
     payload: ModelConfigCreate,

@@ -1,10 +1,15 @@
 import client from './client'
 import { endpoints } from './endpoints'
-import type { ApiResponse, ModelConfig, ModelConfigPayload } from '../types/api'
+import type { ApiResponse, ModelConfig, ModelConfigPayload, OllamaModelsResponse } from '../types/api'
 
 export const modelConfigApi = {
   list: async () => {
     const res = await client.get<ApiResponse<ModelConfig[]>>(endpoints.modelConfigList)
+    return res.data
+  },
+
+  systemDefault: async () => {
+    const res = await client.get<ApiResponse<ModelConfig>>(endpoints.modelConfigSystemDefault)
     return res.data
   },
 
@@ -35,6 +40,18 @@ export const modelConfigApi = {
 
   testSaved: async (id: string) => {
     const res = await client.post<ApiResponse<{ ok: boolean; result: string; error: string }>>(endpoints.modelConfigTestSaved(id))
+    return res.data
+  },
+
+  testSystemDefault: async () => {
+    const res = await client.post<ApiResponse<{ ok: boolean; result: string; error: string }>>(endpoints.modelConfigTestSystemDefault)
+    return res.data
+  },
+
+  listOllamaModels: async (baseUrl: string) => {
+    const res = await client.get<ApiResponse<OllamaModelsResponse>>(endpoints.modelConfigOllamaModels, {
+      params: { base_url: baseUrl },
+    })
     return res.data
   },
 }

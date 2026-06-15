@@ -315,7 +315,7 @@ export default function AIChat() {
               onChange={(e) => setSelectedModelId(e.target.value)}
               className="h-8 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
             >
-              <option value="">默认配置</option>
+              <option value="">工程默认配置</option>
               {modelConfigs.map((config) => (
                 <option key={config.id} value={config.id}>
                   {[config.provider, config.model_name].filter(Boolean).join(' / ') || '未命名模型'}

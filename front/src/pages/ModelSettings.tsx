@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Pencil, Plus, Save, Trash2, X, Zap } from 'lucide-react'
+import { Check, Pencil, Plus, RefreshCw, Save, Trash2, X, Zap } from 'lucide-react'
 import { modelConfigApi } from '../api/modelConfig'
 import type { ModelConfig, ModelConfigPayload, ModelType } from '../types/api'
 
 type EditableModelType = Exclude<ModelType, 'default'>
+const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 
 const emptyForm: ModelConfigPayload = {
   model_type: 'openai_compatible',
@@ -23,12 +24,13 @@ const modelTypeLabels: Record<ModelType, string> = {
 
 function normalizeForm(form: ModelConfigPayload): ModelConfigPayload {
   const baseUrl = form.base_url.trim()
+  const isOllama = form.model_type === 'ollama'
   return {
     ...form,
-    provider: form.provider.trim(),
+    provider: isOllama ? 'ollama' : form.provider.trim(),
     model_name: form.model_name.trim(),
-    base_url: baseUrl,
-    api_key: form.api_key?.trim() || '',
+    base_url: isOllama ? baseUrl || DEFAULT_OLLAMA_BASE_URL : baseUrl,
+    api_key: isOllama ? '' : form.api_key?.trim() || '',
   }
 }
 
@@ -39,16 +41,18 @@ function getErrorMessage(error: unknown): string {
 
 export default function ModelSettings() {
   const [configs, setConfigs] = useState<ModelConfig[]>([])
+  const [systemDefaultConfig, setSystemDefaultConfig] = useState<ModelConfig | null>(null)
   const [form, setForm] = useState<ModelConfigPayload>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [testingId, setTestingId] = useState<string | null>(null)
+  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [loadingOllamaModels, setLoadingOllamaModels] = useState(false)
   const [message, setMessage] = useState('')
 
-  const sortedConfigs = useMemo(
-    () => [...configs].sort((a, b) => Number(b.is_default) - Number(a.is_default)),
-    [configs]
-  )
+  const tableConfigs = useMemo(() => (
+    systemDefaultConfig ? [systemDefaultConfig, ...configs] : configs
+  ), [configs, systemDefaultConfig])
 
   const showMessage = (value: string) => {
     setMessage(value)
@@ -56,8 +60,12 @@ export default function ModelSettings() {
   }
 
   const loadConfigs = async () => {
-    const res = await modelConfigApi.list()
-    setConfigs(res.data || [])
+    const [systemRes, listRes] = await Promise.all([
+      modelConfigApi.systemDefault(),
+      modelConfigApi.list(),
+    ])
+    setSystemDefaultConfig(systemRes.data || null)
+    setConfigs(listRes.data || [])
   }
 
   useEffect(() => {
@@ -72,9 +80,56 @@ export default function ModelSettings() {
     setEditingId(null)
   }
 
+  const loadOllamaModels = async (baseUrl?: string, showEmptyMessage = true) => {
+    const url = (baseUrl || form.base_url || DEFAULT_OLLAMA_BASE_URL).trim()
+    setLoadingOllamaModels(true)
+    try {
+      const res = await modelConfigApi.listOllamaModels(url)
+      const data = res.data
+      setOllamaModels(data?.models || [])
+      if (data?.ok) {
+        if (data.models.length === 0 && showEmptyMessage) {
+          showMessage('Ollama 已连接，但没有读取到本地模型')
+        } else if (showEmptyMessage) {
+          showMessage(`已读取 ${data.models.length} 个 Ollama 模型`)
+        }
+      } else {
+        showMessage(`读取 Ollama 模型失败：${data?.error || '未知错误'}`)
+      }
+    } catch (err) {
+      showMessage(`读取 Ollama 模型失败：${getErrorMessage(err)}`)
+    } finally {
+      setLoadingOllamaModels(false)
+    }
+  }
+
+  const handleModelTypeChange = (modelType: EditableModelType) => {
+    if (modelType === 'ollama') {
+      const baseUrl = DEFAULT_OLLAMA_BASE_URL
+      setForm((prev) => ({
+        ...prev,
+        model_type: modelType,
+        provider: 'ollama',
+        base_url: baseUrl,
+        api_key: '',
+        model_name: prev.model_type === 'ollama' ? prev.model_name : '',
+      }))
+      loadOllamaModels(baseUrl, false)
+      return
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      model_type: modelType,
+      provider: prev.provider === 'ollama' ? '' : prev.provider,
+      model_name: prev.model_type === 'ollama' ? '' : prev.model_name,
+      api_key: '',
+    }))
+  }
+
   const handleEdit = (config: ModelConfig) => {
     if (config.model_type === 'default') {
-      showMessage('默认配置来自系统环境变量，不能在这里编辑')
+      showMessage('工程默认配置来自系统环境变量，不能在这里编辑')
       return
     }
     setEditingId(config.id)
@@ -87,6 +142,9 @@ export default function ModelSettings() {
       is_default: config.is_default,
       is_active: config.is_active,
     })
+    if (config.model_type === 'ollama') {
+      loadOllamaModels(config.base_url || DEFAULT_OLLAMA_BASE_URL, false)
+    }
   }
 
   const validateForm = (payload: ModelConfigPayload) => {
@@ -124,7 +182,7 @@ export default function ModelSettings() {
 
   const handleDelete = async (config: ModelConfig) => {
     if (config.model_type === 'default') {
-      showMessage('默认配置不能删除')
+      showMessage('工程默认配置不能删除')
       return
     }
     const label = config.provider || config.model_name || '这个模型配置'
@@ -144,6 +202,10 @@ export default function ModelSettings() {
   }
 
   const handleSetDefault = async (config: ModelConfig) => {
+    if (config.model_type === 'default') {
+      showMessage('工程默认配置固定在第一项，不能在这里设置')
+      return
+    }
     setLoading(true)
     try {
       await modelConfigApi.setDefault(config.id)
@@ -186,7 +248,9 @@ export default function ModelSettings() {
   const handleTestSaved = async (config: ModelConfig) => {
     setTestingId(config.id)
     try {
-      const res = await modelConfigApi.testSaved(config.id)
+      const res = config.model_type === 'default'
+        ? await modelConfigApi.testSystemDefault()
+        : await modelConfigApi.testSaved(config.id)
       showTestResult(res.data)
     } catch (err) {
       showMessage(`连接失败：${getErrorMessage(err)}`)
@@ -212,50 +276,79 @@ export default function ModelSettings() {
               <span className="text-xs text-[var(--color-text-secondary)]">模型类型</span>
               <select
                 value={form.model_type}
-                onChange={(e) => setForm((prev) => ({ ...prev, model_type: e.target.value as EditableModelType }))}
+                onChange={(e) => handleModelTypeChange(e.target.value as EditableModelType)}
                 className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
               >
                 <option value="openai_compatible">通用</option>
                 <option value="ollama">Ollama 本地</option>
               </select>
             </label>
-            <label className="space-y-1">
-              <span className="text-xs text-[var(--color-text-secondary)]">供应商</span>
-              <input
-                value={form.provider}
-                onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))}
-                placeholder="DeepSeek / OpenAI / Ollama"
-                className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-[var(--color-text-secondary)]">模型名称</span>
-              <input
-                value={form.model_name}
-                onChange={(e) => setForm((prev) => ({ ...prev, model_name: e.target.value }))}
-                placeholder="gpt-4o-mini / qwen3:7b"
-                className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-[var(--color-text-secondary)]">模型 Base URL</span>
-              <input
-                value={form.base_url}
-                onChange={(e) => setForm((prev) => ({ ...prev, base_url: e.target.value }))}
-                placeholder={form.model_type === 'ollama' ? 'http://localhost:11434' : 'https://api.example.com/v1'}
-                className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-[var(--color-text-secondary)]">API SK</span>
-              <input
-                value={form.api_key || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, api_key: e.target.value }))}
-                placeholder={form.model_type === 'ollama' ? 'Ollama 可留空' : 'sk-...'}
-                type="password"
-                className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
-              />
-            </label>
+            {form.model_type === 'ollama' ? (
+              <>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs text-[var(--color-text-secondary)]">Ollama 地址</span>
+                  <input
+                    value={form.base_url}
+                    onChange={(e) => setForm((prev) => ({ ...prev, base_url: e.target.value }))}
+                    placeholder={DEFAULT_OLLAMA_BASE_URL}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs text-[var(--color-text-secondary)]">本地模型</span>
+                  <select
+                    value={form.model_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, model_name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  >
+                    <option value="">请选择 Ollama 模型</option>
+                    {ollamaModels.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--color-text-secondary)]">供应商</span>
+                  <input
+                    value={form.provider}
+                    onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))}
+                    placeholder="DeepSeek / OpenAI / Ollama"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--color-text-secondary)]">模型名称</span>
+                  <input
+                    value={form.model_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, model_name: e.target.value }))}
+                    placeholder="gpt-4o-mini / qwen3:7b"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--color-text-secondary)]">模型 Base URL</span>
+                  <input
+                    value={form.base_url}
+                    onChange={(e) => setForm((prev) => ({ ...prev, base_url: e.target.value }))}
+                    placeholder="https://api.example.com/v1"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-[var(--color-text-secondary)]">API SK</span>
+                  <input
+                    value={form.api_key || ''}
+                    onChange={(e) => setForm((prev) => ({ ...prev, api_key: e.target.value }))}
+                    placeholder="sk-..."
+                    type="password"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                  />
+                </label>
+              </>
+            )}
           </div>
           <div className="mt-4 flex items-center justify-between">
             <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
@@ -267,6 +360,16 @@ export default function ModelSettings() {
               设为默认
             </label>
             <div className="flex gap-2">
+              {form.model_type === 'ollama' && (
+                <button
+                  onClick={() => loadOllamaModels(form.base_url, true)}
+                  disabled={loadingOllamaModels || loading}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={loadingOllamaModels ? 'animate-spin' : ''} />
+                  {loadingOllamaModels ? '读取中' : '刷新模型'}
+                </button>
+              )}
               <button
                 onClick={handleTestForm}
                 disabled={testingId === 'form' || loading}
@@ -309,37 +412,45 @@ export default function ModelSettings() {
               </tr>
             </thead>
             <tbody>
-              {sortedConfigs.map((config) => (
+              {tableConfigs.map((config) => (
                 <tr key={config.id} className="border-t border-[var(--color-border)]">
                   <td className="px-4 py-3 text-[var(--color-text)]">
-                    <span className="inline-flex items-center gap-2">
-                      {config.is_default && <Check size={14} className="text-[var(--color-accent)]" />}
-                      {modelTypeLabels[config.model_type]}
-                    </span>
+                    {modelTypeLabels[config.model_type]}
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{config.provider || '-'}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{config.model_name || '-'}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)] max-w-xs truncate">{config.base_url || '-'}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{config.api_key_masked || '-'}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="inline-flex w-20 justify-center">
+                        {config.is_default && (
+                          <span className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-accent)]">
+                            {config.model_type === 'default' ? '工程默认' : '默认'}
+                          </span>
+                        )}
+                      </span>
                       <button title="测试连接" onClick={() => handleTestSaved(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] disabled:opacity-50" disabled={testingId === config.id}>
                         <Zap size={16} />
                       </button>
-                      <button title="设为默认" onClick={() => handleSetDefault(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]">
-                        <Check size={16} />
-                      </button>
-                      <button title="编辑" onClick={() => handleEdit(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]">
-                        <Pencil size={16} />
-                      </button>
-                      <button title="删除" onClick={() => handleDelete(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]">
-                        <Trash2 size={16} />
-                      </button>
+                      {config.model_type !== 'default' && (
+                        <>
+                          <button title="设为默认" onClick={() => handleSetDefault(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]">
+                            <Check size={16} />
+                          </button>
+                          <button title="编辑" onClick={() => handleEdit(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)]">
+                            <Pencil size={16} />
+                          </button>
+                          <button title="删除" onClick={() => handleDelete(config)} className="p-1.5 rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-danger)]">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
-              {sortedConfigs.length === 0 && (
+              {tableConfigs.length === 0 && (
                 <tr>
                   <td className="px-4 py-8 text-center text-[var(--color-text-tertiary)]" colSpan={6}>
                     暂无模型配置。AI 对话页仍可使用第一项“默认配置”。
