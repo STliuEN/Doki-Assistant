@@ -1,4 +1,5 @@
 import uuid
+from json import JSONDecodeError
 
 import httpx
 from fastapi import HTTPException, status
@@ -195,23 +196,94 @@ class ModelConfigService:
         return await self._ping_config(None)
 
     async def list_ollama_models(self, base_url: str | None = None) -> dict:
+        url = self._normalize_ollama_base_url(base_url)
+        candidates = [url]
+        if "://localhost" in url:
+            candidates.append(url.replace("://localhost", "://127.0.0.1", 1))
+        elif "://127.0.0.1" in url:
+            candidates.append(url.replace("://127.0.0.1", "://localhost", 1))
+
+        last_error = ""
+        for candidate in dict.fromkeys(candidates):
+            result = await self._fetch_ollama_models(candidate)
+            if result["ok"]:
+                return result
+            last_error = result["error"]
+
+        return {"ok": False, "base_url": url, "models": [], "error": last_error}
+
+    def _normalize_ollama_base_url(self, base_url: str | None) -> str:
         url = (base_url or DEFAULT_OLLAMA_BASE_URL).strip().rstrip("/")
         if not url:
             url = DEFAULT_OLLAMA_BASE_URL
+        if "://" not in url:
+            url = f"http://{url}"
+        return url.rstrip("/")
 
+    async def _fetch_ollama_models(self, url: str) -> dict:
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            timeout = httpx.Timeout(8.0, connect=2.0)
+            async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 response = await client.get(f"{url}/api/tags")
-            response.raise_for_status()
+            if response.status_code != 200:
+                return {
+                    "ok": False,
+                    "base_url": url,
+                    "models": [],
+                    "error": self._format_ollama_status_error(response.status_code),
+                }
             data = response.json()
             models = [
                 item.get("name")
                 for item in data.get("models", [])
-                if isinstance(item, dict) and item.get("name")
+                if self._is_chat_ollama_model(item)
             ]
             return {"ok": True, "base_url": url, "models": models, "error": ""}
+        except (ValueError, JSONDecodeError):
+            return {
+                "ok": False,
+                "base_url": url,
+                "models": [],
+                "error": "Ollama 返回内容不是有效的模型列表",
+            }
+        except httpx.ConnectError:
+            return {
+                "ok": False,
+                "base_url": url,
+                "models": [],
+                "error": "无法连接 Ollama，请确认 Ollama 已启动并监听该地址",
+            }
+        except httpx.TimeoutException:
+            return {
+                "ok": False,
+                "base_url": url,
+                "models": [],
+                "error": "读取 Ollama 模型超时，请确认本地服务响应正常",
+            }
+        except httpx.HTTPError:
+            return {
+                "ok": False,
+                "base_url": url,
+                "models": [],
+                "error": "读取 Ollama 模型失败，请检查 Ollama 地址和本地网络设置",
+            }
         except Exception as exc:
             return {"ok": False, "base_url": url, "models": [], "error": str(exc)}
+
+    def _format_ollama_status_error(self, status_code: int) -> str:
+        if status_code == 502:
+            return "Ollama 地址返回 502，请确认本地 Ollama 没有被代理或网关拦截"
+        if status_code == 404:
+            return "Ollama 地址不可用，请确认 Base URL 不要包含 /api/tags 或 /v1"
+        return f"Ollama 返回 HTTP {status_code}，请检查服务状态"
+
+    def _is_chat_ollama_model(self, item: object) -> bool:
+        if not isinstance(item, dict) or not item.get("name"):
+            return False
+        capabilities = item.get("capabilities")
+        if not isinstance(capabilities, list):
+            return True
+        return "completion" in capabilities or "chat" in capabilities or "tools" in capabilities
 
     async def _ping_config(self, config: UserModelConfig | None) -> dict:
         try:

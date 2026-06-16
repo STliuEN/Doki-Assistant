@@ -79,7 +79,7 @@ export default function NoteList() {
 
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>()
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const enteredViaLongPress = useRef(false)
   const pointerMoved = useRef(false)
@@ -194,7 +194,7 @@ export default function NoteList() {
   const clearLongPress = () => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current)
-      longPressTimer.current = undefined
+      longPressTimer.current = null
     }
   }
 
@@ -204,7 +204,7 @@ export default function NoteList() {
     pointerMoved.current = false
     clearLongPress()
     longPressTimer.current = setTimeout(() => {
-      longPressTimer.current = undefined
+      longPressTimer.current = null
       if (!selectMode) {
         enteredViaLongPress.current = true
         setSelectMode(true)
@@ -214,7 +214,7 @@ export default function NoteList() {
   }
 
   const handlePointerUp = (noteId: string) => {
-    const timerWasSet = longPressTimer.current !== undefined
+    const timerWasSet = longPressTimer.current !== null
     const wasLongPress = enteredViaLongPress.current
     enteredViaLongPress.current = false
     clearLongPress()

@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 
 from app.core.logger_handler import logger
+from app.utils.model_provider import create_ollama_chat_model
 
 # 加载环境变量
 load_dotenv()
@@ -79,11 +80,10 @@ class ChatModelFactory(BaseModelFactory):
 
             logger.info(f"📦 ChatModel 使用Ollama模型: {model_name}, 地址: {base_url}")
 
-            return ChatOllama(
-                model=model_name,
+            return create_ollama_chat_model(
+                model_name=model_name,
                 base_url=base_url,
                 streaming=True,
-                top_p=0.7,
             )
 
         elif llm_type == "ALIYUN":
@@ -161,12 +161,11 @@ class VisionModelFactory(BaseModelFactory):
 
             logger.info(f"🎨 VisionModel 使用Ollama多模态模型: {model_name}, 地址: {base_url}")
 
-            return ChatOllama(
-                model=model_name,
+            return create_ollama_chat_model(
+                model_name=model_name,
                 base_url=base_url,
                 # 视觉模型禁用 streaming，因为图片理解需要在完整的上下文上做推理
                 streaming=False,
-                top_p=0.7,
             )
 
         elif vision_type == "ALIYUN":

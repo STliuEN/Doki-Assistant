@@ -46,9 +46,10 @@ AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent
 
 基于 **FastAPI + LangChain** 构建的智能 Agent 平台，当前核心能力包括：
 
-- **多模型接入**：支持工程默认配置、OpenAI-compatible 模型和 Ollama 本地模型
-- **模型选择**：用户可按账号保存自己的模型配置，并在对话和翻译页切换
+- **多模型接入**：支持工程默认配置，也支持用户自行导入 OpenAI-compatible 外部模型和 Ollama 本地模型
+- **模型选择**：用户可按账号保存外部模型配置，并在对话和翻译页切换
 - **AI 对话**：支持多种 prompt 模式，保留默认角色，同时可切换不同风格
+- **Skill/Tool 编排**：Agent 能力拆分为可扫描的 Skill 和 Tool 模块，前端可选择启用，默认全开以保持原始链路
 - **实时翻译**：支持双语实时对话式翻译和整篇翻译两种模式
 - **笔记管理**：Markdown 编辑器、智能标签（LLM 自动分类）、语义搜索、Markdown 导出
 - **RAG 知识库**：多格式文档上传（txt/pdf/md/pptx/docx），基于向量检索的精准问答
@@ -67,7 +68,8 @@ AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent
 - **🤖 AI 写作助手**：续写、扩写、摘要生成，SSE 流式输出
 - **🔗 跨源关联推荐**：编辑笔记时，从笔记库和知识库双向检索 Top k 相关文档
 - **💬 智能问答**：基于 RAG 技术的 Agent 对话，支持文档引用来源展示
-- **🧠 多模型接入**：工程默认模型兜底，用户可接入 OpenAI-compatible API 或 Ollama 本地模型
+- **🧩 Skill/Tool 注册**：Skill 与 Tool 采用独立目录模块，支持前端查看、编辑、新增、删除和勾选启用
+- **🧠 多模型接入**：工程默认模型兜底，用户可自行导入 OpenAI-compatible API、第三方中转站、自部署兼容服务或 Ollama 本地模型
 - **💾 会话持久化**：MySQL 存储对话历史，随时回溯
 - **📄 文档管理**：支持 TXT / PDF / MD / PPTX / DOCX 上传，可视化切片详情
 - **🌐 多语言支持**：前端 i18n，中英文界面切换
@@ -100,14 +102,14 @@ flowchart TD
 模型系统分为两层：
 
 - **工程默认模型**：由 `backend/.env` 中的 `LLM_TYPE`、`ALIYUN_*`、`OLLAMA_*` 决定，固定作为前端模型列表第一项，用作兜底配置。用户不需要创建任何模型配置也能直接使用 AI 对话。
-- **用户模型配置**：用户可在前端 `模型选择` 页面添加自己的模型配置，存入 FastAPI 后端的 `user_model_configs` 表。AI 对话页可按会话选择某个用户模型；未选择时走工程默认模型。
+- **用户自行导入模型**：用户可在前端 `模型选择` 页面添加自己的外部模型或本地模型配置，存入 FastAPI 后端的 `user_model_configs` 表。AI 对话页可按会话选择某个用户模型；未选择时走工程默认模型。
 
 当前支持三类调用路径：
 
 | 类型 | 用途 | 调用方式 |
 |------|------|----------|
 | 工程默认配置 | 系统兜底模型 | 读取 `.env`，使用阿里云百炼或 Ollama |
-| 通用模型 | OpenAI Chat Completions 兼容中转站/API | 使用项目内置 Clean HTTP 调用器，请求 `{base_url}/chat/completions` |
+| 通用外部模型 | OpenAI Chat Completions 兼容 API、第三方中转站或自部署兼容服务 | 使用项目内置 Clean HTTP 调用器，请求 `{base_url}/chat/completions` |
 | Ollama 本地 | 本机轻量模型部署 | 使用 `ChatOllama`，默认地址 `http://localhost:11434` |
 
 通用模型没有直接使用 OpenAI SDK 默认请求链路，而是通过 `backend/app/utils/clean_openai_chat.py` 发起干净的 `httpx` 请求，避免部分中转站拦截 `AsyncOpenAI/Python`、`X-Stainless-*` 等 SDK 默认请求头。
@@ -122,9 +124,16 @@ flowchart TD
 - `Ollama 本地` 类型默认使用 `http://localhost:11434`，隐藏供应商和 API SK，前端可通过 `GET /model-config/ollama/models` 读取本机 `/api/tags` 并以下拉菜单选择已安装模型。
 - 模型测试接口返回结构化诊断结果，便于区分认证失败、服务不可达、模型不存在、供应商拦截等问题。
 
-### Agent 与 RAG 流程
+### Agent、Skill 与 Tool 流程
 
-AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传入的 `model_config_id` 决定使用用户模型；未传入时使用工程默认模型。工具层封装了笔记创建、笔记搜索、统计查询、今日回顾、RAG 总结、关联笔记等能力。
+AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传入的 `model_config_id` 决定使用用户模型；未传入时使用工程默认模型。能力层已经拆分为可扫描的 Skill 和 Tool：
+
+- `Skill Registry` 扫描 `backend/app/agent/skills/*/skill.yaml` 与 `SKILL.md`，把系统上下文、知识库问答、笔记检索、笔记写入、复习回顾等能力注册为可选择 Skill。
+- `Tool Registry` 扫描 `backend/app/agent/tools/*/tool.yaml`、`TOOL.md` 与 `tool.py`，把 RAG 总结、当前时间、用户信息、笔记搜索、笔记统计、今日回顾、标记回顾、创建笔记、关联推荐等工具注册为独立模块。
+- 前端 AI 对话页在模式旁提供 Skill 下拉勾选，默认全开；如果用户没有显式修改选择，请求不会发送 `skill_ids/tool_ids`，后端会解析全部默认 Skill，保持初版 Agent 链路不变。
+- 左侧 `Skill` 与 `工具库` 页面支持查看、编辑、新增和删除文件模块。当前阶段先写入本地模块文件，暂不持久化到数据库。
+
+完整执行链路是：前端发送消息 → `POST /chat/agent/query/stream` → 后端根据 `skill_ids/tool_ids` 调用 `resolve_skills` → 拼接主 Prompt、AI 模式 Prompt 和已启用 Skill 指令 → 注入已绑定 Tool 的 `BaseTool` 实例 → LangChain Agent 执行。
 
 知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。实时翻译和对话模式则通过统一的模型选择与 prompt 组合层进行路由。
 
@@ -323,7 +332,11 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 ├── backend/                     # FastAPI 后端服务
 │   ├── app/
 │   │   ├── agent/               # Agent 智能代理模块
-│   │   │   └── agent.py         # AgentFactory + Tool + Prompt 组合
+│   │   │   ├── agent.py         # AgentFactory + Skill/Tool + Prompt 组合
+│   │   │   ├── skill_registry.py# Skill Registry + Tool Registry 扫描解析
+│   │   │   ├── tool_context.py  # Tool 执行上下文
+│   │   │   ├── skills/          # 独立 Skill 模块（skill.yaml + SKILL.md）
+│   │   │   └── tools/           # 独立 Tool 模块（tool.yaml + TOOL.md + tool.py）
 │   │   ├── config/              # 配置文件（chroma.yaml 等）
 │   │   ├── core/                # 核心工具（限流、响应封装、日志）
 │   │   ├── db/                  # 数据库配置（MySQL + Redis）
@@ -343,6 +356,8 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   └── task_queue.py    # 后台处理队列
 │   │   ├── router/              # API 路由
 │   │   │   ├── chat.py          # 聊天 & Agent 路由
+│   │   │   ├── skill_router.py  # Skill 注册、编辑、删除
+│   │   │   ├── tool_router.py   # Tool 注册、编辑、删除
 │   │   │   ├── translate.py     # 实时翻译路由
 │   │   │   ├── model_config_router.py # 用户模型配置与测试
 │   │   │   ├── note_router.py   # 笔记 CRUD & AI 路由
@@ -389,6 +404,8 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── NoteList.tsx     # 笔记列表
 │   │   │   ├── DailyReview.tsx  # 每日回顾
 │   │   │   ├── AIChat.tsx       # AI 聊天
+│   │   │   ├── SkillManager.tsx # Skill 管理与工具绑定
+│   │   │   ├── ToolManager.tsx  # 工具库管理
 │   │   │   ├── ModelSettings.tsx# 模型选择与用户模型配置
 │   │   │   ├── RealtimeTranslate.tsx # 实时翻译页面
 │   │   │   ├── Sessions.tsx     # 会话管理
@@ -435,22 +452,33 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 
 ### LLM 模型切换
 
-系统支持 **工程默认模型 + 用户模型配置** 两层模型来源：
+系统支持 **工程默认模型 + 用户自行导入模型** 两层模型来源：
 
 - **工程默认模型**：由 `backend/.env` 中的 `LLM_TYPE` 决定，作为 AI 对话和模型列表第一项兜底配置。
-- **用户模型配置**：登录用户可在前端 `模型选择` 页面新增模型，按用户隔离保存，可在 AI 对话页下拉选择。
+- **用户自行导入模型**：登录用户可在前端 `模型选择` 页面新增外部模型或本地模型，按用户隔离保存，可在 AI 对话页下拉选择。
 
 工程默认模型支持：
 
 - **LLM_TYPE=ALIYUN**：使用阿里云百炼兼容模式模型。
 - **LLM_TYPE=OLLAMA**：使用本地 Ollama 模型。
 
-用户模型配置支持：
+用户自行导入模型支持：
 
-| 类型 | 填写方式 |
-|------|----------|
-| 通用 | 填写供应商、模型名称、Base URL、API SK；Base URL 可填根地址或 `/v1` 地址，后端会规范化到 OpenAI Chat Completions 路径 |
-| Ollama 本地 | 默认地址 `http://localhost:11434`，点击刷新读取本地 `/api/tags`，从下拉菜单选择已安装模型，API SK 留空 |
+| 类型 | 适用场景 | 填写方式 |
+|------|----------|----------|
+| 通用外部模型 | OpenAI-compatible API、第三方中转站、自部署兼容服务 | 填写供应商、模型名称、Base URL、API SK；Base URL 可填根地址或 `/v1` 地址，后端会规范化到 OpenAI Chat Completions 路径 |
+| Ollama 本地 | 本机或局域网 Ollama 模型 | 默认地址 `http://localhost:11434`，点击刷新读取本地 `/api/tags`，从下拉菜单选择已安装的对话模型，API SK 留空 |
+
+通用外部模型示例：
+
+```text
+供应商: DeepSeek / OpenAI / SiliconFlow / 自部署服务
+模型名称: deepseek-chat / gpt-4o-mini / qwen-plus
+Base URL: https://api.example.com/v1
+API SK: sk-...
+```
+
+Ollama 本地模型读取会绕过系统代理访问本机服务，并过滤 embedding-only 模型，避免把嵌入模型误选为对话模型。
 
 Ollama 常用轻量模型示例：
 

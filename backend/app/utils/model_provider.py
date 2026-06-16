@@ -10,6 +10,8 @@ from app.utils.crypto_utils import decrypt_text
 
 load_dotenv()
 
+LOCAL_OLLAMA_CLIENT_KWARGS = {"trust_env": False}
+
 
 def normalize_openai_base_url(base_url: str) -> str:
     value = (base_url or "").strip().rstrip("/")
@@ -33,16 +35,25 @@ def create_default_chat_model(streaming: bool = True):
     )
 
 
+def create_ollama_chat_model(model_name: str, base_url: str | None = None, streaming: bool = True) -> ChatOllama:
+    return ChatOllama(
+        model=model_name,
+        base_url=base_url or "http://localhost:11434",
+        streaming=streaming,
+        top_p=0.7,
+        client_kwargs={**LOCAL_OLLAMA_CLIENT_KWARGS},
+    )
+
+
 def create_chat_model_from_config(config: UserModelConfig | None, streaming: bool = True):
     if config is None or config.model_type == "default":
         return create_default_chat_model(streaming=streaming)
 
     if config.model_type == "ollama":
-        return ChatOllama(
-            model=config.model_name,
-            base_url=config.base_url or "http://localhost:11434",
+        return create_ollama_chat_model(
+            model_name=config.model_name,
+            base_url=config.base_url,
             streaming=streaming,
-            top_p=0.7,
         )
 
     if config.model_type == "openai_compatible":

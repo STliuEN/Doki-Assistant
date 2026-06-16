@@ -86,12 +86,20 @@ export default function ModelSettings() {
     try {
       const res = await modelConfigApi.listOllamaModels(url)
       const data = res.data
-      setOllamaModels(data?.models || [])
+      const models = data?.models || []
+      setOllamaModels(models)
       if (data?.ok) {
-        if (data.models.length === 0 && showEmptyMessage) {
+        if (models.length > 0) {
+          setForm((prev) => (
+            prev.model_type === 'ollama' && !prev.model_name
+              ? { ...prev, base_url: data.base_url || url, model_name: models[0] }
+              : { ...prev, base_url: data.base_url || prev.base_url }
+          ))
+        }
+        if (models.length === 0 && showEmptyMessage) {
           showMessage('Ollama 已连接，但没有读取到本地模型')
         } else if (showEmptyMessage) {
-          showMessage(`已读取 ${data.models.length} 个 Ollama 模型`)
+          showMessage(`已读取 ${models.length} 个 Ollama 模型`)
         }
       } else {
         showMessage(`读取 Ollama 模型失败：${data?.error || '未知错误'}`)

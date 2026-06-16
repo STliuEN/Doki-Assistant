@@ -16,7 +16,7 @@ from app.agent.tool_context import set_current_user_id, set_thinking_callback
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm
-from app.utils.model_provider import create_chat_model_from_config
+from app.utils.model_provider import create_chat_model_from_config, create_ollama_chat_model
 from app.utils.prompt_loader import load_prompt
 
 
@@ -78,11 +78,10 @@ class AgentFactory:
 
             logger.info(f"🤖 Agent使用Ollama模型: {model_name}")
 
-            return ChatOllama(
-                model=model_name,
+            return create_ollama_chat_model(
+                model_name=model_name,
                 base_url=base_url,
                 streaming=True,
-                top_p=0.7,
             )
 
         elif llm_type == "ALIYUN":

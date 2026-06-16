@@ -28,12 +28,29 @@ const CATEGORIES = [
   { label: '其他', value: 'other' },
 ]
 const DRAFT_KEY = 'note_draft'
+const TEMPLATE_ORDER_KEY = 'note_template_order'
 
 interface Draft {
   title: string
   content: string
   tags?: string[]
   category?: string
+}
+
+interface TemplateForm {
+  name: string
+  title: string
+  content: string
+  category: string
+  tags: string
+}
+
+const emptyTemplateForm: TemplateForm = {
+  name: '',
+  title: '',
+  content: '',
+  category: '',
+  tags: '',
 }
 
 function draftField<T>(id: string | undefined, key: keyof Draft, fallback: T): T {
@@ -45,6 +62,19 @@ function draftField<T>(id: string | undefined, key: keyof Draft, fallback: T): T
   } catch {
     return fallback
   }
+}
+
+function loadTemplateOrder(): string[] | null {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_ORDER_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveTemplateOrder(ids: string[]) {
+  localStorage.setItem(TEMPLATE_ORDER_KEY, JSON.stringify(ids))
 }
 
 export default function NoteEditor() {
@@ -63,9 +93,16 @@ export default function NoteEditor() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showTemplateManager, setShowTemplateManager] = useState(false)
   const [templateName, setTemplateName] = useState('')
+  const [templates, setTemplates] = useState<NoteTemplate[]>([])
+  const [templateItems, setTemplateItems] = useState<NoteTemplate[]>([])
   const [editingTemplate, setEditingTemplate] = useState<NoteTemplate | null>(null)
+  const [editForm, setEditForm] = useState<TemplateForm>(emptyTemplateForm)
+  const [newTemplateForm, setNewTemplateForm] = useState<TemplateForm>(emptyTemplateForm)
   const [showNewTemplateForm, setShowNewTemplateForm] = useState(false)
   const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle')
+  const dragItem = useRef<number | null>(null)
   const templateApplied = useRef(false)
   const editorRef = useRef<TiptapEditorHandle>(null)
   const isNew = !id || id === 'new'
@@ -86,13 +123,24 @@ export default function NoteEditor() {
     if (isNew) {
       const draft: Draft = { title, content, tags, category }
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+      setSaveStatus('saved')
     }
+  }, [title, content, tags, category, isNew])
+
+  useEffect(() => {
+    if (!isNew) return
+    setSaveStatus('idle')
   }, [title, content, tags, category, isNew])
 
   useEffect(() => {
     const timer = setTimeout(autoSave, 2000)
     return () => clearTimeout(timer)
   }, [autoSave])
+
+  useEffect(() => {
+    if (!isNew) return
+    refreshTemplates()
+  }, [isNew])
 
   const handleSave = async () => {
     if (!title.trim() && !content.trim()) return
