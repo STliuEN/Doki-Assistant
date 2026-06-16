@@ -7,6 +7,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from app.core.logger_handler import logger, project_path
+from app.services.reranker_config_service import get_reranker_config_service
 
 # 加载环境变量
 load_dotenv()
@@ -29,18 +30,53 @@ def _resolve_model_path(path: str | os.PathLike) -> Path:
 
 
 def _get_configured_model_path() -> Path:
-    return _resolve_model_path(os.getenv("RERANKER_MODEL_PATH", DEFAULT_RERANKER_MODEL_PATH))
+    config = get_reranker_config_service().get_config()
+    return _resolve_model_path(config.model_path or os.getenv("RERANKER_MODEL_PATH", DEFAULT_RERANKER_MODEL_PATH))
 
 
 def _get_modelscope_model_name() -> str:
-    return os.getenv("RERANKER_MODEL_NAME", DEFAULT_RERANKER_MODEL_ID)
+    config = get_reranker_config_service().get_config()
+    return config.model_name or os.getenv("RERANKER_MODEL_NAME", DEFAULT_RERANKER_MODEL_ID)
+
+
+def _get_int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        logger.warning("环境变量 %s 不是有效整数，使用默认值 %s", name, default)
+        return default
 
 
 def _min_weight_bytes() -> int:
-    try:
-        return int(os.getenv("RERANKER_MIN_WEIGHT_MB", "50")) * 1024 * 1024
-    except ValueError:
-        return 50 * 1024 * 1024
+    return _get_int_env("RERANKER_MIN_WEIGHT_MB", 50) * 1024 * 1024
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _resolve_torch_dtype(dtype_name: str):
+    if not dtype_name or dtype_name.lower() == "auto":
+        return None
+
+    import torch
+
+    dtype_map = {
+        "float16": torch.float16,
+        "fp16": torch.float16,
+        "half": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "bf16": torch.bfloat16,
+        "float32": torch.float32,
+        "fp32": torch.float32,
+    }
+    dtype = dtype_map.get(dtype_name.lower())
+    if dtype is None:
+        logger.warning("不支持的 RERANKER_TORCH_DTYPE=%s，使用模型默认 dtype", dtype_name)
+    return dtype
 
 
 def _iter_weight_files(model_dir: Path) -> list[Path]:
@@ -120,7 +156,8 @@ def check_and_download_reranker_model() -> str:
 
     local_model_path = _get_configured_model_path()
     modelscope_model_name = _get_modelscope_model_name()
-    revision = os.getenv("RERANKER_MODEL_REVISION", "master")
+    config = get_reranker_config_service().get_config()
+    revision = config.revision or os.getenv("RERANKER_MODEL_REVISION", "master")
 
     try:
         actual_model_path = Path(find_model_path(local_model_path))
@@ -159,7 +196,7 @@ def check_and_download_reranker_model() -> str:
 
 
 def _select_device() -> str:
-    configured_device = os.getenv("RERANKER_DEVICE", "auto").lower()
+    configured_device = get_reranker_config_service().get_config().device.lower()
     if configured_device and configured_device != "auto":
         return configured_device
 
@@ -188,22 +225,48 @@ class ReorderService:
     """文档重排序服务"""
 
     def __init__(self):
-        self.LOCAL_MODEL_PATH = _get_configured_model_path()
-        self.MODELSCOPE_MODEL_NAME = _get_modelscope_model_name()
-        self.device = _select_device()
         self._model = None
         self._model_lock = asyncio.Lock()
+        self.reload_config()
+
+    def reload_config(self):
+        config = get_reranker_config_service().get_config()
+        self.LOCAL_MODEL_PATH = _resolve_model_path(config.model_path)
+        self.MODELSCOPE_MODEL_NAME = config.model_name
+        self.device = _select_device()
+        self.max_length = config.max_length or _get_int_env("RERANKER_MAX_LENGTH", 8192)
+        self.batch_size = config.batch_size or _get_int_env("RERANKER_BATCH_SIZE", 1)
+        self.torch_dtype = _resolve_torch_dtype(config.torch_dtype or os.getenv("RERANKER_TORCH_DTYPE", "auto"))
+        self.trust_remote_code = bool(config.trust_remote_code)
+        self._model = None
 
     def _load_model(self):
         from sentence_transformers import CrossEncoder
 
         actual_model_path = check_and_download_reranker_model()
-        logger.info("加载重排序模型：%s", actual_model_path)
+        model_kwargs = {}
+        if self.torch_dtype is not None:
+            model_kwargs["torch_dtype"] = self.torch_dtype
+
+        tokenizer_kwargs = {}
+        if "qwen3-reranker" in actual_model_path.lower() or "qwen3-reranker" in self.MODELSCOPE_MODEL_NAME.lower():
+            tokenizer_kwargs["padding_side"] = "left"
+
+        logger.info(
+            "加载重排序模型：%s, device=%s, max_length=%s, dtype=%s",
+            actual_model_path,
+            self.device,
+            self.max_length,
+            self.torch_dtype or "model-default",
+        )
         model = CrossEncoder(
             actual_model_path,
-            max_length=512,
+            max_length=self.max_length,
             device=self.device,
-            local_files_only=True
+            local_files_only=True,
+            trust_remote_code=self.trust_remote_code,
+            model_kwargs=model_kwargs or None,
+            tokenizer_kwargs=tokenizer_kwargs or None,
         )
         if hasattr(model, "model"):
             model.model.eval()
@@ -261,7 +324,7 @@ class ReorderService:
             # 禁用梯度计算，提高推理性能
             import torch
             with torch.no_grad():
-                scores = model.predict(pairs, batch_size=1)
+                scores = model.predict(pairs, batch_size=self.batch_size)
 
             # 构建结果列表
             scored_documents = []

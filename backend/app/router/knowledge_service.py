@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import mimetypes
 import os
 import tempfile
 import time
@@ -7,7 +8,6 @@ from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-import magic
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,19 @@ ALLOWED_MIME_TYPES = {
 }
 MAX_FILE_SIZE = 20 * 1024 * 1024
 MAX_FOLDER_SIZE = 200 * 1024 * 1024
+
+
+def detect_file_type(filename: str, content: bytes) -> str:
+    """Best-effort MIME detection that does not make libmagic a startup dependency."""
+    try:
+        import magic
+
+        return magic.Magic(mime=True).from_buffer(content)
+    except Exception as exc:
+        guessed_type, _ = mimetypes.guess_type(filename)
+        fallback_type = guessed_type or "application/octet-stream"
+        logger.warning("libmagic 不可用，使用后缀推断 MIME: %s -> %s (%s)", filename, fallback_type, exc)
+        return fallback_type
 
 
 @dataclass
@@ -96,8 +109,7 @@ class KnowledgeService:
         content = await file.read()
         await file.seek(0)
 
-        mime = magic.Magic(mime=True)
-        file_type = mime.from_buffer(content)
+        file_type = detect_file_type(file.filename, content)
 
         file_extension = os.path.splitext(file.filename)[1].lower()
 
@@ -343,7 +355,6 @@ class KnowledgeService:
             logger.error(f"【SSE上传】文件总大小超过限制，总大小: {total_size / (1024 * 1024):.2f}MB，限制: 200MB")
             return [], [self._yield_size_error_event()], total_files
 
-        mime = magic.Magic(mime=True)
         valid_files = []
         current_index = 1
         failed_count = 0
@@ -351,7 +362,7 @@ class KnowledgeService:
         for file_info in files_content:
             file = file_info['file']
             content = file_info['content']
-            file_type = mime.from_buffer(content)
+            file_type = detect_file_type(file.filename, content)
             file_extension = os.path.splitext(file.filename)[1].lower()
 
             if file_type not in ALLOWED_MIME_TYPES and file_extension not in ALLOWED_EXTENSIONS:

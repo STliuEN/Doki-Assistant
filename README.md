@@ -89,12 +89,17 @@ flowchart TD
   B --> Redis[(Redis)]
   B --> Chroma[(ChromaDB)]
   B --> Agent[LangChain Agent + Tools + Prompt Composer]
+  B --> Knowledge[知识库 / 笔记索引服务]
   B --> Translate[实时翻译服务]
   Agent --> DefaultLLM[工程默认模型 .env]
   Agent --> UserLLM[用户模型配置]
   UserLLM --> CleanOpenAI[OpenAI-Compatible Clean HTTP 调用器]
   UserLLM --> Ollama[Ollama 本地模型]
-  B --> Reranker[本地重排序模型 bge-reranker-v2-m3]
+  Knowledge --> SourceFiles[(源文件与文档元数据)]
+  Knowledge --> Embedding[Ollama Embedding 可切换]
+  Knowledge --> Reranker[本地 Reranker 可扫描 / 可切换]
+  Embedding --> Chroma
+  Reranker --> RagAnswer[RAG 回答增强]
 ```
 
 ### 模型调用架构
@@ -136,6 +141,29 @@ AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传
 完整执行链路是：前端发送消息 → `POST /chat/agent/query/stream` → 后端根据 `skill_ids/tool_ids` 调用 `resolve_skills` → 拼接主 Prompt、AI 模式 Prompt 和已启用 Skill 指令 → 注入已绑定 Tool 的 `BaseTool` 实例 → LangChain Agent 执行。
 
 知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。实时翻译和对话模式则通过统一的模型选择与 prompt 组合层进行路由。
+
+### 知识库、Embedding 与 Reranker
+
+知识库管理页现在同时负责文档导入、Embedding 模型选择和 Reranker 模型选择：
+
+- 文档上传支持 TXT / PDF / MD / PPTX / DOCX，并在前端显示导入队列、单文件进度和处理状态。
+- 源文件会保存并记录元数据，前端可以查看切片详情，也可以下载原始文件，保证知识可追溯。
+- Embedding 使用 Ollama 本地模型，前端可读取 `/api/tags` 后选择模型；切换 embedding 会重建当前用户的知识库索引和笔记索引。
+- Reranker 使用本地 CrossEncoder 模型目录，后端扫描 `backend/models` 下包含 `config.json` 和完整权重文件的模型；切换 reranker 只影响召回后的排序，不重建 Chroma 向量库。
+- 当前推荐本地目录包括 `backend/models/bge-reranker-v2-m3` 和 `backend/models/qwen3-reranker-4b`，前端知识库页会自动读取可用列表并保持当前选择。
+
+RAG 执行链路：
+
+```text
+上传文档
+  -> 保存源文件和文档元数据
+  -> 解析 txt/pdf/md/pptx/docx
+  -> 切片
+  -> 使用当前 embedding 模型写入 Chroma
+  -> 用户提问时召回知识库 / 笔记候选
+  -> 使用当前 reranker 对候选片段重新排序
+  -> 拼接上下文并交给 LLM 生成回答
+```
 
 ## 项目演示
 
@@ -221,9 +249,12 @@ LANGCHAIN_API_KEY=your_langsmith_api_key
 LANGCHAIN_PROJECT=my-fastapi-langchain-project
 
 # ==================== 重排序模型配置 ====================
-RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
-RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+RERANKER_MODEL_PATH=./models/qwen3-reranker-4b
+RERANKER_MODEL_NAME=Qwen/Qwen3-Reranker-4B
 RERANKER_DEVICE=auto
+RERANKER_MAX_LENGTH=8192
+RERANKER_BATCH_SIZE=1
+RERANKER_TORCH_DTYPE=auto
 
 # ==================== JWT 身份验证配置 ====================
 SECRET_KEY=MY_JWT_SECRET_KEY
@@ -346,6 +377,8 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── note.py          # 笔记模型
 │   │   │   ├── review_record.py # 回顾记录模型
 │   │   │   ├── chat_history.py  # 对话历史模型
+│   │   │   ├── knowledge_document.py # 知识库源文件与文档元数据
+│   │   │   ├── embedding_config.py # 用户 Embedding 配置
 │   │   │   └── model_config.py  # 用户模型配置
 │   │   ├── prompt/              # 提示词模板（对话 / 翻译 / 写作 / RAG）
 │   │   ├── rag/                 # RAG 核心功能
@@ -371,6 +404,9 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── services/            # 业务服务层
 │   │   │   ├── note_service.py  # 笔记服务（CRUD + 向量化 + AI 写作）
 │   │   │   ├── model_config_service.py # 模型配置服务
+│   │   │   ├── embedding_config_service.py # Embedding 配置与索引重建
+│   │   │   ├── reranker_config_service.py # Reranker 本地扫描与切换
+│   │   │   ├── knowledge_document_service.py # 知识库源文件与元数据服务
 │   │   │   ├── translate_service.py # 实时翻译服务
 │   │   │   └── review_service.py# 回顾服务（艾宾浩斯算法）
 │   │   └── utils/               # 工具函数
@@ -490,21 +526,51 @@ ollama pull qwen3:1.7b
 ollama list
 ```
 
+### Embedding 与知识库索引
+
+Embedding 当前通过 Ollama 本地服务提供，默认模型可在 `.env` 中配置：
+
+```env
+TEXT_EMBEDDING_MODEL_TYPE=ollama
+TEXT_EMBEDDING_MODEL_NAME=qwen3-embedding:0.6b
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+知识库页面会读取 Ollama 已安装模型列表，并允许选择新的 embedding 模型。切换 embedding 后，后端会使用保存的源文件和笔记内容重建当前用户的知识库向量索引与笔记向量索引；源文件、文档状态、切片数量、embedding 模型信息会保存在数据库，Chroma 只作为可重建的向量索引层。
+
+常用 embedding 模型示例：
+
+```bash
+ollama pull qwen3-embedding:0.6b
+ollama list
+```
+
 ### 重排序模型
 
-默认使用 `BAAI/bge-reranker-v2-m3` 作为本地 CrossEncoder 重排序模型，并通过 ModelScope 自动下载。后端启动时会校验模型目录是否包含 `config.json` 和完整权重文件；如果发现 `._____temp`、`.lock` 等未完成下载残留，会清理后重新下载。配置与排障参考 [模型配置指南](./docs/modelscope_model.md)。
+默认可以使用本地 CrossEncoder 重排序模型。当前推荐在 RTX 5070 Ti 环境下手动下载 `Qwen/Qwen3-Reranker-4B` 到 `backend/models/qwen3-reranker-4b`，再通过 `.env` 指向本地目录。后端启动时会校验模型目录是否包含 `config.json` 和完整权重文件；如果发现 `._____temp`、`.lock` 等未完成下载残留，会清理后重新下载。配置与排障参考 [模型配置指南](./docs/modelscope_model.md)。
 
 常用环境变量：
 
 ```env
-RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
-RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+RERANKER_MODEL_PATH=./models/qwen3-reranker-4b
+RERANKER_MODEL_NAME=Qwen/Qwen3-Reranker-4B
 RERANKER_MODEL_REVISION=master
 RERANKER_DEVICE=auto
+RERANKER_MAX_LENGTH=8192
+RERANKER_BATCH_SIZE=1
+RERANKER_TORCH_DTYPE=auto
 RERANKER_MIN_WEIGHT_MB=50
 ```
 
 `RERANKER_DEVICE=auto` 会优先尝试 CUDA；如果当前 PyTorch CUDA 构建不支持显卡架构，会自动回退 CPU，保证 RAG 主链路不中断。RTX 50 系列这类 `sm_120` 显卡需要使用支持 CUDA 13.x 的 PyTorch wheel，通常建议重建 `backend/.venv`。
+
+重建后端 CUDA 13.2 环境：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-backend-cu132.ps1
+```
+
+切换 reranker 不需要重建 Chroma 向量库；reranker 只对已召回候选文档排序，不改变 embedding。
 
 ## 故障排除
 

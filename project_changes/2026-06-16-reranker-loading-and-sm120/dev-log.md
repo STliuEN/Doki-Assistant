@@ -96,13 +96,13 @@ current PyTorch install supports sm_50 ... sm_90
 
 - 只升级 NVIDIA 驱动通常不够。
 - 只安装本机 CUDA Toolkit 通常也不够。
-- 需要把后端 `.venv` 中的 PyTorch 三件套换成支持 `sm_120` 的 CUDA 13.x 构建。
+- 需要把后端 `.venv` 中的 PyTorch 换成支持 `sm_120` 的 CUDA 13.x 构建。
 - 更稳妥的做法是重建后端虚拟环境，而不是在旧 `.venv` 上叠加安装。
 
 建议后续迁移目标：
 
 ```text
-torch / torchvision / torchaudio -> cu130 或 cu132 构建
+torch -> cu132 构建
 ```
 
 需要重建的范围：

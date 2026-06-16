@@ -2,12 +2,12 @@
 
 ## 模型介绍
 
-BAAI/bge-reranker-v2-m3 是北京智源研究院（BAAI）推出的多语言重排序模型，基于 XLMRobertaForSequenceClassification 架构：
+项目支持本地 CrossEncoder 重排序模型。默认轻量选择是 `BAAI/bge-reranker-v2-m3`；在 RTX 5070 Ti 等本地算力环境下，也可以手动导入 `Qwen/Qwen3-Reranker-4B` 获得更强排序效果。
 
-- **原生 CrossEncoder 兼容**：BERT 式 Encoder-only 架构，sentence-transformers 原生支持
+- **原生 CrossEncoder 兼容**：通过 `sentence-transformers` 加载并执行 `predict(pairs)`
 - **多语言**：支持 100+ 语言，中文和英文表现优秀
-- **长上下文**：最大 8192 tokens
-- **轻量级**：仅 568M 参数，适合本地笔记本部署
+- **长上下文**：Qwen3-Reranker 系列支持 32K 上下文，工程默认推理长度设为 8192
+- **可替换**：切换 reranker 不需要重建向量库，因为它只重排召回候选文档
 
 ## 安装步骤
 
@@ -52,34 +52,79 @@ tokenizer.json / tokenizer_config.json
    ./models/bge-reranker-v2-m3
    ```
 
+#### 方法三：手动从 Hugging Face 镜像下载 Qwen3-Reranker-4B
+
+```powershell
+cd C:\codes_projects\LangChain-RAG-FastAPI-Service\backend
+
+$env:HF_ENDPOINT = "https://hf-mirror.com"
+
+uvx --from huggingface-hub hf download Qwen/Qwen3-Reranker-4B --local-dir .\models\qwen3-reranker-4b
+```
+
+如果 `hf` 命令不可用：
+
+```powershell
+uvx --from huggingface-hub huggingface-cli download Qwen/Qwen3-Reranker-4B --local-dir .\models\qwen3-reranker-4b
+```
+
+关键文件：
+
+```text
+models/qwen3-reranker-4b/
+  config.json
+  modules.json
+  config_sentence_transformers.json
+  tokenizer.json
+  tokenizer_config.json
+  model-00001-of-00002.safetensors
+  model-00002-of-00002.safetensors
+  model.safetensors.index.json
+  1_LogitScore/config.json
+```
+
 ## 环境变量配置
 
 在 `.env` 文件中配置模型路径：
 
 ```env
 # 重排序模型配置（可选）
-RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
-RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+RERANKER_MODEL_PATH=./models/qwen3-reranker-4b
+RERANKER_MODEL_NAME=Qwen/Qwen3-Reranker-4B
 RERANKER_MODEL_REVISION=master
 RERANKER_DEVICE=auto
+RERANKER_MAX_LENGTH=8192
+RERANKER_BATCH_SIZE=1
+RERANKER_TORCH_DTYPE=auto
 RERANKER_MIN_WEIGHT_MB=50
+RERANKER_TRUST_REMOTE_CODE=false
 ```
 
 字段说明：
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `RERANKER_MODEL_PATH` | `./models/bge-reranker-v2-m3` | 本地模型保存目录 |
-| `RERANKER_MODEL_NAME` | `BAAI/bge-reranker-v2-m3` | ModelScope 模型 ID |
+| `RERANKER_MODEL_PATH` | `./models/qwen3-reranker-4b` | 本地模型保存目录 |
+| `RERANKER_MODEL_NAME` | `Qwen/Qwen3-Reranker-4B` | 模型 ID；本地目录完整时不会下载 |
 | `RERANKER_MODEL_REVISION` | `master` | ModelScope revision |
 | `RERANKER_DEVICE` | `auto` | `auto` / `cpu` / `cuda` |
+| `RERANKER_MAX_LENGTH` | `8192` | CrossEncoder 最大输入长度 |
+| `RERANKER_BATCH_SIZE` | `1` | 重排序批大小，4B 建议保持 1 |
+| `RERANKER_TORCH_DTYPE` | `auto` | `auto` / `float16` / `bfloat16` / `float32` |
 | `RERANKER_MIN_WEIGHT_MB` | `50` | 权重文件最小大小校验阈值 |
+| `RERANKER_TRUST_REMOTE_CODE` | `false` | 是否允许远程自定义代码 |
 
 ### 硬件要求
 - **CPU 模式**：任意现代 CPU（推荐 8GB+ 内存）
 - **GPU 模式**：支持 CUDA 的 NVIDIA GPU（推荐，大幅提升性能）
 
-RTX 50 系列等 `sm_120` 显卡需要使用支持该架构的 PyTorch CUDA 13.x wheel。若当前环境是 `torch + cu126` 且日志提示只支持到 `sm_90`，系统会自动回退 CPU。要启用 GPU 推理，建议重建 `backend/.venv` 并切换到 `cu130` 或 `cu132` 构建的 `torch / torchvision / torchaudio`。
+RTX 50 系列等 `sm_120` 显卡需要使用支持该架构的 PyTorch CUDA 13.x wheel。若当前环境是 `torch + cu126` 且日志提示只支持到 `sm_90`，系统会自动回退 CPU。要启用 GPU 推理，建议重建 `backend/.venv` 并切换到 `cu132` 构建的 `torch`。本项目的 reranker 不依赖 `torchvision` 或 `torchaudio`。
+
+项目已将后端 `pyproject.toml` 的 PyTorch index 切换为 `cu132`。重建后端环境：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-backend-cu132.ps1
+```
 
 ### 软件要求
 - Python 3.8+

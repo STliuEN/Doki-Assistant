@@ -82,8 +82,24 @@ current PyTorch install supports sm_50 ... sm_90
 - 这是 PyTorch wheel 构建能力问题，不是 RAG 代码问题
 - 当前系统会自动回退 CPU，保证 RAG 主链路可继续使用
 - 若要使用 5070 Ti 跑 GPU 推理，需要安装支持 `sm_120` 的 CUDA 13.x PyTorch wheel
-- 建议重建 `backend/.venv`，并将 `torch / torchvision / torchaudio` 切换到 `cu130` 或 `cu132` 构建
+- 项目后端依赖已切换到 `cu132` index，建议重建 `backend/.venv`
+- 可执行：
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-backend-cu132.ps1
+  ```
 - MySQL、Chroma 向量库和已上传源文件不需要因为这件事重建
+
+### Qwen3-Reranker-4B 加载很慢或内存不足
+
+**问题**：后端启动后 reranker 预热耗时很长，或出现内存/显存不足。
+
+**解决方法**：
+
+- 确认 `RERANKER_BATCH_SIZE=1`
+- CPU 回退模式下 4B 会明显变慢，建议优先完成 CUDA 13.x PyTorch 环境重建
+- 如果 GPU 显存紧张，可先保持 `RERANKER_TORCH_DTYPE=auto` 或尝试 `float16`
+- 如果仍然无法稳定运行，临时切回 `Qwen/Qwen3-Reranker-0.6B` 或 `BAAI/bge-reranker-v2-m3`
+- 切换 reranker 不需要重建向量库
 
 ### 8. 依赖安装失败
 

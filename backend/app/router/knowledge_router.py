@@ -20,6 +20,7 @@ from app.schemas.models import (
 )
 from app.utils.auth_utils import get_current_user_id
 from app.services.embedding_config_service import get_embedding_config_service
+from app.services.reranker_config_service import get_reranker_config_service
 
 # 图片相关工具：定位存储目录，构建文件路径
 from app.utils.image_extractor import get_image_storage_dir
@@ -32,6 +33,19 @@ class EmbeddingSwitchRequest(BaseModel):
     base_url: str | None = None
     provider: str = "ollama"
     model_type: str = "ollama"
+
+
+class RerankerSwitchRequest(BaseModel):
+    model_name: str
+    model_path: str
+    provider: str = "local"
+    revision: str = "master"
+    device: str = "auto"
+    max_length: int = 8192
+    batch_size: int = 1
+    torch_dtype: str = "auto"
+    min_weight_mb: int = 50
+    trust_remote_code: bool = False
 
 
 @knowledge_router.post("/add/single")
@@ -240,6 +254,40 @@ async def switch_embedding_and_rebuild(
     )
     result = await knowledge_service.rebuild_all_user_indexes(user_id, db)
     return success_response(message="embedding switched and indexes rebuilt", data={**result, "embedding": config.to_dict()})
+
+
+@knowledge_router.get("/reranker/current")
+async def get_current_reranker_config(
+        user_id: str = Depends(get_current_user_id),
+):
+    svc = get_reranker_config_service()
+    return success_response(data={**svc.get_config().to_dict(), "user_id": user_id})
+
+
+@knowledge_router.get("/reranker/local-models")
+async def list_local_reranker_models(
+        user_id: str = Depends(get_current_user_id),
+        _: None = Depends(rate_limit(limit=20, window=60)),
+):
+    svc = get_reranker_config_service()
+    return success_response(data={"models": svc.list_local_models(), "user_id": user_id})
+
+
+@knowledge_router.post("/reranker/switch")
+async def switch_reranker(
+        payload: RerankerSwitchRequest,
+        user_id: str = Depends(get_current_user_id),
+        _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    svc = get_reranker_config_service()
+    config = svc.save_config(payload.model_dump())
+    try:
+        from app.core.background_init import init_manager
+        if init_manager.reorder_service is not None:
+            init_manager.reorder_service.reload_config()
+    except Exception:
+        pass
+    return success_response(message="reranker switched", data={**config.to_dict(), "user_id": user_id})
 
 
 @knowledge_router.get("/detail", response_model=KnowledgeDocumentDetail)

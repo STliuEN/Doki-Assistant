@@ -67,9 +67,34 @@
 - ModelScope 下载中断留下的 `._____temp`、`.lock` 不再被误判为可用模型。
 - 后台初始化会真实预热 CrossEncoder，提前暴露本地模型缺失或依赖不兼容问题。
 - 如果 reranker 加载失败，RAG 会跳过重排序并保留原始检索结果，避免增强层失败拖垮知识库问答。
-- 对 RTX 50 系列 `sm_120` 显卡，当前 `torch + cu126` 不支持 GPU 推理时会自动回退 CPU；如需 GPU 重排序，后续应重建后端 `.venv` 并升级到 CUDA 13.x PyTorch 构建。
+- 对 RTX 50 系列 `sm_120` 显卡，后端依赖已从 `cu126` 切换到 `cu132` index；重建 `backend/.venv` 后可用 CUDA 13.x PyTorch 承接 Qwen3-Reranker-4B。
+- 当前 `.env` 已支持通过 `RERANKER_MAX_LENGTH`、`RERANKER_BATCH_SIZE`、`RERANKER_TORCH_DTYPE` 调整 4B 重排序推理参数。
 
 这次改动没有改变 RAG 的业务链路：检索仍然先从用户隔离的知识库与笔记向量集合取候选，再交由 reranker 排序，最后进入 LLM 总结。变化在于 reranker 从“启动后第一次调用才暴露问题”变为“启动期预热、失败可降级、日志可诊断”。
+
+#### 知识库模型配置与可追溯索引
+
+知识库管理已经从“只管理 Chroma 向量”调整为“源文件与配置可追溯，向量索引可重建”的结构：
+
+- 上传文件会先保存源文件和元数据，再进入解析、切片和向量化流程；前端可以查看文档详情、切片内容和原始文件下载入口。
+- 文件导入采用 SSE 队列反馈，前端展示每个文件的进度条、阶段状态和失败原因。
+- 文档解析范围扩展到 TXT / PDF / MD / PPTX / DOCX。
+- Embedding 配置按用户保存，知识库页面可读取 Ollama 本地模型列表并切换；切换 embedding 后会重建当前用户的知识库索引和笔记索引。
+- Reranker 配置当前为本地全局配置，写入 `backend/data/reranker_config.json`；知识库页面会扫描 `backend/models` 下完整的 CrossEncoder 模型目录，例如 `bge-reranker-v2-m3` 与 `qwen3-reranker-4b`。
+- Reranker 切换不会重建向量库，因为它只作用在召回后的候选片段排序阶段。
+
+当前 RAG 数据链路：
+
+```text
+上传文件
+  -> KnowledgeDocumentService 保存源文件与文档元数据
+  -> KnowledgeService 解析文档并生成切片
+  -> EmbeddingConfigService 读取当前用户 embedding 配置
+  -> VectorStore 写入对应用户的 Chroma collection
+  -> 查询时从知识库和笔记索引召回候选
+  -> ReorderService 读取当前 reranker 配置并重排
+  -> RAG 服务拼接上下文交给 LLM
+```
 
 ### base-rag 分支
 

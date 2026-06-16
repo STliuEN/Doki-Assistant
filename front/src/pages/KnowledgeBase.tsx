@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Database, RotateCcw, Download } from 'lucide-react'
+import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Database, RotateCcw, Download, SlidersHorizontal } from 'lucide-react'
 import { knowledgeApi } from '../api/knowledge'
 import { useSSE } from '../hooks/useSSE'
-import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage } from '../types/api'
+import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage, LocalRerankerModel, RerankerConfig } from '../types/api'
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import DocumentDetailDrawer from '../components/knowledge/DocumentDetailDrawer'
@@ -48,6 +48,15 @@ export default function KnowledgeBase() {
   const [embeddingModels, setEmbeddingModels] = useState<string[]>([])
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false)
   const [switchingEmbedding, setSwitchingEmbedding] = useState(false)
+  const [reranker, setReranker] = useState<RerankerConfig | null>(null)
+  const [rerankerModels, setRerankerModels] = useState<LocalRerankerModel[]>([])
+  const [rerankerModelPath, setRerankerModelPath] = useState('')
+  const [rerankerModelName, setRerankerModelName] = useState('')
+  const [rerankerMaxLength, setRerankerMaxLength] = useState(8192)
+  const [rerankerBatchSize, setRerankerBatchSize] = useState(1)
+  const [rerankerDtype, setRerankerDtype] = useState('auto')
+  const [loadingRerankerModels, setLoadingRerankerModels] = useState(false)
+  const [switchingReranker, setSwitchingReranker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadDocs = async () => {
@@ -76,9 +85,31 @@ export default function KnowledgeBase() {
     }
   }
 
+  const applyRerankerConfig = (config: RerankerConfig) => {
+    setReranker(config)
+    setRerankerModelPath(config.model_path)
+    setRerankerModelName(config.model_name)
+    setRerankerMaxLength(config.max_length || 8192)
+    setRerankerBatchSize(config.batch_size || 1)
+    setRerankerDtype(config.torch_dtype || 'auto')
+  }
+
+  const loadReranker = async () => {
+    try {
+      const res = await knowledgeApi.currentReranker()
+      if (res.data) {
+        applyRerankerConfig(res.data)
+        await loadRerankerModels(false, res.data.model_path)
+      }
+    } catch {
+      toast.error('加载重排序模型配置失败')
+    }
+  }
+
   useEffect(() => {
     loadDocs()
     loadEmbedding()
+    loadReranker()
   }, [])
 
   const updateUploadFile = (data: KnowledgeSSEMessage, patch: Partial<UploadFile>) => {
@@ -178,6 +209,59 @@ export default function KnowledgeBase() {
       toast.error('切换嵌入模型失败')
     } finally {
       setSwitchingEmbedding(false)
+    }
+  }
+
+  const loadRerankerModels = async (showMessage = true, selectedPath = rerankerModelPath) => {
+    setLoadingRerankerModels(true)
+    try {
+      const res = await knowledgeApi.listLocalRerankerModels()
+      const models = res.data?.models || []
+      setRerankerModels(models)
+      if (!selectedPath && models.length > 0) {
+        setRerankerModelPath(models[0].model_path)
+        setRerankerModelName(models[0].model_name)
+      }
+      if (showMessage) toast.success(`已读取 ${models.length} 个本地重排序模型`)
+    } catch {
+      toast.error('读取本地重排序模型失败')
+    } finally {
+      setLoadingRerankerModels(false)
+    }
+  }
+
+  const handleRerankerPathChange = (path: string) => {
+    setRerankerModelPath(path)
+    const selected = rerankerModels.find((model) => model.model_path === path)
+    if (selected) setRerankerModelName(selected.model_name)
+  }
+
+  const handleSwitchReranker = async () => {
+    if (!rerankerModelPath.trim()) {
+      toast.error('请选择重排序模型')
+      return
+    }
+    setSwitchingReranker(true)
+    try {
+      const payload: RerankerConfig = {
+        provider: 'local',
+        model_name: rerankerModelName.trim() || rerankerModelPath.trim(),
+        model_path: rerankerModelPath.trim(),
+        revision: reranker?.revision || 'master',
+        device: reranker?.device || 'auto',
+        max_length: rerankerMaxLength || 8192,
+        batch_size: rerankerBatchSize || 1,
+        torch_dtype: rerankerDtype || 'auto',
+        min_weight_mb: reranker?.min_weight_mb || 50,
+        trust_remote_code: reranker?.trust_remote_code || false,
+      }
+      const res = await knowledgeApi.switchReranker(payload)
+      applyRerankerConfig(res.data)
+      toast.success('重排序模型已切换')
+    } catch {
+      toast.error('切换重排序模型失败')
+    } finally {
+      setSwitchingReranker(false)
     }
   }
 
@@ -309,6 +393,91 @@ export default function KnowledgeBase() {
             刷新
           </button>
         </div>
+      </div>
+
+      <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <SlidersHorizontal size={16} className="text-[var(--color-accent)] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--color-text)]">Reranker</p>
+              <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                {reranker?.model_name || '未选择'}{reranker?.model_path ? ` · ${reranker.model_path}` : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSwitchReranker}
+            disabled={switchingReranker}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-[var(--color-accent)] text-white disabled:opacity-50"
+          >
+            <RotateCcw size={15} className={switchingReranker ? 'animate-spin' : ''} />
+            {switchingReranker ? '切换中' : '切换'}
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_auto] gap-3">
+          <select
+            value={rerankerModelPath}
+            onChange={(e) => handleRerankerPathChange(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+          >
+            <option value={rerankerModelPath}>{rerankerModelPath || '选择本地重排序模型'}</option>
+            {rerankerModels.filter((model) => model.model_path !== rerankerModelPath).map((model) => (
+              <option key={model.model_path} value={model.model_path}>{model.label} · {model.model_path}</option>
+            ))}
+          </select>
+          <input
+            value={rerankerModelName}
+            onChange={(e) => setRerankerModelName(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+            placeholder="Qwen/Qwen3-Reranker-4B"
+          />
+          <button
+            onClick={() => loadRerankerModels(true)}
+            disabled={loadingRerankerModels}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loadingRerankerModels ? 'animate-spin' : ''} />
+            扫描
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label className="text-xs text-[var(--color-text-tertiary)]">
+            长度
+            <input
+              type="number"
+              min={512}
+              step={512}
+              value={rerankerMaxLength}
+              onChange={(e) => setRerankerMaxLength(Number(e.target.value))}
+              className="mt-1 w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+            />
+          </label>
+          <label className="text-xs text-[var(--color-text-tertiary)]">
+            批次
+            <input
+              type="number"
+              min={1}
+              value={rerankerBatchSize}
+              onChange={(e) => setRerankerBatchSize(Number(e.target.value))}
+              className="mt-1 w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+            />
+          </label>
+          <label className="text-xs text-[var(--color-text-tertiary)]">
+            精度
+            <select
+              value={rerankerDtype}
+              onChange={(e) => setRerankerDtype(e.target.value)}
+              className="mt-1 w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+            >
+              <option value="auto">auto</option>
+              <option value="float16">float16</option>
+              <option value="bfloat16">bfloat16</option>
+              <option value="float32">float32</option>
+            </select>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">切换重排序模型不会重建知识库索引。</p>
       </div>
 
       <div

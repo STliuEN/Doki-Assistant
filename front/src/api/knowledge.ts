@@ -1,6 +1,6 @@
 import client from './client'
 import { endpoints } from './endpoints'
-import type { ApiResponse, EmbeddingConfig, EmbeddingSwitchResult, KnowledgeDocument, KnowledgeDocumentDetail, OllamaModelsResponse } from '../types/api'
+import type { ApiResponse, EmbeddingConfig, EmbeddingSwitchResult, KnowledgeDocument, KnowledgeDocumentDetail, LocalRerankerModel, OllamaModelsResponse, RerankerConfig } from '../types/api'
 
 interface KnowledgeListData {
   documents: KnowledgeDocument[]
@@ -54,6 +54,21 @@ export const knowledgeApi = {
 
   switchEmbedding: async (payload: { model_name: string; base_url?: string; provider?: string; model_type?: string }) => {
     const res = await client.post<ApiResponse<EmbeddingSwitchResult>>(endpoints.knowledgeEmbeddingSwitch, payload)
+    return res.data
+  },
+
+  currentReranker: async () => {
+    const res = await client.get<ApiResponse<RerankerConfig>>(endpoints.knowledgeRerankerCurrent)
+    return res.data
+  },
+
+  listLocalRerankerModels: async () => {
+    const res = await client.get<ApiResponse<{ models: LocalRerankerModel[] }>>(endpoints.knowledgeRerankerLocalModels)
+    return res.data
+  },
+
+  switchReranker: async (payload: RerankerConfig) => {
+    const res = await client.post<ApiResponse<RerankerConfig>>(endpoints.knowledgeRerankerSwitch, payload)
     return res.data
   },
 }

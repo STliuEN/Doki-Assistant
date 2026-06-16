@@ -244,3 +244,25 @@ export interface EmbeddingSwitchResult {
   note_count: number
   embedding: EmbeddingConfig
 }
+
+export interface RerankerConfig {
+  provider: string
+  model_name: string
+  model_path: string
+  revision: string
+  device: string
+  max_length: number
+  batch_size: number
+  torch_dtype: string
+  min_weight_mb: number
+  trust_remote_code: boolean
+  updated_at?: string | null
+}
+
+export interface LocalRerankerModel {
+  label: string
+  model_name: string
+  model_path: string
+  complete: boolean
+  reason?: string
+}

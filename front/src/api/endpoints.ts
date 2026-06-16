@@ -63,6 +63,9 @@ export const endpoints = {
   knowledgeEmbeddingCurrent: '/knowledge/embedding/current',
   knowledgeEmbeddingOllamaModels: '/knowledge/embedding/ollama/models',
   knowledgeEmbeddingSwitch: '/knowledge/embedding/switch',
+  knowledgeRerankerCurrent: '/knowledge/reranker/current',
+  knowledgeRerankerLocalModels: '/knowledge/reranker/local-models',
+  knowledgeRerankerSwitch: '/knowledge/reranker/switch',
 
   // Documents reorder
   reorderDocuments: '/chat/reorder',
