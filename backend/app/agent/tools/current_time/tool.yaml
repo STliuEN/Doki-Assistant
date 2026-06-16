@@ -1,0 +1,9 @@
+id: current_time
+label: 当前时间
+description: 获取当前日期和时间。
+category: system
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 20
+

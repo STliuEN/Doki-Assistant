@@ -1,0 +1,9 @@
+id: note_stats
+label: 笔记统计
+description: 查询笔记总数和分类统计。
+category: notes
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 50
+

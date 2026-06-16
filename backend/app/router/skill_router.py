@@ -27,6 +27,19 @@ class SkillPayload(BaseModel):
     instructions: str = Field(default="", max_length=20000)
 
 
+def _default_skill_instructions(payload: SkillPayload) -> str:
+    label = payload.label.strip() or payload.id.strip()
+    description = payload.description.strip() or "描述这个 Skill 的用途。"
+    return (
+        f"# {label}\n\n"
+        f"{description}\n\n"
+        "## 使用规则\n\n"
+        "- 说明这个 Skill 适合处理什么任务。\n"
+        "- 说明何时应该调用已绑定工具。\n"
+        "- 说明回答时需要遵守的边界。\n"
+    )
+
+
 def _validate_skill_id(skill_id: str) -> str:
     value = skill_id.strip()
     if not SAFE_ID_PATTERN.match(value):
@@ -95,7 +108,8 @@ def _write_skill(payload: SkillPayload, existing_id: str | None = None) -> dict:
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
-    (directory / "SKILL.md").write_text(payload.instructions.strip() + "\n", encoding="utf-8")
+    instructions = payload.instructions.strip() or _default_skill_instructions(payload)
+    (directory / "SKILL.md").write_text(instructions.rstrip() + "\n", encoding="utf-8")
     skill_registry.reload()
     return _read_skill_detail(skill_id)
 

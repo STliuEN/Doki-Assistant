@@ -1,0 +1,9 @@
+id: search_notes
+label: 笔记搜索
+description: 按语义搜索用户笔记。
+category: notes
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 40
+

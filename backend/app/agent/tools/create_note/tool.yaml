@@ -1,0 +1,9 @@
+id: create_note
+label: 创建笔记
+description: 创建一篇新笔记。
+category: notes
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 80
+

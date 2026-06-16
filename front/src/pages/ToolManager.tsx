@@ -7,18 +7,28 @@ const emptyTool: ToolDetail = {
   label: '',
   description: '',
   category: 'general',
-  symbol: '',
   order: 100,
+  instructions: '',
 }
 
 const errorMessage = (error: unknown, fallback: string) => (
   error instanceof Error ? error.message : fallback
 )
 
+const slugifyId = (value: string, fallback: string) => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  const id = /^[a-z]/.test(normalized) ? normalized : fallback
+  return id.slice(0, 64)
+}
+
 export default function ToolManager() {
   const [tools, setTools] = useState<ToolDetail[]>([])
-  const [symbols, setSymbols] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<ToolDetail>(emptyTool)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -28,27 +38,42 @@ export default function ToolManager() {
     [tools, selectedId]
   )
 
-  const loadCatalog = useCallback(async () => {
+  const loadCatalog = useCallback(async (nextSelectedId?: string) => {
     const res = await chatApi.toolCatalog()
     setTools(res.data?.tools || [])
-    setSymbols(res.data?.symbols || [])
-    if (!selectedId && res.data?.tools?.length) {
-      setSelectedId(res.data.tools[0].id)
+    if (nextSelectedId) {
+      setSelectedId(nextSelectedId)
     }
-  }, [selectedId])
+  }, [])
 
   useEffect(() => {
     loadCatalog().catch((error) => setMessage(errorMessage(error, '加载工具列表失败')))
   }, [loadCatalog])
 
   useEffect(() => {
+    if (!creating && !selectedId && tools.length > 0) {
+      setSelectedId(tools[0].id)
+    }
+  }, [creating, selectedId, tools])
+
+  useEffect(() => {
+    if (creating) return
     const item = tools.find((tool) => tool.id === selectedId)
     if (item) setForm(item)
-  }, [selectedId, tools])
+  }, [creating, selectedId, tools])
 
   const startCreate = () => {
+    const index = tools.length + 1
+    const id = slugifyId(`custom_tool_${index}`, `custom_tool_${index}`)
+    setCreating(true)
     setSelectedId('')
-    setForm(emptyTool)
+    setForm({
+      ...emptyTool,
+      id,
+      label: '新工具',
+      description: '描述这个工具可以完成的动作。',
+      instructions: '# 新工具\n\n描述这个工具的使用规则、输入参数和返回结果。\n',
+    })
     setMessage('')
   }
 
@@ -62,10 +87,11 @@ export default function ToolManager() {
         setMessage('工具已更新')
       } else {
         await chatApi.createTool(payload)
+        setCreating(false)
         setSelectedId(payload.id)
         setMessage('工具已创建')
       }
-      await loadCatalog()
+      await loadCatalog(payload.id)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '保存失败')
     } finally {
@@ -81,6 +107,7 @@ export default function ToolManager() {
     try {
       await chatApi.deleteTool(selectedId)
       setMessage('工具已删除')
+      setCreating(false)
       setSelectedId('')
       setForm(emptyTool)
       await loadCatalog()
@@ -113,7 +140,10 @@ export default function ToolManager() {
             <button
               key={tool.id}
               type="button"
-              onClick={() => setSelectedId(tool.id)}
+              onClick={() => {
+                setCreating(false)
+                setSelectedId(tool.id)
+              }}
               className={`w-full text-left px-3 py-2 rounded-md border transition-colors ${
                 selectedId === tool.id
                   ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
@@ -140,7 +170,7 @@ export default function ToolManager() {
                 {selectedExists ? form.label || selectedId : '新增工具'}
               </h2>
               <p className="text-sm text-[var(--color-text-secondary)]">
-                维护工具的展示信息，并选择对应的执行能力。
+                维护工具的展示信息和执行说明。
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -216,19 +246,16 @@ export default function ToolManager() {
                 className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
               />
             </label>
-            <label className="space-y-1 col-span-2">
-              <span className="text-xs text-[var(--color-text-secondary)]">工具实现</span>
-              <select
-                value={form.symbol}
-                onChange={(e) => setForm((current) => ({ ...current, symbol: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
-              >
-                <option value="">选择工具实现</option>
-                {symbols.map((symbol) => (
-                  <option key={symbol} value={symbol}>{symbol}</option>
-                ))}
-              </select>
-            </label>
+          </section>
+
+          <section className="space-y-1">
+            <span className="text-xs text-[var(--color-text-secondary)]">执行说明</span>
+            <textarea
+              value={form.instructions}
+              onChange={(e) => setForm((current) => ({ ...current, instructions: e.target.value }))}
+              rows={12}
+              className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] resize-y"
+            />
           </section>
         </div>
       </main>

@@ -1,18 +1,18 @@
+import re
+import shutil
 from typing import Any
 
 import yaml
 from fastapi import HTTPException, status
 from fastapi.routing import APIRouter
-from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from app.agent import agent_tools
 from app.agent.skill_registry import TOOLS_DIR, skill_registry
 from app.core.success_response import success_response
 
 tool_router = APIRouter(prefix="/tools", tags=["tools"])
 
-TOOL_CONFIG_PATH = TOOLS_DIR / "builtin.yaml"
+SAFE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
 
 class ToolPayload(BaseModel):
@@ -20,78 +20,148 @@ class ToolPayload(BaseModel):
     label: str = Field(min_length=1, max_length=80)
     description: str = Field(min_length=1, max_length=500)
     category: str = "general"
-    symbol: str = Field(min_length=1, max_length=120)
     order: int = 100
+    default: bool = True
+    visibility: str = "public"
+    instructions: str = Field(default="", max_length=20000)
 
 
-def _read_tool_config() -> list[dict[str, Any]]:
-    data = yaml.safe_load(TOOL_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    tools = data.get("tools", [])
-    if not isinstance(tools, list):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid tools config")
-    return tools
+def _default_tool_instructions(payload: ToolPayload) -> str:
+    label = payload.label.strip() or payload.id.strip()
+    description = payload.description.strip() or "描述这个工具可以完成的动作。"
+    return (
+        f"# {label}\n\n"
+        f"{description}\n\n"
+        "## 使用规则\n\n"
+        "- 说明这个工具适合处理什么任务。\n"
+        "- 说明需要哪些输入参数。\n"
+        "- 说明工具返回结果后应该如何组织回答。\n"
+    )
 
 
-def _write_tool_config(tools: list[dict[str, Any]]) -> None:
-    TOOL_CONFIG_PATH.write_text(
-        yaml.safe_dump({"tools": tools}, allow_unicode=True, sort_keys=False),
+def _validate_tool_id(tool_id: str) -> str:
+    value = tool_id.strip()
+    if not SAFE_ID_PATTERN.match(value):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="tool id must start with a lowercase letter and contain only lowercase letters, numbers, and underscores",
+        )
+    return value
+
+
+def _tool_dir(tool_id: str) -> Any:
+    return TOOLS_DIR / _validate_tool_id(tool_id)
+
+
+def _read_tool_detail(tool_id: str) -> dict:
+    directory = _tool_dir(tool_id)
+    config_path = directory / "tool.yaml"
+    instructions_path = directory / "TOOL.md"
+    if not config_path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid tool config")
+    return {
+        "id": data.get("id", tool_id),
+        "label": data.get("label", ""),
+        "description": data.get("description", ""),
+        "category": data.get("category", "general"),
+        "order": int(data.get("order", 100)),
+        "entrypoint": data.get("entrypoint", "tool:get_tool"),
+        "default": bool(data.get("default", True)),
+        "visibility": data.get("visibility", "public"),
+        "instructions": instructions_path.read_text(encoding="utf-8") if instructions_path.exists() else "",
+    }
+
+
+def _write_placeholder_tool(directory: Any, payload: ToolPayload, tool_id: str) -> None:
+    tool_name = f"{tool_id}_tool"
+    tool_description = repr(payload.description)
+    tool_label = repr(payload.label)
+    source = f'''from langchain_core.tools import tool
+
+
+@tool("{tool_name}", description={tool_description})
+async def generated_tool(query: str = "") -> str:
+    """Generated placeholder tool."""
+    return "工具 " + {tool_label} + " 已注册，但还没有配置具体执行逻辑。"
+
+
+def get_tool():
+    return generated_tool
+'''
+    (directory / "tool.py").write_text(source, encoding="utf-8")
+
+
+def _write_tool(payload: ToolPayload, existing_id: str | None = None) -> dict:
+    tool_id = _validate_tool_id(payload.id)
+    if existing_id and existing_id != tool_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="renaming tool id is not supported")
+
+    directory = _tool_dir(tool_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    init_path = directory / "__init__.py"
+    if not init_path.exists():
+        init_path.write_text('"""Agent tool module."""\n', encoding="utf-8")
+
+    config = {
+        "id": tool_id,
+        "label": payload.label,
+        "description": payload.description,
+        "category": payload.category,
+        "entrypoint": "tool:get_tool",
+        "default": payload.default,
+        "visibility": payload.visibility,
+        "order": payload.order,
+    }
+    (directory / "tool.yaml").write_text(
+        yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
+    instructions = payload.instructions.strip() or _default_tool_instructions(payload)
+    (directory / "TOOL.md").write_text(instructions.rstrip() + "\n", encoding="utf-8")
+    if not (directory / "tool.py").exists():
+        _write_placeholder_tool(directory, payload, tool_id)
+
     skill_registry.reload()
-
-
-def _available_symbols() -> list[str]:
-    symbols: list[str] = []
-    for name in dir(agent_tools):
-        value = getattr(agent_tools, name)
-        if isinstance(value, BaseTool):
-            symbols.append(name)
-    return sorted(symbols)
-
-
-def _validate_symbol(symbol: str) -> None:
-    if symbol not in _available_symbols():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"unknown tool symbol: {symbol}")
+    return _read_tool_detail(tool_id)
 
 
 @tool_router.get("/catalog")
 async def get_tools_catalog():
     return success_response(data={
-        "tools": _read_tool_config(),
-        "symbols": _available_symbols(),
+        "tools": [_read_tool_detail(tool.id) for tool in skill_registry.tool_registry.all()],
     })
 
 
 @tool_router.post("")
 async def create_tool(payload: ToolPayload):
-    _validate_symbol(payload.symbol)
-    tools = _read_tool_config()
-    if any(item.get("id") == payload.id for item in tools):
+    directory = _tool_dir(payload.id)
+    if directory.exists():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="tool already exists")
-    tools.append(payload.model_dump())
-    _write_tool_config(tools)
-    return success_response(message="tool created", data=payload.model_dump())
+    return success_response(message="tool created", data=_write_tool(payload))
 
 
 @tool_router.put("/{tool_id}")
 async def update_tool(tool_id: str, payload: ToolPayload):
-    _validate_symbol(payload.symbol)
-    if payload.id != tool_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="renaming tool id is not supported")
-    tools = _read_tool_config()
-    for index, item in enumerate(tools):
-        if item.get("id") == tool_id:
-            tools[index] = payload.model_dump()
-            _write_tool_config(tools)
-            return success_response(message="tool updated", data=payload.model_dump())
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
+    directory = _tool_dir(tool_id)
+    if not directory.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
+    return success_response(message="tool updated", data=_write_tool(payload, existing_id=tool_id))
 
 
 @tool_router.delete("/{tool_id}")
 async def delete_tool(tool_id: str):
-    tools = _read_tool_config()
-    next_tools = [item for item in tools if item.get("id") != tool_id]
-    if len(next_tools) == len(tools):
+    directory = _tool_dir(tool_id)
+    if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
-    _write_tool_config(next_tools)
+    bound_skills = [skill.id for skill in skill_registry.all() if tool_id in skill.tool_ids]
+    if bound_skills:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"tool is used by skills: {', '.join(bound_skills)}",
+        )
+    shutil.rmtree(directory)
+    skill_registry.reload()
     return success_response(message="tool deleted")

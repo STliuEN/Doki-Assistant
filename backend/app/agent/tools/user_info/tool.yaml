@@ -1,0 +1,9 @@
+id: user_info
+label: 用户信息
+description: 在用户明确询问时从 JWT 解析用户 ID 和用户名。
+category: system
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 30
+

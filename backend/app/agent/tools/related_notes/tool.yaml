@@ -1,0 +1,9 @@
+id: related_notes
+label: 关联推荐
+description: 查找某篇笔记的相关笔记和知识库文档。
+category: notes
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 90
+

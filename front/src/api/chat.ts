@@ -12,8 +12,9 @@ export interface ChatTool {
   label: string
   description: string
   category: string
-  symbol?: string
   order?: number
+  is_default?: boolean
+  visibility?: string
 }
 
 export interface ChatSkill {
@@ -47,13 +48,15 @@ export interface ToolDetail {
   label: string
   description: string
   category: string
-  symbol: string
   order: number
+  instructions: string
+  entrypoint?: string
+  default?: boolean
+  visibility?: string
 }
 
 export interface ToolCatalog {
   tools: ToolDetail[]
-  symbols: string[]
 }
 
 const assertSkillCatalog = (catalog: unknown): ChatSkillCatalog => {
@@ -72,8 +75,7 @@ const assertToolCatalog = (catalog: unknown): ToolCatalog => {
   if (
     !catalog ||
     typeof catalog !== 'object' ||
-    !Array.isArray((catalog as ToolCatalog).tools) ||
-    !Array.isArray((catalog as ToolCatalog).symbols)
+    !Array.isArray((catalog as ToolCatalog).tools)
   ) {
     throw new Error('工具列表暂时不可用')
   }

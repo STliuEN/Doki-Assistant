@@ -1,0 +1,2 @@
+"""Current time tool."""
+

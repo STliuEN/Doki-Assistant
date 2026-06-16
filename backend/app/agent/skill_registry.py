@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import importlib
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 from langchain_core.tools import BaseTool
-
-from app.agent import agent_tools
 
 
 SKILLS_DIR = Path(__file__).parent / "skills"
@@ -22,7 +22,10 @@ class ToolDefinition:
     category: str
     order: int
     tool: BaseTool
-    symbol: str
+    entrypoint: str
+    instructions: str = ""
+    is_default: bool = True
+    visibility: str = "public"
 
     def to_public_dict(self) -> dict:
         return {
@@ -30,6 +33,9 @@ class ToolDefinition:
             "label": self.label,
             "description": self.description,
             "category": self.category,
+            "order": self.order,
+            "is_default": self.is_default,
+            "visibility": self.visibility,
         }
 
 
@@ -106,32 +112,49 @@ class ToolRegistry:
         self.tools_dir = tools_dir
         self._tools = self._load_tools()
 
+    def _load_tool_from_entrypoint(self, tool_dir: Path, entrypoint: str) -> BaseTool:
+        if ":" not in entrypoint:
+            raise ValueError(f"{tool_dir / 'tool.yaml'} entrypoint must use module:function")
+        module_name, factory_name = entrypoint.split(":", 1)
+        module_path = f"app.agent.tools.{tool_dir.name}.{module_name}"
+        importlib.invalidate_caches()
+        if module_path in sys.modules:
+            module = importlib.reload(sys.modules[module_path])
+        else:
+            module = importlib.import_module(module_path)
+        factory = getattr(module, factory_name, None)
+        if factory is None or not callable(factory):
+            raise ValueError(f"{tool_dir / 'tool.yaml'} references invalid entrypoint: {entrypoint}")
+        tool_obj = factory()
+        if not isinstance(tool_obj, BaseTool):
+            raise ValueError(f"{tool_dir / 'tool.yaml'} entrypoint must return a LangChain BaseTool")
+        return tool_obj
+
     def _load_tools(self) -> dict[str, ToolDefinition]:
-        tool_config_path = self.tools_dir / "builtin.yaml"
-        data = _read_yaml(tool_config_path)
-        entries = data.get("tools")
-        if not isinstance(entries, list):
-            raise ValueError(f"{tool_config_path} requires a tools list")
-
         loaded: dict[str, ToolDefinition] = {}
-        for entry in entries:
-            if not isinstance(entry, dict):
-                raise ValueError(f"{tool_config_path} tool entries must be mappings")
+        for tool_dir in sorted(path for path in self.tools_dir.iterdir() if path.is_dir()):
+            config_path = tool_dir / "tool.yaml"
+            instructions_path = tool_dir / "TOOL.md"
+            if not config_path.exists():
+                continue
 
-            tool_id = _require_string(entry, "id", tool_config_path)
-            symbol = _require_string(entry, "symbol", tool_config_path)
-            tool_obj = getattr(agent_tools, symbol, None)
-            if tool_obj is None:
-                raise ValueError(f"{tool_config_path} references unknown tool symbol: {symbol}")
-
+            data = _read_yaml(config_path)
+            tool_id = _require_string(data, "id", config_path)
+            if tool_id != tool_dir.name:
+                raise ValueError(f"{config_path} id must match tool directory name: {tool_dir.name}")
+            entrypoint = _require_string(data, "entrypoint", config_path)
+            instructions = instructions_path.read_text(encoding="utf-8").strip() if instructions_path.exists() else ""
             loaded[tool_id] = ToolDefinition(
                 id=tool_id,
-                label=_require_string(entry, "label", tool_config_path),
-                description=_require_string(entry, "description", tool_config_path),
-                category=_optional_string(entry, "category", "general"),
-                order=_optional_int(entry, "order", 100),
-                tool=tool_obj,
-                symbol=symbol,
+                label=_require_string(data, "label", config_path),
+                description=_require_string(data, "description", config_path),
+                category=_optional_string(data, "category", "general"),
+                order=_optional_int(data, "order", 100),
+                tool=self._load_tool_from_entrypoint(tool_dir, entrypoint),
+                entrypoint=entrypoint,
+                instructions=instructions,
+                is_default=_optional_bool(data, "default", True),
+                visibility=_optional_string(data, "visibility", "public"),
             )
         return loaded
 

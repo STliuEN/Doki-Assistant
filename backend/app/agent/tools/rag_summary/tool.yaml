@@ -1,0 +1,9 @@
+id: rag_summary
+label: 知识库检索
+description: 从知识库检索文档并生成摘要。
+category: knowledge
+entrypoint: tool:get_tool
+default: true
+visibility: public
+order: 10
+

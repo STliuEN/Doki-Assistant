@@ -11,8 +11,8 @@ from langchain_core.tools import BaseTool
 from langchain_ollama import ChatOllama
 
 from app.agent.agent_middleware import get_middleware
-from app.agent.agent_tools import set_current_user_id, set_thinking_callback
 from app.agent.skill_registry import get_default_tools
+from app.agent.tool_context import set_current_user_id, set_thinking_callback
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm

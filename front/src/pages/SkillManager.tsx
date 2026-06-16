@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Save, Trash2, Wrench } from 'lucide-react'
+import { ChevronRight, Plus, Save, Trash2, Wrench } from 'lucide-react'
 import { chatApi, type ChatSkill, type ChatTool, type SkillDetail } from '../api/chat'
 
 const emptySkill: SkillDetail = {
@@ -17,21 +17,56 @@ const errorMessage = (error: unknown, fallback: string) => (
   error instanceof Error ? error.message : fallback
 )
 
+const slugifyId = (value: string, fallback: string) => {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  const id = /^[a-z]/.test(normalized) ? normalized : fallback
+  return id.slice(0, 64)
+}
+
 export default function SkillManager() {
   const [skills, setSkills] = useState<ChatSkill[]>([])
   const [tools, setTools] = useState<ChatTool[]>([])
   const [selectedId, setSelectedId] = useState('')
+  const [creating, setCreating] = useState(false)
   const [form, setForm] = useState<SkillDetail>(emptySkill)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [toolMenuOpen, setToolMenuOpen] = useState(false)
+  const [openToolCategory, setOpenToolCategory] = useState('')
 
   const selectedExists = useMemo(
     () => skills.some((skill) => skill.id === selectedId),
     [skills, selectedId]
   )
 
-  const loadCatalog = useCallback(async () => {
+  const groupedTools = useMemo(() => {
+    const groups = new Map<string, ChatTool[]>()
+    for (const tool of tools) {
+      const category = tool.category || 'general'
+      groups.set(category, [...(groups.get(category) || []), tool])
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [tools])
+
+  const selectedToolLabels = useMemo(() => {
+    const toolById = new Map(tools.map((tool) => [tool.id, tool]))
+    return form.tools
+      .map((toolId) => toolById.get(toolId)?.label || toolId)
+      .filter(Boolean)
+  }, [form.tools, tools])
+
+  useEffect(() => {
+    if (!openToolCategory && groupedTools.length > 0) {
+      setOpenToolCategory(groupedTools[0][0])
+    }
+  }, [groupedTools, openToolCategory])
+
+  const loadCatalog = useCallback(async (nextSelectedId?: string) => {
     let res
     try {
       res = await chatApi.skillCatalog()
@@ -41,32 +76,60 @@ export default function SkillManager() {
     const catalog = res.data
     setSkills(catalog?.skills || [])
     setTools(catalog?.tools || [])
-    if (!selectedId && catalog?.skills?.length) {
-      setSelectedId(catalog.skills[0].id)
+    if (nextSelectedId) {
+      setSelectedId(nextSelectedId)
     }
-  }, [selectedId])
+  }, [])
 
   useEffect(() => {
     loadCatalog().catch((error) => setMessage(errorMessage(error, '加载 skill 列表失败')))
   }, [loadCatalog])
 
   useEffect(() => {
+    if (!creating && !selectedId && skills.length > 0) {
+      setSelectedId(skills[0].id)
+    }
+  }, [creating, selectedId, skills])
+
+  useEffect(() => {
+    setToolMenuOpen(false)
+    if (creating) {
+      setLoading(false)
+      return
+    }
     if (!selectedId) {
       setForm(emptySkill)
       return
     }
+    let active = true
     setLoading(true)
     chatApi.skillDetail(selectedId)
       .then((res) => {
-        if (res.data) setForm(res.data)
+        if (active && res.data) setForm(res.data)
       })
-      .catch((error) => setMessage(errorMessage(error, '加载 skill 详情失败')))
-      .finally(() => setLoading(false))
-  }, [selectedId])
+      .catch((error) => {
+        if (active) setMessage(errorMessage(error, '加载 skill 详情失败'))
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [creating, selectedId])
 
   const startCreate = () => {
+    const index = skills.length + 1
+    const id = slugifyId(`custom_skill_${index}`, `custom_skill_${index}`)
+    setCreating(true)
     setSelectedId('')
-    setForm({ ...emptySkill, instructions: '# 新 Skill\n\n描述这个 skill 的行为规则。\n' })
+    setForm({
+      ...emptySkill,
+      id,
+      label: '新 Skill',
+      description: '描述这个 Skill 的用途。',
+      instructions: '# 新 Skill\n\n描述这个 Skill 的行为规则。\n',
+    })
     setMessage('')
   }
 
@@ -89,10 +152,11 @@ export default function SkillManager() {
         setMessage('Skill 已更新')
       } else {
         await chatApi.createSkill(payload)
+        setCreating(false)
         setSelectedId(payload.id)
         setMessage('Skill 已创建')
       }
-      await loadCatalog()
+      await loadCatalog(payload.id)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '保存失败')
     } finally {
@@ -108,6 +172,7 @@ export default function SkillManager() {
     try {
       await chatApi.deleteSkill(selectedId)
       setMessage('Skill 已删除')
+      setCreating(false)
       setSelectedId('')
       setForm(emptySkill)
       await loadCatalog()
@@ -140,7 +205,10 @@ export default function SkillManager() {
             <button
               key={skill.id}
               type="button"
-              onClick={() => setSelectedId(skill.id)}
+              onClick={() => {
+                setCreating(false)
+                setSelectedId(skill.id)
+              }}
               className={`w-full text-left px-3 py-2 rounded-md border transition-colors ${
                 selectedId === skill.id
                   ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
@@ -250,25 +318,79 @@ export default function SkillManager() {
               <Wrench size={16} />
               绑定工具
             </div>
-            <div className="flex flex-wrap gap-2">
-              {tools.map((tool) => {
-                const active = form.tools.includes(tool.id)
-                return (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => toggleTool(tool.id)}
-                    title={tool.description}
-                    className={`px-2.5 py-1.5 rounded-md border text-xs transition-colors ${
-                      active
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
-                        : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
-                    }`}
-                  >
-                    {tool.label}
-                  </button>
-                )
-              })}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setToolMenuOpen((value) => !value)}
+                className="w-full min-h-10 px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-left text-sm text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate">
+                    {selectedToolLabels.length > 0 ? selectedToolLabels.join(' / ') : '选择工具'}
+                  </span>
+                  <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">
+                    {form.tools.length} / {tools.length}
+                  </span>
+                </div>
+              </button>
+
+              {toolMenuOpen && (
+                <div className="absolute left-0 top-12 z-30 grid w-full max-w-3xl grid-cols-[220px_1fr] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg">
+                  <div className="max-h-80 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-2">
+                    {groupedTools.map(([category, items]) => {
+                      const selectedCount = items.filter((tool) => form.tools.includes(tool.id)).length
+                      const active = openToolCategory === category
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => setOpenToolCategory(category)}
+                          className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                            active
+                              ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]'
+                          }`}
+                        >
+                          <span className="truncate">{category}</span>
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            {selectedCount > 0 ? `${selectedCount}/${items.length}` : items.length}
+                            <ChevronRight size={13} />
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {(groupedTools.find(([category]) => category === openToolCategory)?.[1] || []).map((tool) => {
+                      const active = form.tools.includes(tool.id)
+                      return (
+                        <button
+                          key={tool.id}
+                          type="button"
+                          onClick={() => toggleTool(tool.id)}
+                          title={tool.description}
+                          className={`mb-1 flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors ${
+                            active
+                              ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                              : 'border-transparent text-[var(--color-text)] hover:border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]'
+                          }`}
+                        >
+                          <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border ${
+                            active ? 'border-[var(--color-accent)] bg-[var(--color-accent)]' : 'border-[var(--color-border)]'
+                          }`} />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium">{tool.label}</span>
+                            <span className="block truncate text-xs text-[var(--color-text-secondary)]">{tool.description}</span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {tools.length === 0 && (
+                      <div className="px-3 py-6 text-sm text-[var(--color-text-secondary)]">暂无可绑定工具。</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
