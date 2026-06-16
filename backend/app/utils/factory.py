@@ -5,10 +5,9 @@ from dotenv import load_dotenv
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_ollama import OllamaEmbeddings
 
 from app.core.logger_handler import logger
-from app.utils.model_provider import create_ollama_chat_model
+from app.utils.model_provider import create_ollama_chat_model, create_ollama_embedding_model
 
 # 加载环境变量
 load_dotenv()
@@ -117,9 +116,9 @@ class EmbedModelFactory(BaseModelFactory):
 
             logger.info(f"📦 EmbedModel 使用Ollama嵌入模型: {model_name}, 地址: {base_url}")
 
-            return OllamaEmbeddings(
-                model=model_name,
-                base_url=base_url
+            return create_ollama_embedding_model(
+                model_name=model_name,
+                base_url=base_url,
             )
 
         elif embed_type == "ALIYUN":

@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from langchain_community.chat_models import ChatTongyi
 from langchain_ollama import ChatOllama
+from langchain_ollama import OllamaEmbeddings
 
 from app.models.model_config import UserModelConfig
 from app.utils.clean_openai_chat import CleanOpenAIChatModel
@@ -41,6 +42,14 @@ def create_ollama_chat_model(model_name: str, base_url: str | None = None, strea
         base_url=base_url or "http://localhost:11434",
         streaming=streaming,
         top_p=0.7,
+        client_kwargs={**LOCAL_OLLAMA_CLIENT_KWARGS},
+    )
+
+
+def create_ollama_embedding_model(model_name: str, base_url: str | None = None) -> OllamaEmbeddings:
+    return OllamaEmbeddings(
+        model=model_name,
+        base_url=base_url or "http://localhost:11434",
         client_kwargs={**LOCAL_OLLAMA_CLIENT_KWARGS},
     )
 
