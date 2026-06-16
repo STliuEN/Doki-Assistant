@@ -13,8 +13,21 @@ export const endpoints = {
   // AI Chat
   agentQueryStream: '/chat/agent/query/stream',
   chatPromptModes: '/chat/prompt-modes',
+  chatSkills: '/api/chat/skills',
   ragQuery: '/chat/rag/query',
   dialogueTranslateStream: '/translate/dialogue/stream',
+
+  // Skills
+  skillCatalog: '/api/skills/catalog',
+  skillDetail: (id: string) => `/api/skills/${id}`,
+  skillCreate: '/api/skills',
+  skillUpdate: (id: string) => `/api/skills/${id}`,
+  skillDelete: (id: string) => `/api/skills/${id}`,
+
+  toolCatalog: '/api/tools/catalog',
+  toolCreate: '/api/tools',
+  toolUpdate: (id: string) => `/api/tools/${id}`,
+  toolDelete: (id: string) => `/api/tools/${id}`,
 
   // Model Config
   modelConfigList: '/model-config/list',

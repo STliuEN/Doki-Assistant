@@ -11,19 +11,8 @@ from langchain_core.tools import BaseTool
 from langchain_ollama import ChatOllama
 
 from app.agent.agent_middleware import get_middleware
-from app.agent.agent_tools import (
-    create_note_tool,
-    get_note_stats_tool,
-    get_related_notes_tool,
-    get_today_reviews_tool,
-    get_user_info_tools,
-    mark_reviewed_tool,
-    rag_summary_tools,
-    search_notes_tool,
-    set_current_user_id,
-    set_thinking_callback,
-    what_time_is_now,
-)
+from app.agent.agent_tools import set_current_user_id, set_thinking_callback
+from app.agent.skill_registry import get_default_tools
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm
@@ -64,17 +53,7 @@ class AgentFactory:
     @staticmethod
     def _get_default_tools() -> list[BaseTool]:
         """获取默认工具列表"""
-        return [
-            rag_summary_tools,
-            what_time_is_now,
-            get_user_info_tools,
-            search_notes_tool,
-            get_note_stats_tool,
-            get_today_reviews_tool,
-            mark_reviewed_tool,
-            create_note_tool,
-            get_related_notes_tool,
-        ]
+        return get_default_tools()
 
     def _get_default_middleware(self) -> list:
         """获取默认中间件列表"""
@@ -158,7 +137,7 @@ class AgentFactory:
         # 1. 创建组件（每次都重新创建，避免全局状态污染）
         chat_model = self._create_chat_model(custom_model, model_config)
         prompt = self._create_prompt()
-        tools = custom_tools or self.default_tools
+        tools = self.default_tools if custom_tools is None else custom_tools
 
         # 2. 创建 Agent
         agent = create_tool_calling_agent(chat_model, tools, prompt)

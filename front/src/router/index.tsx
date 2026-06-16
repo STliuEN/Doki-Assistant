@@ -12,6 +12,8 @@ const AIChat = lazy(() => import('../pages/AIChat'))
 const RealtimeTranslate = lazy(() => import('../pages/RealtimeTranslate'))
 const Sessions = lazy(() => import('../pages/Sessions'))
 const KnowledgeBase = lazy(() => import('../pages/KnowledgeBase'))
+const SkillManager = lazy(() => import('../pages/SkillManager'))
+const ToolManager = lazy(() => import('../pages/ToolManager'))
 const DailyReview = lazy(() => import('../pages/DailyReview'))
 const Profile = lazy(() => import('../pages/Profile'))
 const ModelSettings = lazy(() => import('../pages/ModelSettings'))
@@ -47,6 +49,8 @@ const routes: RouteObject[] = [
       { path: 'sessions', element: <LazyLoad><Sessions /></LazyLoad> },
       { path: 'review', element: <LazyLoad><DailyReview /></LazyLoad> },
       { path: 'knowledge', element: <LazyLoad><KnowledgeBase /></LazyLoad> },
+      { path: 'skills', element: <LazyLoad><SkillManager /></LazyLoad> },
+      { path: 'tools', element: <LazyLoad><ToolManager /></LazyLoad> },
       { path: 'profile', element: <LazyLoad><Profile /></LazyLoad> },
       { path: 'model-settings', element: <LazyLoad><ModelSettings /></LazyLoad> },
       { path: 'settings', element: <LazyLoad><Settings /></LazyLoad> },

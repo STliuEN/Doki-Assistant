@@ -22,6 +22,21 @@ export default defineConfig({
       '/chat/sessions': { target: BACKEND_TARGET, changeOrigin: true },
       '/chat/prompt-modes': { target: BACKEND_TARGET, changeOrigin: true },
       '/chat/reorder': { target: BACKEND_TARGET, changeOrigin: true },
+      '/api/chat/skills': {
+        target: BACKEND_TARGET,
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
+      },
+      '/api/skills': {
+        target: BACKEND_TARGET,
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
+      },
+      '/api/tools': {
+        target: BACKEND_TARGET,
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
+      },
       '/knowledge/': { target: BACKEND_TARGET, changeOrigin: true },
       '/note/': { target: BACKEND_TARGET, changeOrigin: true },
       '/note-template/': { target: BACKEND_TARGET, changeOrigin: true },

@@ -1,0 +1,9 @@
+id: system_context
+label: 系统上下文
+description: 允许 Agent 获取当前时间和基础用户信息。
+tools:
+  - current_time
+  - user_info
+default: true
+visibility: public
+order: 10

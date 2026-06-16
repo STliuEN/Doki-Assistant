@@ -16,6 +16,8 @@ from app.router.model_config_router import model_config_router
 from app.router.note_router import note_router
 from app.router.note_template_router import note_template_router
 from app.router.review_router import review_router
+from app.router.skill_router import skill_router
+from app.router.tool_router import tool_router
 from app.router.translate import translate_router
 from app.router.user import user_router
 from app.services.database_session_manager import init_database_session_manager
@@ -47,6 +49,8 @@ app.include_router(user_router)
 app.include_router(note_router)
 app.include_router(note_template_router)
 app.include_router(review_router)
+app.include_router(skill_router)
+app.include_router(tool_router)
 app.include_router(model_config_router)
 app.include_router(translate_router)
 

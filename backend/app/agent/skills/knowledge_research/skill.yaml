@@ -1,0 +1,8 @@
+id: knowledge_research
+label: 知识库问答
+description: 适合围绕上传文档进行检索、总结和问答。
+tools:
+  - rag_summary
+default: true
+visibility: public
+order: 20

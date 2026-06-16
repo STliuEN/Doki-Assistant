@@ -7,6 +7,8 @@ class QueryRequest(BaseModel):
     session_id: str | None = None
     model_config_id: str | None = None
     prompt_type: str | None = None
+    skill_ids: list[str] | None = None
+    tool_ids: list[str] | None = None
     query: str
 
 

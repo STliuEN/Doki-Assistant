@@ -1,0 +1,9 @@
+id: note_writer
+label: 笔记写入
+description: 适合在对话中创建新笔记。
+tools:
+  - create_note
+  - search_notes
+default: true
+visibility: public
+order: 40

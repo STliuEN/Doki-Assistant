@@ -13,6 +13,7 @@ import {
   Settings,
   SlidersHorizontal,
   User,
+  Wrench,
 } from 'lucide-react'
 import { useUserStore } from '../../stores/useUserStore'
 import { authApi } from '../../api/auth'
@@ -24,6 +25,8 @@ const navItems = [
   { path: '/sessions', icon: History, labelKey: 'nav.sessions' },
   { path: '/review', icon: GraduationCap, labelKey: 'nav.review' },
   { path: '/knowledge', icon: Library, labelKey: 'nav.knowledge' },
+  { path: '/skills', icon: Wrench, labelKey: 'nav.skills' },
+  { path: '/tools', icon: SlidersHorizontal, labelKey: 'nav.tools' },
 ]
 
 const bottomItems = [
@@ -46,6 +49,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const navLabel = (labelKey: string) => {
     if (labelKey === 'nav.modelSettings') return '模型选择'
     if (labelKey === 'nav.translate') return '实时翻译'
+    if (labelKey === 'nav.skills') return 'Skill'
+    if (labelKey === 'nav.tools') return '工具库'
     return t(labelKey)
   }
 
