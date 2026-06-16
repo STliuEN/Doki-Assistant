@@ -20,6 +20,8 @@ class SSEEvent:
     slice_success_count: int = 0
     error_message: str | None = None
     chunk_count: int | None = None
+    document_id: str | None = None
+    md5: str | None = None
 
     def to_sse(self) -> str:
         payload = {k: v for k, v in asdict(self).items() if v is not None}
@@ -34,26 +36,30 @@ class SliceResult:
         self.filename: str = ""
         self.documents: list = []
         self.md5: str = ""
+        self.document_id: str = ""
         self.success: bool = False
         self.error: str | None = None
         self.chunk_count: int = 0
 
     @classmethod
-    def success_result(cls, file_index: int, filename: str, documents: list, md5: str) -> 'SliceResult':
+    def success_result(cls, file_index: int, filename: str, documents: list, md5: str, document_id: str = "") -> 'SliceResult':
         result = cls()
         result.file_index = file_index
         result.filename = filename
         result.documents = documents
         result.md5 = md5
+        result.document_id = document_id
         result.success = True
         result.chunk_count = len(documents)
         return result
 
     @classmethod
-    def error_result(cls, file_index: int, filename: str, error: str) -> 'SliceResult':
+    def error_result(cls, file_index: int, filename: str, error: str, md5: str = "", document_id: str = "") -> 'SliceResult':
         result = cls()
         result.file_index = file_index
         result.filename = filename
+        result.md5 = md5
+        result.document_id = document_id
         result.success = False
         result.error = error
         return result
@@ -64,6 +70,7 @@ class SliceResult:
             'filename': self.filename,
             'documents': self.documents,
             'md5': self.md5,
+            'document_id': self.document_id,
             'success': self.success,
             'error': self.error,
             'chunk_count': self.chunk_count

@@ -1,40 +1,60 @@
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Database, RotateCcw, Download } from 'lucide-react'
 import { knowledgeApi } from '../api/knowledge'
 import { useSSE } from '../hooks/useSSE'
-import type { KnowledgeSSEMessage } from '../types/api'
+import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage } from '../types/api'
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import DocumentDetailDrawer from '../components/knowledge/DocumentDetailDrawer'
 
 interface UploadFile {
   file: File
+  documentId?: string
   progress: number
-  status: 'pending' | 'uploading' | 'success' | 'fail'
+  status: 'pending' | 'queued' | 'uploading' | 'success' | 'fail'
+  stage?: string
   error?: string
+  chunkCount?: number
+}
+
+const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
+
+const progressByEvent: Partial<Record<KnowledgeSSEMessage['event_type'], number>> = {
+  queued: 10,
+  processing: 30,
+  slicing_completed: 65,
+  writing: 85,
+  completed: 100,
+  error: 100,
 }
 
 export default function KnowledgeBase() {
   const { t } = useTranslation()
   const { start: startSSE } = useSSE()
-  const [docs, setDocs] = useState<Array<{ id: string; filename: string; chunk_count: number; created_at: string }>>([])
+  const [docs, setDocs] = useState<KnowledgeDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([])
   const [uploadTotal, setUploadTotal] = useState(0)
   const [uploadDone, setUploadDone] = useState(0)
   const [dragOver, setDragOver] = useState(false)
   const [showClean, setShowClean] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; filename: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null)
   const [detailFilename, setDetailFilename] = useState<string | null>(null)
+  const [embedding, setEmbedding] = useState<EmbeddingConfig | null>(null)
+  const [embeddingBaseUrl, setEmbeddingBaseUrl] = useState(DEFAULT_OLLAMA_BASE_URL)
+  const [embeddingModel, setEmbeddingModel] = useState('')
+  const [embeddingModels, setEmbeddingModels] = useState<string[]>([])
+  const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false)
+  const [switchingEmbedding, setSwitchingEmbedding] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const loadDocs = async () => {
     setLoading(true)
     try {
       const res = await knowledgeApi.list()
-      const documents = (res.data as { documents: Array<{ id: string; filename: string; chunk_count: number; created_at: string }> } | undefined)?.documents || []
+      const documents = (res.data as { documents: KnowledgeDocument[] } | undefined)?.documents || []
       setDocs(documents)
     } catch {
       toast.error('加载文档列表失败')
@@ -43,7 +63,39 @@ export default function KnowledgeBase() {
     }
   }
 
-  useEffect(() => { loadDocs() }, [])
+  const loadEmbedding = async () => {
+    try {
+      const res = await knowledgeApi.currentEmbedding()
+      if (res.data) {
+        setEmbedding(res.data)
+        setEmbeddingModel(res.data.model_name)
+        setEmbeddingBaseUrl(res.data.base_url || DEFAULT_OLLAMA_BASE_URL)
+      }
+    } catch {
+      toast.error('加载嵌入模型配置失败')
+    }
+  }
+
+  useEffect(() => {
+    loadDocs()
+    loadEmbedding()
+  }, [])
+
+  const updateUploadFile = (data: KnowledgeSSEMessage, patch: Partial<UploadFile>) => {
+    setUploadFiles((prev) =>
+      prev.map((uf) =>
+        uf.file.name === data.filename || uf.documentId === data.document_id
+          ? {
+              ...uf,
+              documentId: data.document_id || uf.documentId,
+              progress: data.progress ?? progressByEvent[data.event_type] ?? uf.progress,
+              stage: data.message || data.step || uf.stage,
+              ...patch,
+            }
+          : uf
+      )
+    )
+  }
 
   const handleFilesSelected = (files: FileList) => {
     const newFiles: UploadFile[] = Array.from(files).map((f) => ({ file: f, progress: 0, status: 'pending' }))
@@ -59,22 +111,15 @@ export default function KnowledgeBase() {
       formData,
       {
         onKnowledgeProgress: (data: KnowledgeSSEMessage) => {
-          if (data.event_type === 'processing') {
-            setUploadFiles((prev) =>
-              prev.map((uf) =>
-                uf.file.name === data.filename
-                  ? { ...uf, progress: data.progress || 0, status: 'uploading' }
-                  : uf
-              )
-            )
+          if (data.event_type === 'queued') {
+            updateUploadFile(data, { status: 'queued' })
+          } else if (data.event_type === 'processing' || data.event_type === 'slicing_completed' || data.event_type === 'writing') {
+            updateUploadFile(data, { status: 'uploading', chunkCount: data.chunk_count })
           } else if (data.event_type === 'completed') {
-            setUploadFiles((prev) =>
-              prev.map((uf) =>
-                uf.file.name === data.filename
-                  ? { ...uf, progress: 100, status: 'success' }
-                  : uf
-              )
-            )
+            updateUploadFile(data, { progress: 100, status: 'success', chunkCount: data.chunk_count })
+            setUploadDone((c) => c + 1)
+          } else if (data.event_type === 'error') {
+            updateUploadFile(data, { status: 'fail', error: data.error_message || data.message || '处理失败' })
             setUploadDone((c) => c + 1)
           } else if (data.event_type === 'finish') {
             loadDocs()
@@ -89,6 +134,51 @@ export default function KnowledgeBase() {
         },
       }
     )
+  }
+
+  const loadEmbeddingModels = async (showMessage = true) => {
+    const url = (embeddingBaseUrl || DEFAULT_OLLAMA_BASE_URL).trim()
+    setLoadingEmbeddingModels(true)
+    try {
+      const res = await knowledgeApi.listEmbeddingOllamaModels(url)
+      const data = res.data
+      const models = data?.models || []
+      setEmbeddingModels(models)
+      if (data?.base_url) setEmbeddingBaseUrl(data.base_url)
+      if (!embeddingModel && models.length > 0) setEmbeddingModel(models[0])
+      if (showMessage) {
+        toast[data?.ok ? 'success' : 'error'](data?.ok ? `已读取 ${models.length} 个嵌入模型` : data?.error || '读取嵌入模型失败')
+      }
+    } catch {
+      toast.error('读取嵌入模型失败')
+    } finally {
+      setLoadingEmbeddingModels(false)
+    }
+  }
+
+  const handleSwitchEmbedding = async () => {
+    if (!embeddingModel.trim()) {
+      toast.error('请选择嵌入模型')
+      return
+    }
+    if (!window.confirm('切换嵌入模型会重建当前账号的知识库和笔记索引，确认继续吗？')) return
+
+    setSwitchingEmbedding(true)
+    try {
+      const res = await knowledgeApi.switchEmbedding({
+        model_name: embeddingModel.trim(),
+        base_url: embeddingBaseUrl.trim() || DEFAULT_OLLAMA_BASE_URL,
+        provider: 'ollama',
+        model_type: 'ollama',
+      })
+      setEmbedding(res.data.embedding)
+      await loadDocs()
+      toast.success(`索引已重建：知识库 ${res.data.knowledge_success}/${res.data.knowledge_total}，笔记 ${res.data.note_count}`)
+    } catch {
+      toast.error('切换嵌入模型失败')
+    } finally {
+      setSwitchingEmbedding(false)
+    }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -115,6 +205,27 @@ export default function KnowledgeBase() {
       toast.error('删除文档失败')
     }
     setDeleteTarget(null)
+  }
+
+  const handleDownloadSource = async (doc: KnowledgeDocument) => {
+    try {
+      const token = localStorage.getItem('jwt_token')
+      const response = await fetch(knowledgeApi.sourceUrl(doc.filename), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = doc.original_filename || doc.filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('下载源文件失败')
+    }
   }
 
   const handleCleanAll = async () => {
@@ -150,6 +261,54 @@ export default function KnowledgeBase() {
             {t('knowledge.cleanAll')}
           </button>
         )}
+      </div>
+
+      <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Database size={16} className="text-[var(--color-accent)] shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--color-text)]">Embedding</p>
+              <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                {embedding?.model_name || '未选择'}{embedding?.base_url ? ` · ${embedding.base_url}` : ''}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSwitchEmbedding}
+            disabled={switchingEmbedding}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-[var(--color-accent)] text-white disabled:opacity-50"
+          >
+            <RotateCcw size={15} className={switchingEmbedding ? 'animate-spin' : ''} />
+            {switchingEmbedding ? '重建中' : '切换并重建'}
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_auto] gap-3">
+          <input
+            value={embeddingBaseUrl}
+            onChange={(e) => setEmbeddingBaseUrl(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+            placeholder={DEFAULT_OLLAMA_BASE_URL}
+          />
+          <select
+            value={embeddingModel}
+            onChange={(e) => setEmbeddingModel(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+          >
+            <option value={embeddingModel}>{embeddingModel || '选择嵌入模型'}</option>
+            {embeddingModels.filter((m) => m !== embeddingModel).map((model) => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => loadEmbeddingModels(true)}
+            disabled={loadingEmbeddingModels}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loadingEmbeddingModels ? 'animate-spin' : ''} />
+            刷新
+          </button>
+        </div>
       </div>
 
       <div
@@ -192,11 +351,12 @@ export default function KnowledgeBase() {
               )}
               <span className="text-sm text-[var(--color-text)] flex-1 truncate">{uf.file.name}</span>
               <span className="text-xs text-[var(--color-text-tertiary)]">{formatSize(uf.file.size)}</span>
-              {uf.status === 'uploading' && (
-                <div className="w-24 h-1.5 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden">
+              <div className="w-32">
+                <div className="h-1.5 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden">
                   <div className="h-full bg-[var(--color-accent)] rounded-full transition-all" style={{ width: `${uf.progress}%` }} />
                 </div>
-              )}
+                <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)] truncate">{uf.error || uf.stage || uf.status}</p>
+              </div>
             </div>
           ))}
           {uploadDone === uploadTotal && uploadDone > 0 && (
@@ -229,11 +389,17 @@ export default function KnowledgeBase() {
                   <div className="min-w-0">
                     <p className="text-sm text-[var(--color-text)] truncate">{doc.filename}</p>
                     <p className="text-xs text-[var(--color-text-tertiary)]">
-                      {doc.chunk_count} chunks | {formatDate(doc.created_at)}
+                      {doc.chunk_count} chunks | {doc.status || 'indexed'} | {formatDate(doc.created_at)}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDownloadSource(doc) }}
+                    className="p-1.5 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-bg)] transition-colors"
+                  >
+                    <Download size={14} />
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc) }}
                     className="p-1.5 rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] transition-colors"

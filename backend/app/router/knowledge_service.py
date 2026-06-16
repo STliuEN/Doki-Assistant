@@ -9,12 +9,15 @@ from dataclasses import dataclass
 
 import magic
 from fastapi import HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger_handler import logger
+from app.models.knowledge_document import KnowledgeSourceDocument
 from app.rag.sse_models import SliceResult, SSEEvent
 from app.rag.task_queue import TaskQueue
 from app.rag.vector_store import VectorStoreService
-from app.utils.file_handler import get_file_md5_hex_sync
+from app.services.embedding_config_service import EmbeddingConfigData, get_embedding_config_service
+from app.services.knowledge_document_service import KnowledgeFileInput, get_knowledge_document_service
 
 ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.md', '.pptx', '.docx'}
 ALLOWED_MIME_TYPES = {
@@ -44,7 +47,7 @@ class ProcessingState:
         return int(min(99, slice_progress + write_progress))
 
 
-def _sync_slice_file(file_content: bytes, filename: str, file_index: int, user_id: str, queue: TaskQueue):
+def _sync_slice_file(file_content: bytes, filename: str, file_index: int, user_id: str, md5_hex: str, document_id: str, queue: TaskQueue):
     """在 ThreadPoolExecutor 中执行的同步切片函数"""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
@@ -52,40 +55,38 @@ def _sync_slice_file(file_content: bytes, filename: str, file_index: int, user_i
             temp_file_path = temp_file.name
 
         try:
-            # 在加载文档之前计算 md5，因为多模态PDF加载器需要 md5 来确定图片的存储路径。
-            # 如果后移（等切片完再算），多模态加载器就无法将图片保存到正确的位置。
-            md5_hex = get_file_md5_hex_sync(temp_file_path)
             store = VectorStoreService()
             documents = store.get_file_document_sync(temp_file_path, md5=md5_hex, user_id=user_id)
             if not documents:
-                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="文件加载为空"))
+                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="文件加载为空", md5=md5_hex, document_id=document_id))
                 return
 
             split_docs = store.split_documents_sync(documents)
             if not split_docs:
-                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="切片结果为空"))
+                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="切片结果为空", md5=md5_hex, document_id=document_id))
                 return
 
             for doc in split_docs:
                 doc.metadata['user_id'] = user_id
                 doc.metadata['original_filename'] = filename
                 doc.metadata['md5'] = md5_hex
+                doc.metadata['source_document_id'] = document_id
 
             queue.put(SliceResult.success_result(
-                file_index=file_index, filename=filename, documents=split_docs, md5=md5_hex
+                file_index=file_index, filename=filename, documents=split_docs, md5=md5_hex, document_id=document_id
             ))
         finally:
             if os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
     except Exception as e:
         logger.error(f"【SSE上传】切片文件 {filename} 时出错: {e}")
-        queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error=str(e)))
+        queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error=str(e), md5=md5_hex, document_id=document_id))
 
 
 class KnowledgeService:
     """知识库管理服务"""
 
-    async def handle_add_vector_single(self, file: UploadFile, user_id: str) -> str:
+    async def handle_add_vector_single(self, file: UploadFile, user_id: str, db: AsyncSession | None = None) -> str:
         """处理添加单个向量逻辑"""
         store = VectorStoreService()
 
@@ -106,10 +107,14 @@ class KnowledgeService:
                 detail=f"文件类型不支持，目前支持PDF、TXT、Markdown、PPTX、DOCX文件类型。检测到的文件类型: {file_type}，扩展名: {file_extension}"
             )
 
-        await store.get_document(files=[file], user_id=user_id)
+        if db is None:
+            await store.get_document(files=[file], user_id=user_id)
+        else:
+            async for _ in self.handle_add_vector_multiple_stream([file], user_id, db):
+                pass
         return file.filename
 
-    async def handle_add_vector_multiple(self, files: list[UploadFile], user_id: str) -> list[str]:
+    async def handle_add_vector_multiple(self, files: list[UploadFile], user_id: str, db: AsyncSession | None = None) -> list[str]:
         """处理添加多个向量逻辑"""
         total_size = 0
         for file in files:
@@ -122,7 +127,7 @@ class KnowledgeService:
         results = []
         for file in files:
             try:
-                await self.handle_add_vector_single(file, user_id)
+                await self.handle_add_vector_single(file, user_id, db)
                 results.append(file.filename)
             except Exception as e:
                 logger.error(f"【添加向量】处理文件 {file.filename} 时出错: {e}")
@@ -160,11 +165,26 @@ class KnowledgeService:
             failed_count=failed_count
         ).to_sse()
 
+    def _yield_queued_event(self, file_index: int, total_files: int, filename: str, document_id: str, md5: str) -> str:
+        return SSEEvent(
+            event_type='queued', file_index=file_index, total_files=total_files,
+            filename=filename, document_id=document_id, md5=md5, step='queued',
+            message=f'文件 {filename} 已加入处理队列', progress=5
+        ).to_sse()
+
+    def _yield_slicing_event(self, file_index: int, total_files: int, filename: str, document_id: str, md5: str) -> str:
+        return SSEEvent(
+            event_type='processing', file_index=file_index, total_files=total_files,
+            filename=filename, document_id=document_id, md5=md5, step='slicing',
+            message=f'正在解析和切分 {filename}...', progress=35
+        ).to_sse()
+
     def _yield_slicing_completed_event(self, result: SliceResult, state: ProcessingState) -> str:
         """SSE 事件：单个文件多线程切片完成，准备写入向量库"""
         return SSEEvent(
             event_type='slicing_completed', file_index=result.file_index,
             total_files=state.total_files, filename=result.filename,
+            document_id=result.document_id, md5=result.md5,
             chunk_count=result.chunk_count, step='slicing',
             message=f'文件 {result.filename} 切片完成，共 {result.chunk_count} 个切片',
             progress=state.current_progress(),
@@ -177,6 +197,7 @@ class KnowledgeService:
         return SSEEvent(
             event_type='writing', file_index=result.file_index,
             total_files=state.total_files, filename=result.filename,
+            document_id=result.document_id, md5=result.md5,
             step='writing', message=f'正在写入向量 {result.filename}...',
             progress=state.current_progress(),
             success_count=state.success_count, failed_count=state.failed_count,
@@ -188,6 +209,7 @@ class KnowledgeService:
         return SSEEvent(
             event_type='completed', file_index=result.file_index,
             total_files=state.total_files, filename=result.filename,
+            document_id=result.document_id, md5=result.md5,
             step='completed', message=f'文件 {result.filename} 处理完成',
             progress=state.current_progress(),
             success_count=state.success_count, failed_count=state.failed_count,
@@ -199,6 +221,7 @@ class KnowledgeService:
         return SSEEvent(
             event_type='error', file_index=result.file_index,
             total_files=state.total_files, filename=result.filename,
+            document_id=result.document_id, md5=result.md5,
             step='writing', message=f'文件 {result.filename} 写入失败',
             error_message=error,
             progress=state.current_progress(),
@@ -211,6 +234,7 @@ class KnowledgeService:
         return SSEEvent(
             event_type='error', file_index=result.file_index,
             total_files=state.total_files, filename=result.filename,
+            document_id=result.document_id, md5=result.md5,
             step='slicing', message=f'文件 {result.filename} 切片失败',
             error_message=result.error,
             progress=state.current_progress(),
@@ -227,8 +251,77 @@ class KnowledgeService:
             message=f'处理完成，耗时 {total_time} 秒', progress=100
         ).to_sse()
 
-    async def _validate_and_read_files(
-        self, files: list[UploadFile]
+    async def _index_source_document(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        source_doc: KnowledgeSourceDocument,
+        embedding_config: EmbeddingConfigData,
+    ) -> int:
+        queue = TaskQueue(maxsize=1)
+        queue.set_total_count(1)
+        _sync_slice_file(
+            source_doc.content_blob,
+            source_doc.original_filename,
+            1,
+            user_id,
+            source_doc.md5,
+            source_doc.id,
+            queue,
+        )
+        result = queue.get(block=True, timeout=1)
+        if not result.success:
+            await get_knowledge_document_service().mark_failed(
+                db,
+                source_doc.id,
+                user_id,
+                result.error or "文件解析失败",
+            )
+            raise RuntimeError(result.error or "文件解析失败")
+
+        store = VectorStoreService()
+        ids = [f"{source_doc.id}:{idx}" for idx in range(len(result.documents))]
+        await store.add_user_documents(user_id, result.documents, db=db, ids=ids)
+        await get_knowledge_document_service().mark_indexed(
+            db,
+            source_doc.id,
+            user_id,
+            result.chunk_count,
+            embedding_config.to_dict(),
+        )
+        return result.chunk_count
+
+    async def rebuild_all_user_indexes(self, user_id: str, db: AsyncSession) -> dict:
+        embedding_config = await get_embedding_config_service().get_user_config(db, user_id)
+        store = VectorStoreService()
+        await store.reset_user_indexes(user_id, db=db)
+
+        sources = await get_knowledge_document_service().iter_sources(db, user_id)
+        success_count = 0
+        failed_count = 0
+        total_chunks = 0
+
+        for source_doc in sources:
+            try:
+                chunk_count = await self._index_source_document(db, user_id, source_doc, embedding_config)
+                success_count += 1
+                total_chunks += chunk_count
+            except Exception as exc:
+                failed_count += 1
+                logger.error(f"【知识库】重建文档索引失败 {source_doc.original_filename}: {exc}")
+
+        note_count = await store.rebuild_user_notes_index(db, user_id)
+        return {
+            "knowledge_total": len(sources),
+            "knowledge_success": success_count,
+            "knowledge_failed": failed_count,
+            "knowledge_chunks": total_chunks,
+            "note_count": note_count,
+            "embedding": embedding_config.to_dict(),
+        }
+
+    async def _validate_read_and_store_files(
+        self, files: list[UploadFile], user_id: str, db: AsyncSession, embedding_config: EmbeddingConfigData
     ) -> tuple[list[dict], list[str], int]:
         """
         阶段1: 读取文件内容并验证总大小
@@ -269,10 +362,23 @@ class KnowledgeService:
                 ))
                 logger.warning(f"【SSE上传】文件类型验证失败: {file.filename}，检测到类型: {file_type}，扩展名: {file_extension}")
             else:
+                source_doc, _ = await get_knowledge_document_service().upsert_source(
+                    db,
+                    user_id,
+                    KnowledgeFileInput(
+                        filename=file.filename,
+                        content=content,
+                        mime_type=file_type,
+                        file_index=current_index,
+                    ),
+                    embedding_config.to_dict(),
+                )
                 valid_files.append({
                     'content': content,
                     'filename': file.filename,
-                    'file_index': current_index
+                    'file_index': current_index,
+                    'md5': source_doc.md5,
+                    'document_id': source_doc.id,
                 })
                 logger.debug(f"【SSE上传】文件类型验证通过: {file.filename}")
             current_index += 1
@@ -287,7 +393,7 @@ class KnowledgeService:
         queue.set_total_count(len(valid_files))
 
         slice_tasks = [
-            (info['content'], info['filename'], info['file_index'], user_id)
+            (info['content'], info['filename'], info['file_index'], user_id, info['md5'], info['document_id'])
             for info in valid_files
         ]
 
@@ -301,7 +407,7 @@ class KnowledgeService:
 
     async def _process_slice_results(
         self, queue: TaskQueue, valid_count: int, store: VectorStoreService,
-        state: ProcessingState, user_id: str
+        state: ProcessingState, user_id: str, db: AsyncSession, embedding_config: EmbeddingConfigData
     ) -> AsyncGenerator[str, None]:
         """消费切片队列 → 写入向量库 → yield SSE 进度事件"""
         while state.written_count < valid_count:
@@ -318,7 +424,18 @@ class KnowledgeService:
                     try:
                         yield self._yield_writing_event(result, state)
 
-                        await asyncio.to_thread(store.vectors_store.add_documents, result.documents)
+                        ids = [
+                            f"{result.document_id}:{idx}"
+                            for idx in range(len(result.documents))
+                        ]
+                        await store.add_user_documents(user_id, result.documents, db=db, ids=ids)
+                        await get_knowledge_document_service().mark_indexed(
+                            db,
+                            result.document_id,
+                            user_id,
+                            result.chunk_count,
+                            embedding_config.to_dict(),
+                        )
                         await store.save_md5_hex(result.md5, result.filename, result.filename, user_id)
 
                         state.success_count += 1
@@ -331,12 +448,16 @@ class KnowledgeService:
                         state.written_count += 1
                         state.failed_count += 1
                         logger.error(f"【SSE上传】写入文件 {result.filename} 时出错: {e}")
+                        if result.document_id:
+                            await get_knowledge_document_service().mark_failed(db, result.document_id, user_id, str(e))
                         yield self._yield_write_error_event(result, state, str(e))
 
                 else:
                     state.written_count += 1
                     state.failed_count += 1
                     logger.error(f"【SSE上传】切片文件 {result.filename} 失败: {result.error}")
+                    if result.document_id:
+                        await get_knowledge_document_service().mark_failed(db, result.document_id, user_id, result.error or "切片失败")
                     yield self._yield_slice_error_event(result, state)
 
                 queue.task_done()
@@ -347,7 +468,8 @@ class KnowledgeService:
     async def handle_add_vector_multiple_stream(
         self,
         files: list[UploadFile],
-        user_id: str
+        user_id: str,
+        db: AsyncSession
     ) -> AsyncGenerator[str, None]:
         """
         处理多个文件上传并返回流式进度（多线程切片 + 单线程串行写入）
@@ -357,8 +479,10 @@ class KnowledgeService:
 
         yield self._yield_start_event(total_files)
 
-        # 文件验证
-        valid_files, error_events, _ = await self._validate_and_read_files(files)
+        embedding_config = await get_embedding_config_service().get_user_config(db, user_id)
+
+        # 文件验证 + 源文件入库
+        valid_files, error_events, _ = await self._validate_read_and_store_files(files, user_id, db, embedding_config)
         for event in error_events:
             yield event
 
@@ -372,12 +496,16 @@ class KnowledgeService:
             total_valid=len(valid_files)
         )
 
+        for info in valid_files:
+            yield self._yield_queued_event(info['file_index'], total_files, info['filename'], info['document_id'], info['md5'])
+            yield self._yield_slicing_event(info['file_index'], total_files, info['filename'], info['document_id'], info['md5'])
+
         # 多线程切片
         queue, executor, _ = self._start_slicing(valid_files, user_id)
 
         # 串行消费 + 写入
         store = VectorStoreService()
-        async for sse in self._process_slice_results(queue, len(valid_files), store, state, user_id):
+        async for sse in self._process_slice_results(queue, len(valid_files), store, state, user_id, db, embedding_config):
             yield sse
 
         executor.shutdown(wait=True)
@@ -397,10 +525,12 @@ class KnowledgeService:
         write_progress = (written_count / total) * 40
         return int(min(99, slice_progress + write_progress))
 
-    async def clean_user_upload(self, user_id: str) -> None:
+    async def clean_user_upload(self, user_id: str, db: AsyncSession | None = None) -> None:
         """处理删除用户上传的所有向量逻辑"""
         store = VectorStoreService()
         await store.delete_user_documents(user_id)
+        if db is not None:
+            await get_knowledge_document_service().delete_all(db, user_id)
 
     async def handle_clear_user_md5(self, user_id: str, delete_documents: bool = True) -> None:
         store = VectorStoreService()
@@ -419,9 +549,17 @@ class KnowledgeService:
             logger.warning(f"【知识库】删除用户 {user_id} 的MD5记录失败: {md5_value}")
         return success
 
-    async def handle_delete_by_filename(self, user_id: str, filename: str, delete_documents: bool = True) -> bool:
+    async def handle_delete_by_filename(self, user_id: str, filename: str, delete_documents: bool = True, db: AsyncSession | None = None) -> bool:
         store = VectorStoreService()
+        source_doc = None
+        if db is not None:
+            source_doc = await get_knowledge_document_service().delete_by_filename(db, user_id, filename)
+            if source_doc and delete_documents:
+                await store.delete_user_source_documents(user_id, source_doc.id, db=db)
+
         success = await store.delete_by_filename(user_id, filename, delete_documents)
+        if source_doc is not None:
+            success = True
         if success:
             logger.info(f"【知识库】删除用户 {user_id} 的文件: {filename}")
         else:
@@ -436,9 +574,12 @@ class KnowledgeService:
         store = VectorStoreService()
         return await store.get_all_md5_records(user_id)
 
-    async def handle_get_user_knowledge(self, user_id: str) -> list:
-        store = VectorStoreService()
-        documents = await store.get_user_documents(user_id)
+    async def handle_get_user_knowledge(self, user_id: str, db: AsyncSession | None = None) -> list:
+        if db is not None:
+            documents = await get_knowledge_document_service().list_sources(db, user_id)
+        else:
+            store = VectorStoreService()
+            documents = await store.get_user_documents(user_id)
         logger.info(f"【知识库】获取用户 {user_id} 的知识库文档，共 {len(documents)} 个文件")
         return documents
 
@@ -457,6 +598,12 @@ class KnowledgeService:
             raise HTTPException(status_code=404, detail=f"文档 {filename} 不存在或没有切片")
         logger.info(f"【知识库】获取文档切片: {filename}，共 {chunks['total_chunks']} 个切片")
         return chunks
+
+    async def handle_get_source_file(self, user_id: str, filename: str, db: AsyncSession) -> KnowledgeSourceDocument:
+        source_doc = await get_knowledge_document_service().get_source_by_filename(db, user_id, filename)
+        if not source_doc:
+            raise HTTPException(status_code=404, detail=f"源文件 {filename} 不存在")
+        return source_doc
 
     async def handle_get_batch_images(self, user_id: str, md5: str) -> dict:
         """

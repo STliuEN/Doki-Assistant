@@ -195,7 +195,7 @@ class ModelConfigService:
     async def test_system_default(self) -> dict:
         return await self._ping_config(None)
 
-    async def list_ollama_models(self, base_url: str | None = None) -> dict:
+    async def list_ollama_models(self, base_url: str | None = None, purpose: str = "chat") -> dict:
         url = self._normalize_ollama_base_url(base_url)
         candidates = [url]
         if "://localhost" in url:
@@ -205,7 +205,7 @@ class ModelConfigService:
 
         last_error = ""
         for candidate in dict.fromkeys(candidates):
-            result = await self._fetch_ollama_models(candidate)
+            result = await self._fetch_ollama_models(candidate, purpose)
             if result["ok"]:
                 return result
             last_error = result["error"]
@@ -220,7 +220,7 @@ class ModelConfigService:
             url = f"http://{url}"
         return url.rstrip("/")
 
-    async def _fetch_ollama_models(self, url: str) -> dict:
+    async def _fetch_ollama_models(self, url: str, purpose: str = "chat") -> dict:
         try:
             timeout = httpx.Timeout(8.0, connect=2.0)
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
@@ -236,7 +236,7 @@ class ModelConfigService:
             models = [
                 item.get("name")
                 for item in data.get("models", [])
-                if self._is_chat_ollama_model(item)
+                if self._is_ollama_model_for_purpose(item, purpose)
             ]
             return {"ok": True, "base_url": url, "models": models, "error": ""}
         except (ValueError, JSONDecodeError):
@@ -277,13 +277,33 @@ class ModelConfigService:
             return "Ollama 地址不可用，请确认 Base URL 不要包含 /api/tags 或 /v1"
         return f"Ollama 返回 HTTP {status_code}，请检查服务状态"
 
+    def _is_ollama_model_for_purpose(self, item: object, purpose: str) -> bool:
+        if purpose == "all":
+            return isinstance(item, dict) and bool(item.get("name"))
+        if purpose == "embedding":
+            return self._is_embedding_ollama_model(item)
+        return self._is_chat_ollama_model(item)
+
+    def _is_embedding_model_name(self, name: str) -> bool:
+        value = (name or "").lower()
+        markers = ("embed", "embedding", "bge", "nomic-embed", "mxbai-embed")
+        return any(marker in value for marker in markers)
+
     def _is_chat_ollama_model(self, item: object) -> bool:
         if not isinstance(item, dict) or not item.get("name"):
             return False
         capabilities = item.get("capabilities")
         if not isinstance(capabilities, list):
-            return True
+            return not self._is_embedding_model_name(item.get("name", ""))
         return "completion" in capabilities or "chat" in capabilities or "tools" in capabilities
+
+    def _is_embedding_ollama_model(self, item: object) -> bool:
+        if not isinstance(item, dict) or not item.get("name"):
+            return False
+        capabilities = item.get("capabilities")
+        if isinstance(capabilities, list):
+            return "embedding" in capabilities or "embeddings" in capabilities
+        return self._is_embedding_model_name(item.get("name", ""))
 
     async def _ping_config(self, config: UserModelConfig | None) -> dict:
         try:

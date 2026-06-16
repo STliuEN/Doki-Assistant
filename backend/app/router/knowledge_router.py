@@ -1,11 +1,15 @@
 import os
+from urllib.parse import quote
 
 from fastapi import Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.routing import APIRouter
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
+from app.db.db_config import get_db
 from app.router.knowledge_service import KnowledgeService, get_knowledge_service
 from app.schemas.models import (
     DocumentChunksResponse,
@@ -15,6 +19,7 @@ from app.schemas.models import (
     MD5Record,
 )
 from app.utils.auth_utils import get_current_user_id
+from app.services.embedding_config_service import get_embedding_config_service
 
 # 图片相关工具：定位存储目录，构建文件路径
 from app.utils.image_extractor import get_image_storage_dir
@@ -22,15 +27,23 @@ from app.utils.image_extractor import get_image_storage_dir
 knowledge_router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 
+class EmbeddingSwitchRequest(BaseModel):
+    model_name: str
+    base_url: str | None = None
+    provider: str = "ollama"
+    model_type: str = "ollama"
+
+
 @knowledge_router.post("/add/single")
 async def add_vector_single(
         file: UploadFile = File(...),
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=5, window=60))
 ):
     """上传文件，将文件保存到向量数据库，仅支持TXT和PDF"""
-    filename = await knowledge_service.handle_add_vector_single(file, user_id)
+    filename = await knowledge_service.handle_add_vector_single(file, user_id, db)
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
 
 
@@ -38,11 +51,12 @@ async def add_vector_single(
 async def add_vector_multiple(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"),
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=3, window=60))
 ):
     """上传多个文件，将文件保存到向量数据库，仅支持TXT和PDF"""
-    filenames = await knowledge_service.handle_add_vector_multiple(files, user_id)
+    filenames = await knowledge_service.handle_add_vector_multiple(files, user_id, db)
     return success_response(message=f"文件 {filenames} 已成功上传并存储到向量数据库")
 
 
@@ -50,12 +64,13 @@ async def add_vector_multiple(
 async def add_vector_multiple_stream(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF、TXT、MD、PPTX、DOCX格式"),
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=3, window=60))
 ):
     """上传多个文件，流式返回处理进度，仅支持TXT、PDF、MD、PPTX、DOCX"""
     return StreamingResponse(
-        knowledge_service.handle_add_vector_multiple_stream(files, user_id),
+        knowledge_service.handle_add_vector_multiple_stream(files, user_id, db),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -66,9 +81,13 @@ async def add_vector_multiple_stream(
 
 
 @knowledge_router.delete("/clean")
-async def clean_user_vectors(user_id: str = Depends(get_current_user_id), knowledge_service: KnowledgeService = Depends(get_knowledge_service)):
+async def clean_user_vectors(
+        user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
+        knowledge_service: KnowledgeService = Depends(get_knowledge_service)
+):
     """删除用户上传的所有向量"""
-    await knowledge_service.clean_user_upload(user_id)
+    await knowledge_service.clean_user_upload(user_id, db)
     return success_response(message="已成功删除用户上传的所有向量")
 
 
@@ -116,6 +135,7 @@ async def delete_by_filename(
         filename: str,
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """
@@ -123,7 +143,7 @@ async def delete_by_filename(
     :param filename: 要删除的文件名
     :param delete_documents: 是否同时删除知识库文档（默认True）
     """
-    success = await knowledge_service.handle_delete_by_filename(user_id, filename, delete_documents)
+    success = await knowledge_service.handle_delete_by_filename(user_id, filename, delete_documents, db)
     if success:
         if delete_documents:
             return success_response(message=f"已成功删除文件 {filename} 的MD5记录及其对应的知识库文档")
@@ -168,15 +188,58 @@ async def get_md5_info(
 @knowledge_router.get("/list", response_model=KnowledgeListResponse)
 async def get_user_knowledge_list(
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
     """获取用户的知识库文档列表"""
-    documents = await knowledge_service.handle_get_user_knowledge(user_id)
+    documents = await knowledge_service.handle_get_user_knowledge(user_id, db)
     return success_response(data=KnowledgeListResponse(
         documents=documents,
         total_count=len(documents)
     ))
+
+
+@knowledge_router.get("/embedding/current")
+async def get_current_embedding_config(
+        user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
+):
+    svc = get_embedding_config_service()
+    config = await svc.get_user_config(db, user_id)
+    return success_response(data=config.to_dict())
+
+
+@knowledge_router.get("/embedding/ollama/models")
+async def list_embedding_ollama_models(
+        base_url: str = "http://localhost:11434",
+        user_id: str = Depends(get_current_user_id),
+        _: None = Depends(rate_limit(limit=20, window=60)),
+):
+    svc = get_embedding_config_service()
+    result = await svc.list_ollama_embedding_models(base_url)
+    return success_response(message="embedding models fetched", data={**result, "user_id": user_id})
+
+
+@knowledge_router.post("/embedding/switch")
+async def switch_embedding_and_rebuild(
+        payload: EmbeddingSwitchRequest,
+        user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
+        knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+        _: None = Depends(rate_limit(limit=5, window=60)),
+):
+    svc = get_embedding_config_service()
+    config = await svc.save_user_config(
+        db,
+        user_id,
+        model_name=payload.model_name,
+        base_url=payload.base_url,
+        provider=payload.provider,
+        model_type=payload.model_type,
+    )
+    result = await knowledge_service.rebuild_all_user_indexes(user_id, db)
+    return success_response(message="embedding switched and indexes rebuilt", data={**result, "embedding": config.to_dict()})
 
 
 @knowledge_router.get("/detail", response_model=KnowledgeDocumentDetail)
@@ -201,6 +264,24 @@ async def get_document_chunks(
     """获取文档切片信息"""
     chunks = await knowledge_service.handle_get_document_chunks(user_id, filename)
     return success_response(data=chunks)
+
+
+@knowledge_router.get("/source")
+async def download_source_file(
+        filename: str,
+        user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
+        knowledge_service: KnowledgeService = Depends(get_knowledge_service),
+        _: None = Depends(rate_limit(limit=10, window=60))
+):
+    source_doc = await knowledge_service.handle_get_source_file(user_id, filename, db)
+    safe_filename = source_doc.original_filename.replace('"', '')
+    encoded_filename = quote(safe_filename.encode("utf-8"))
+    return Response(
+        content=source_doc.content_blob,
+        media_type=source_doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"},
+    )
 
 
 # 图片服务端点：提供 PDF 中提取的原始图片的访问入口。

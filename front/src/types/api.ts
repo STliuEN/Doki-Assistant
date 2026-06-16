@@ -120,11 +120,19 @@ export interface KnowledgeDocument {
   user_id: string
   md5: string
   filename: string
+  original_filename?: string
   file_size: number
-  file_type: string
+  file_type?: string
+  file_ext?: string
+  mime_type?: string
   status: string
   chunk_count: number
+  embedding_model?: string
+  embedding_provider?: string
+  embedding_type?: string
+  error_message?: string | null
   created_at: string
+  updated_at?: string | null
 }
 
 export interface KnowledgeChunk {
@@ -197,13 +205,42 @@ export interface SSEMessage {
 }
 
 export interface KnowledgeSSEMessage {
-  event_type: 'processing' | 'completed' | 'finish'
+  event_type: 'start' | 'queued' | 'processing' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish'
   filename?: string
   progress?: number
   current?: number
   total?: number
+  total_files?: number
+  file_index?: number
   message?: string
   md5?: string
   knowledge_id?: string
+  document_id?: string
   status?: string
+  step?: string
+  error_message?: string
+  chunk_count?: number
+  success_count?: number
+  failed_count?: number
+}
+
+export interface EmbeddingConfig {
+  id: string
+  user_id: string
+  provider: string
+  model_type: string
+  model_name: string
+  base_url: string
+  is_active: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface EmbeddingSwitchResult {
+  knowledge_total: number
+  knowledge_success: number
+  knowledge_failed: number
+  knowledge_chunks: number
+  note_count: number
+  embedding: EmbeddingConfig
 }

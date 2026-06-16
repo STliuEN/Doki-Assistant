@@ -127,8 +127,9 @@ class RagService:
             # 同时检索笔记库
             note_docs = []
             try:
+                notes_store = await self.vector_store.get_user_notes_store(self.user_id)
                 note_docs = await asyncio.to_thread(
-                    self.note_service.notes_store.similarity_search,
+                    notes_store.similarity_search,
                     hypothetical_doc, k=3,
                     filter={"user_id": self.user_id}
                 )

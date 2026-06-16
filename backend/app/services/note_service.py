@@ -65,6 +65,28 @@ class NoteService:
     def notes_store(self):
         return self._notes_store
 
+    async def _get_user_notes_store(self, db: AsyncSession, user_id: str):
+        from app.rag.vector_store import VectorStoreService
+
+        return await VectorStoreService().get_user_notes_store(user_id, db=db)
+
+    async def _add_note_vector(self, db: AsyncSession, user_id: str, note_id: str, title: str, content: str) -> None:
+        notes_store = await self._get_user_notes_store(db, user_id)
+        doc = Document(
+            page_content=content,
+            metadata={
+                "user_id": user_id,
+                "note_id": note_id,
+                "doc_type": "note",
+                "title": title,
+            }
+        )
+        await asyncio.to_thread(lambda: notes_store.add_documents([doc], ids=[note_id]))
+
+    async def _delete_note_vector(self, db: AsyncSession, user_id: str, note_id: str) -> None:
+        notes_store = await self._get_user_notes_store(db, user_id)
+        await asyncio.to_thread(lambda: notes_store.delete(where={"note_id": note_id}))
+
     def _doc_to_response(self, note: Note) -> NoteResponse:
         """
         将 SQLAlchemy ORM 对象转换为 Pydantic 响应模型。
@@ -104,16 +126,7 @@ class NoteService:
 
         # 向量化写入 ChromaDB
         try:
-            doc = Document(
-                page_content=payload.content,
-                metadata={
-                    "user_id": user_id,
-                    "note_id": note_id,
-                    "doc_type": "note",
-                    "title": payload.title,
-                }
-            )
-            await asyncio.to_thread(lambda: self._notes_store.add_documents([doc], ids=[note_id]))
+            await self._add_note_vector(db, user_id, note_id, payload.title, payload.content)
         except Exception as e:
             logger.error(f"笔记向量化失败 note_id={note_id}: {e}")
 
@@ -156,19 +169,8 @@ class NoteService:
         if content_changed:
             try:
                 # 先删除旧向量，再写入新向量
-                await asyncio.to_thread(
-                    lambda: self._notes_store.delete(where={"note_id": note_id})
-                )
-                doc = Document(
-                    page_content=note.content,
-                    metadata={
-                        "user_id": user_id,
-                        "note_id": note_id,
-                        "doc_type": "note",
-                        "title": note.title,
-                    }
-                )
-                await asyncio.to_thread(lambda: self._notes_store.add_documents([doc], ids=[note_id]))
+                await self._delete_note_vector(db, user_id, note_id)
+                await self._add_note_vector(db, user_id, note_id, note.title, note.content)
             except Exception as e:
                 logger.error(f"更新笔记向量失败 note_id={note_id}: {e}")
 
@@ -191,9 +193,7 @@ class NoteService:
 
         # 清理向量
         try:
-            await asyncio.to_thread(
-                lambda: self._notes_store.delete(where={"note_id": note_id})
-            )
+            await self._delete_note_vector(db, user_id, note_id)
         except Exception as e:
             logger.error(f"删除笔记向量失败 note_id={note_id}: {e}")
 
@@ -268,8 +268,9 @@ class NoteService:
         只搜索当前用户的笔记（通过 metadata filter）。
         """
         try:
+            notes_store = await self._get_user_notes_store(db, user_id)
             docs = await asyncio.to_thread(
-                self._notes_store.similarity_search,
+                notes_store.similarity_search,
                 query,
                 k=top_k,
                 filter={"$and": [{"user_id": user_id}, {"doc_type": "note"}]},
@@ -317,8 +318,9 @@ class NoteService:
 
         # 从笔记库检索相似笔记（排除自身）
         try:
+            notes_store = await self._get_user_notes_store(db, user_id)
             note_docs = await asyncio.to_thread(
-                self._notes_store.similarity_search_with_score,
+                notes_store.similarity_search_with_score,
                 note.content,
                 k=top_k + 1,  # 多取一个，排除自身
             )
@@ -341,9 +343,9 @@ class NoteService:
         try:
             from app.rag.vector_store import VectorStoreService
             vector_store = VectorStoreService()
-            # 直接使用 vectors_store 的 similarity_search_with_score
+            knowledge_store = await vector_store.get_user_rag_store(user_id, db=db)
             kb_docs = await asyncio.to_thread(
-                vector_store.vectors_store.similarity_search_with_score,
+                knowledge_store.similarity_search_with_score,
                 note.content,
                 k=top_k,
                 filter={"user_id": user_id},
@@ -553,9 +555,7 @@ class NoteService:
 
         for nid in note_ids:
             try:
-                await asyncio.to_thread(
-                    lambda id=nid: self._notes_store.delete(where={"note_id": id})
-                )
+                await self._delete_note_vector(db, user_id, nid)
             except Exception as e:
                 logger.error(f"删除分类笔记向量失败 note_id={nid}: {e}")
 
@@ -610,9 +610,7 @@ class NoteService:
 
         for nid in existing_ids:
             try:
-                await asyncio.to_thread(
-                    lambda id=nid: self._notes_store.delete(where={"note_id": id})
-                )
+                await self._delete_note_vector(db, user_id, nid)
             except Exception as e:
                 logger.error(f"批量删除向量失败 note_id={nid}: {e}")
 

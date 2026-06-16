@@ -52,8 +52,6 @@ function buildCategoryList(customCategories: string[]) {
   if (order.length === 0) return list
 
   const orderIndex = new Map(order.map((v, i) => [v, i]))
-  const allValues = new Set(list.map((c) => c.value))
-
   return list.sort((a, b) => {
     if (a.value === '') return -1
     if (b.value === '') return 1

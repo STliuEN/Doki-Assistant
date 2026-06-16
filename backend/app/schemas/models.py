@@ -57,12 +57,23 @@ class ReorderResponse(BaseModel):
 class KnowledgeDocument(BaseModel):
     """知识库文档信息模型"""
     id: str
+    md5: str | None = None
     filename: str
     original_filename: str | None = None
     user_id: str | None = None
+    file_ext: str | None = None
+    mime_type: str | None = None
+    file_size: int | None = None
+    status: str | None = None
     chunk_count: int
     preview: str
+    embedding_type: str | None = None
+    embedding_provider: str | None = None
+    embedding_model: str | None = None
+    embedding_base_url: str | None = None
+    error_message: str | None = None
     created_at: str | None = None
+    updated_at: str | None = None
 
 
 class KnowledgeListResponse(BaseModel):

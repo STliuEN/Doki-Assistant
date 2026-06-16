@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowLeftRight, Clipboard, Eraser, FilePlus2, Languages, Loader2, Play, Send } from 'lucide-react'
+import { ArrowLeftRight, Clipboard, Eraser, FilePlus2, Loader2, Play, Send } from 'lucide-react'
 import { modelConfigApi } from '../api/modelConfig'
 import { notesApi } from '../api/notes'
 import { translateApi } from '../api/translate'

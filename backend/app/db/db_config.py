@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from sqlalchemy import inspect, text
+from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.chat_history import Base
@@ -40,10 +41,13 @@ _MYSQL_TYPE_MAP = {
     "Float": lambda col: "DOUBLE",
     "JSON": lambda col: "JSON",
     "DateTime": lambda col: "DATETIME",
+    "LONGBLOB": lambda col: "LONGBLOB",
 }
 
 
 def _get_mysql_type_ddl(col):
+    if isinstance(col.type, LONGBLOB):
+        return "LONGBLOB"
     type_name = type(col.type).__name__
     mapper = _MYSQL_TYPE_MAP.get(type_name)
     if mapper:
@@ -76,7 +80,7 @@ async def _migrate_columns(conn):
 # 初始化数据库，创建所有表
 async def init_db():
     # 确保所有 Model 已导入，注册到 Base.metadata
-    from app.models import chat_history, model_config, note, note_template, review_record  # noqa: F401
+    from app.models import chat_history, embedding_config, knowledge_document, model_config, note, note_template, review_record  # noqa: F401
 
     async with async_engine.begin() as conn:
         # 先删除旧表，然后创建新表

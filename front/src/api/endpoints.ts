@@ -55,10 +55,14 @@ export const endpoints = {
   knowledgeList: '/knowledge/list',
   knowledgeDetail: '/knowledge/detail',
   knowledgeChunks: '/knowledge/chunks',
+  knowledgeSource: '/knowledge/source',
   knowledgeImage: (md5: string, filename: string) => `/knowledge/image/${md5}/${filename}`,
   knowledgeMd5List: '/knowledge/md5/list',
   knowledgeMd5Delete: (md5: string) => `/knowledge/md5/delete/${md5}`,
   knowledgeDeleteFilename: '/knowledge/delete/filename',
+  knowledgeEmbeddingCurrent: '/knowledge/embedding/current',
+  knowledgeEmbeddingOllamaModels: '/knowledge/embedding/ollama/models',
+  knowledgeEmbeddingSwitch: '/knowledge/embedding/switch',
 
   // Documents reorder
   reorderDocuments: '/chat/reorder',

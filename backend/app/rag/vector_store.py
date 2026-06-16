@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import os
 import shutil
 import threading
@@ -6,8 +7,12 @@ import threading
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from sqlalchemy import select
 
 from app.core.logger_handler import logger
+from app.db.db_config import AsyncSessionLocal
+from app.models.note import Note
+from app.services.embedding_config_service import EmbeddingConfigData, get_embedding_config_service
 from app.utils.config import chroma_config
 from app.utils.image_extractor import delete_image_directory, delete_user_all_images
 from app.utils.path_tool import get_abstract_path
@@ -107,11 +112,14 @@ class VectorStoreService:
             VectorStoreService._initialized = True
 
     def _init_chroma(self, persist_dir: str):
+        self.persist_dir = persist_dir
         self.vectors_store = Chroma(
             collection_name=chroma_config['collection_name'],
             embedding_function=self._get_embed_model(),
             persist_directory=persist_dir,
         )
+        self._user_rag_stores: dict[str, Chroma] = {}
+        self._user_note_stores: dict[str, Chroma] = {}
         self.md5_store = MD5Store()
         self.hybrid_retriever = HybridRetriever(self.vectors_store)
         self.document_processor = DocumentProcessor(self.vectors_store, self.md5_store, self._get_embed_model())
@@ -121,14 +129,122 @@ class VectorStoreService:
         """获取嵌入模型（延迟加载包装器，模型在首次调用时解析）"""
         return _LazyEmbedding()
 
+    @staticmethod
+    def _collection_suffix(user_id: str) -> str:
+        return hashlib.sha1(user_id.encode("utf-8")).hexdigest()[:16]
+
+    def _user_collection_name(self, prefix: str, user_id: str) -> str:
+        return f"{prefix}_{self._collection_suffix(user_id)}"
+
+    async def _get_user_embedding_config(self, user_id: str, db=None) -> EmbeddingConfigData:
+        svc = get_embedding_config_service()
+        if db is not None:
+            return await svc.get_user_config(db, user_id)
+        async with AsyncSessionLocal() as session:
+            return await svc.get_user_config(session, user_id)
+
+    def _create_store(self, collection_name: str, embedding_config: EmbeddingConfigData) -> Chroma:
+        embed_model = get_embedding_config_service().create_embedding_model(embedding_config)
+        return Chroma(
+            collection_name=collection_name,
+            embedding_function=embed_model,
+            persist_directory=self.persist_dir,
+        )
+
+    def _reset_store(self, store: Chroma):
+        try:
+            store.reset_collection()
+        except Exception as exc:
+            logger.warning(f"重置 Chroma collection 失败，尝试继续使用新建 collection: {exc}")
+
+    async def get_user_rag_store(self, user_id: str, db=None, reset: bool = False) -> Chroma:
+        if not user_id:
+            return self.vectors_store
+
+        embedding_config = await self._get_user_embedding_config(user_id, db)
+        collection_name = self._user_collection_name("rag", user_id)
+        key = f"{collection_name}:{embedding_config.model_type}:{embedding_config.model_name}:{embedding_config.base_url}"
+        store = self._user_rag_stores.get(key)
+        if store is None:
+            store = self._create_store(collection_name, embedding_config)
+            self._user_rag_stores = {k: v for k, v in self._user_rag_stores.items() if not k.startswith(f"{collection_name}:")}
+            self._user_rag_stores[key] = store
+        if reset:
+            self._reset_store(store)
+        return store
+
+    async def get_user_notes_store(self, user_id: str, db=None, reset: bool = False) -> Chroma:
+        if not user_id:
+            return Chroma(
+                collection_name="notes_collection",
+                embedding_function=self._get_embed_model(),
+                persist_directory=self.persist_dir,
+            )
+
+        embedding_config = await self._get_user_embedding_config(user_id, db)
+        collection_name = self._user_collection_name("notes", user_id)
+        key = f"{collection_name}:{embedding_config.model_type}:{embedding_config.model_name}:{embedding_config.base_url}"
+        store = self._user_note_stores.get(key)
+        if store is None:
+            store = self._create_store(collection_name, embedding_config)
+            self._user_note_stores = {k: v for k, v in self._user_note_stores.items() if not k.startswith(f"{collection_name}:")}
+            self._user_note_stores[key] = store
+        if reset:
+            self._reset_store(store)
+        return store
+
+    async def reset_user_indexes(self, user_id: str, db=None):
+        await self.get_user_rag_store(user_id, db=db, reset=True)
+        await self.get_user_notes_store(user_id, db=db, reset=True)
+
+    async def add_user_documents(self, user_id: str, documents: list[Document], db=None, ids: list[str] | None = None):
+        store = await self.get_user_rag_store(user_id, db=db)
+        return await asyncio.to_thread(store.add_documents, documents, ids=ids)
+
+    async def delete_user_source_documents(self, user_id: str, source_document_id: str, db=None):
+        store = await self.get_user_rag_store(user_id, db=db)
+        await asyncio.to_thread(
+            store.delete,
+            where={"source_document_id": source_document_id},
+        )
+
+    async def rebuild_user_notes_index(self, db, user_id: str) -> int:
+        store = await self.get_user_notes_store(user_id, db=db, reset=True)
+        result = await db.execute(select(Note).where(Note.user_id == user_id))
+        notes = result.scalars().all()
+        if not notes:
+            return 0
+
+        docs = [
+            Document(
+                page_content=note.content,
+                metadata={
+                    "user_id": user_id,
+                    "note_id": note.id,
+                    "doc_type": "note",
+                    "title": note.title,
+                },
+            )
+            for note in notes
+        ]
+        ids = [note.id for note in notes]
+        await asyncio.to_thread(store.add_documents, docs, ids=ids)
+        return len(docs)
+
     async def get_bm25_retriever(self, user_id: str = None):
-        return await self.hybrid_retriever.get_bm25_retriever(user_id)
+        if not user_id:
+            return await self.hybrid_retriever.get_bm25_retriever(user_id)
+        store = await self.get_user_rag_store(user_id)
+        return await HybridRetriever(store).get_bm25_retriever(user_id)
 
     async def _get_all_documents(self) -> list[Document]:
         return await self.hybrid_retriever._get_all_documents()
 
     async def get_retriever(self, query: str = None, user_id: str = None):
-        return await self.hybrid_retriever.get_retriever(query, user_id)
+        if not user_id:
+            return await self.hybrid_retriever.get_retriever(query, user_id)
+        store = await self.get_user_rag_store(user_id)
+        return await HybridRetriever(store).get_retriever(query, user_id)
 
     @staticmethod
     async def get_dynamic_weights(query: str = None):
@@ -162,8 +278,9 @@ class VectorStoreService:
         """
         try:
             if delete_documents:
+                store = await self.get_user_rag_store(user_id)
                 await asyncio.to_thread(
-                    self.vectors_store.delete,
+                    store.delete,
                     where={"user_id": user_id}
                 )
                 logger.info(f"【向量数据库】已删除用户 {user_id} 的所有文档")
@@ -193,8 +310,9 @@ class VectorStoreService:
 
             if delete_documents:
                 where_clause = {"$and": [{"user_id": user_id}, {"md5": md5_to_delete}]}
+                store = await self.get_user_rag_store(user_id)
                 await asyncio.to_thread(
-                    self.vectors_store.delete,
+                    store.delete,
                     where=where_clause
                 )
                 logger.info(f"【向量数据库】已删除用户 {user_id} 中文件 {filename} 对应的文档")
@@ -226,8 +344,9 @@ class VectorStoreService:
 
             if delete_documents:
                 where_clause = {"$and": [{"user_id": user_id}, {"md5": md5_to_delete}]}
+                store = await self.get_user_rag_store(user_id)
                 await asyncio.to_thread(
-                    self.vectors_store.delete,
+                    store.delete,
                     where=where_clause
                 )
                 logger.info(f"【向量数据库】已删除用户 {user_id} 中MD5为 {md5_to_delete} 的文档")
@@ -276,8 +395,9 @@ class VectorStoreService:
         """
         try:
             where_clause = {"user_id": user_id} if user_id else None
+            store = await self.get_user_rag_store(user_id) if user_id else self.vectors_store
             all_docs = await asyncio.to_thread(
-                self.vectors_store.get,
+                store.get,
                 include=['documents', 'metadatas'],
                 where=where_clause
             )
@@ -331,8 +451,9 @@ class VectorStoreService:
         """
         try:
             where_clause = {"user_id": user_id}
+            store = await self.get_user_rag_store(user_id)
             all_docs = await asyncio.to_thread(
-                self.vectors_store.get,
+                store.get,
                 include=['documents', 'metadatas'],
                 where=where_clause
             )
@@ -412,8 +533,9 @@ class VectorStoreService:
         """
         try:
             where_clause = {"user_id": user_id}
+            store = await self.get_user_rag_store(user_id)
             all_docs = await asyncio.to_thread(
-                self.vectors_store.get,
+                store.get,
                 include=['documents', 'metadatas'],
                 where=where_clause
             )
