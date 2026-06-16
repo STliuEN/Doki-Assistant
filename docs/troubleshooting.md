@@ -40,14 +40,21 @@
 - 验证网络连接和防火墙设置
 - 检查 API 端点是否正确
 
-### 5. ModelScope 模型加载失败
+### 5. ModelScope / 重排序模型加载失败
 
 **问题**：`RuntimeError: 重排序模型加载失败: [Errno 2] No such file or directory`
+
+或：
+
+```text
+OSError: Error no file named model.safetensors, or pytorch_model.bin
+```
 
 **解决方法**：
 
 - 检查 `.env` 文件中的 `RERANKER_MODEL_PATH` 是否正确
-- 确保模型文件完整下载
+- 确保模型文件完整下载，目录中应包含 `config.json` 和 `model.safetensors` / `pytorch_model.bin`
+- 如果 `models/bge-reranker-v2-m3` 下存在 `._____temp` 或 `.lock`，通常代表 ModelScope 下载中断；重启服务会触发清理和重新下载
 - 检查文件权限
 - 尝试重新下载模型：删除模型目录后重启服务
 
@@ -61,7 +68,24 @@
 - 使用 CPU 模式：在 `reorder_service.py` 中将 `device` 强制设置为 `"cpu"`
 - 关闭其他占用 GPU 内存的程序
 
-### 7. 依赖安装失败
+### 7. RTX 50 系列 / sm_120 无法使用 CUDA
+
+**问题**：日志提示当前显卡是 `sm_120`，但 PyTorch 只支持到 `sm_90`，例如：
+
+```text
+NVIDIA GeForce RTX 5070 Ti with CUDA capability sm_120 is not compatible
+current PyTorch install supports sm_50 ... sm_90
+```
+
+**解决方法**：
+
+- 这是 PyTorch wheel 构建能力问题，不是 RAG 代码问题
+- 当前系统会自动回退 CPU，保证 RAG 主链路可继续使用
+- 若要使用 5070 Ti 跑 GPU 推理，需要安装支持 `sm_120` 的 CUDA 13.x PyTorch wheel
+- 建议重建 `backend/.venv`，并将 `torch / torchvision / torchaudio` 切换到 `cu130` 或 `cu132` 构建
+- MySQL、Chroma 向量库和已上传源文件不需要因为这件事重建
+
+### 8. 依赖安装失败
 
 **问题**：安装 `sentence-transformers` 或 `torch` 失败
 
@@ -71,7 +95,7 @@
 - 检查网络连接
 - 手动下载预编译包安装
 
-### 8. 端口被占用
+### 9. 端口被占用
 
 **问题**：`Address already in use`
 
@@ -80,16 +104,16 @@
 - 终止占用端口的进程
 - 使用不同的端口启动服务
 
-### 9. 文件上传失败
+### 10. 文件上传失败
 
 **问题**：`File too large` 或 `Unsupported file type`
 
 **解决方法**：
 - 检查文件大小是否超过限制（单个文件20MB，多个文件总计200MB）
-- 确保文件类型为 PDF 或 TXT
+- 确保文件类型为 PDF、TXT 或 DOCX
 - 检查文件权限
 
-### 10. 会话历史丢失
+### 11. 会话历史丢失
 
 **问题**：无法获取会话历史或会话被意外删除
 
@@ -112,6 +136,16 @@
 RuntimeError: 重排序模型加载失败
 ```
 → 检查模型路径和文件完整性
+
+```
+OSError: Error no file named model.safetensors, or pytorch_model.bin
+```
+→ 模型目录存在但权重缺失或下载未完成
+
+```
+CUDA capability sm_120 is not compatible
+```
+→ 当前 PyTorch wheel 不支持 RTX 50 系列架构，升级到 CUDA 13.x 构建或使用 CPU
 
 #### 数据库错误
 ```

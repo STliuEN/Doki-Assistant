@@ -187,6 +187,10 @@ class RagService:
                 "content": f"正在对 {len(documents)} 个文档进行重排序..."
             })
 
+        if init_manager.reorder_service is None:
+            logger.warning("【RAG】重排序服务尚未初始化，跳过重排序")
+            return documents
+
         result = await init_manager.reorder_service.reorder_documents(query, documents, thinking_callback=self.thinking_callback)
         if result["success"]:
             # 提取重排序后的文档内容

@@ -222,6 +222,8 @@ LANGCHAIN_PROJECT=my-fastapi-langchain-project
 
 # ==================== 重排序模型配置 ====================
 RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
+RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+RERANKER_DEVICE=auto
 
 # ==================== JWT 身份验证配置 ====================
 SECRET_KEY=MY_JWT_SECRET_KEY
@@ -490,7 +492,19 @@ ollama list
 
 ### 重排序模型
 
-下载 BAAI/bge-reranker-v2-m3 模型并配置 `RERANKER_MODEL_PATH` 路径，参考 [模型配置指南](./docs/modelscope_model.md)。
+默认使用 `BAAI/bge-reranker-v2-m3` 作为本地 CrossEncoder 重排序模型，并通过 ModelScope 自动下载。后端启动时会校验模型目录是否包含 `config.json` 和完整权重文件；如果发现 `._____temp`、`.lock` 等未完成下载残留，会清理后重新下载。配置与排障参考 [模型配置指南](./docs/modelscope_model.md)。
+
+常用环境变量：
+
+```env
+RERANKER_MODEL_PATH=./models/bge-reranker-v2-m3
+RERANKER_MODEL_NAME=BAAI/bge-reranker-v2-m3
+RERANKER_MODEL_REVISION=master
+RERANKER_DEVICE=auto
+RERANKER_MIN_WEIGHT_MB=50
+```
+
+`RERANKER_DEVICE=auto` 会优先尝试 CUDA；如果当前 PyTorch CUDA 构建不支持显卡架构，会自动回退 CPU，保证 RAG 主链路不中断。RTX 50 系列这类 `sm_120` 显卡需要使用支持 CUDA 13.x 的 PyTorch wheel，通常建议重建 `backend/.venv`。
 
 ## 故障排除
 
@@ -501,7 +515,8 @@ ollama list
 - **API Key 错误**：检查 ALIYUN_ACCESS_KEY 是否正确配置
 - **数据库连接失败**：确认 MySQL / Redis 服务已启动
 - **ChromaDB 异常**：检查 `chroma.yaml` 中的路径配置
-- **重排序模型加载失败**：确认 `RERANKER_MODEL_PATH` 指向正确的模型路径
+- **重排序模型加载失败**：确认 `RERANKER_MODEL_PATH` 指向包含 `config.json` 和 `model.safetensors` / `pytorch_model.bin` 的完整模型目录；如果是 ModelScope 中断下载残留，删除模型目录或重启服务触发重新下载
+- **RTX 50 系列无法使用 CUDA**：当前 PyTorch wheel 可能不支持 `sm_120`，需要升级到 CUDA 13.x 构建并重建后端 `.venv`
 - **Ollama 连接失败**：确认 `ollama serve` 已运行且模型已拉取
 
 ## License
