@@ -1,0 +1,7 @@
+id: delete_memory
+label: 删除记忆事项
+description: 永久删除记忆事项。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 67

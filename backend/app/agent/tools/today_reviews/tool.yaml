@@ -1,0 +1,7 @@
+id: today_reviews
+label: 查询今日复习
+description: 查询今天到期或需要提醒的复习事项。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 70

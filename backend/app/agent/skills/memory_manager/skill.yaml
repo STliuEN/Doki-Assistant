@@ -1,12 +1,15 @@
 id: memory_manager
-label: 记忆与事项管理
-description: 管理复习、待办、提醒、长期事项和普通备忘。
+label: 事项与备忘管理
+description: 管理待办、提醒、长期事项和普通备忘。
 tools:
   - current_time
   - create_memory
   - list_memories
+  - get_memory
   - complete_memory
   - postpone_memory
-  - mark_memory_reviewed
+  - update_memory
+  - archive_memory
+  - delete_memory
 default: true
-order: 60
+order: 50

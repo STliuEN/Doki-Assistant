@@ -4,4 +4,4 @@ description: 将非复习类型的记忆事项标记为完成。
 category: memory
 entrypoint: tool:get_tool
 default: true
-order: 62
+order: 64

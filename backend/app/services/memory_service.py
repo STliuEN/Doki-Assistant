@@ -143,14 +143,15 @@ class MemoryService:
 
     async def get_today_memories(self, db: AsyncSession, user_id: str) -> list[dict]:
         now = datetime.now()
+        end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999999)
         stmt = (
             select(MemoryItem)
             .where(
                 MemoryItem.user_id == user_id,
                 MemoryItem.status == "active",
                 or_(
-                    MemoryItem.due_at <= now,
-                    MemoryItem.remind_at <= now,
+                    MemoryItem.due_at <= end_of_today,
+                    MemoryItem.remind_at <= end_of_today,
                 ),
             )
             .order_by(MemoryItem.priority.desc(), MemoryItem.due_at.asc(), MemoryItem.created_at.desc())

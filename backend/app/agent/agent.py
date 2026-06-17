@@ -148,7 +148,7 @@ class AgentFactory:
             verbose=verbose,
             return_intermediate_steps=return_intermediate_steps,
             handle_parsing_errors=True,
-            max_iterations=5,
+            max_iterations=64,
             **kwargs
         )
 

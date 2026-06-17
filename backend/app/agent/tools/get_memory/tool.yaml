@@ -1,0 +1,7 @@
+id: get_memory
+label: 获取记忆详情
+description: 查看事项、备忘或复习记忆的完整详情。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 62

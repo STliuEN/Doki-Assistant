@@ -1,0 +1,7 @@
+id: update_memory
+label: 更新记忆事项
+description: 修改记忆事项的标题、内容、类型、状态、优先级或时间。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 63

@@ -1,0 +1,14 @@
+id: review_planner
+label: 复习计划
+description: 管理今日复习、间隔复习推进和复习题生成。
+tools:
+  - current_time
+  - list_memories
+  - get_memory
+  - today_reviews
+  - mark_memory_reviewed
+  - postpone_memory
+  - generate_review_question
+default: true
+visibility: public
+order: 60

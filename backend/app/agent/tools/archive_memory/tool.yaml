@@ -1,0 +1,7 @@
+id: archive_memory
+label: 归档记忆事项
+description: 将记忆事项归档。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 66

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   Archive,
@@ -17,18 +17,18 @@ import { memoryApi } from '../api/memory'
 import type { MemoryItem, MemoryPayload, MemoryQuestion, MemoryType } from '../types/api'
 import EmptyState from '../components/common/EmptyState'
 
-type FilterKey = 'today' | 'all' | MemoryType | 'done'
+type FilterKey = 'today' | 'active' | 'review' | 'task' | 'memo' | 'done'
 
 const filterOptions: { key: FilterKey; label: string }[] = [
   { key: 'today', label: '今日' },
-  { key: 'all', label: '全部' },
+  { key: 'active', label: '进行中' },
   { key: 'review', label: '复习' },
-  { key: 'todo', label: '待办' },
-  { key: 'reminder', label: '提醒' },
-  { key: 'long_term', label: '长期事项' },
+  { key: 'task', label: '事项' },
   { key: 'memo', label: '备忘' },
   { key: 'done', label: '已完成' },
 ]
+
+const taskTypes: MemoryType[] = ['todo', 'reminder', 'long_term']
 
 const typeLabels: Record<MemoryType, string> = {
   review: '复习',
@@ -77,12 +77,15 @@ export default function MemoryCenter() {
       if (nextFilter === 'today') {
         const data = await memoryApi.today()
         setItems(data.memories || [])
-      } else if (nextFilter === 'all') {
-        const data = await memoryApi.list()
+      } else if (nextFilter === 'active') {
+        const data = await memoryApi.list({ status: 'active' })
         setItems(data.memories || [])
       } else if (nextFilter === 'done') {
         const data = await memoryApi.list({ status: 'done' })
         setItems(data.memories || [])
+      } else if (nextFilter === 'task') {
+        const data = await memoryApi.list({ status: 'active' })
+        setItems((data.memories || []).filter((item) => taskTypes.includes(item.type)))
       } else {
         const data = await memoryApi.list({ type: nextFilter, status: 'active' })
         setItems(data.memories || [])
@@ -97,14 +100,6 @@ export default function MemoryCenter() {
   useEffect(() => {
     void loadItems()
   }, [])
-
-  const counts = useMemo(() => {
-    const result: Record<string, number> = {}
-    for (const item of items) {
-      result[item.type] = (result[item.type] || 0) + 1
-    }
-    return result
-  }, [items])
 
   const handleFilter = (key: FilterKey) => {
     setFilter(key)
@@ -181,7 +176,7 @@ export default function MemoryCenter() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-heading text-xl font-semibold text-[var(--color-text)]">记忆中心</h1>
-            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">复习、待办、提醒和长期事项统一管理</p>
+            <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">复习、事项和备忘统一管理</p>
           </div>
           <button
             onClick={() => setCreating(true)}
@@ -204,7 +199,6 @@ export default function MemoryCenter() {
               }`}
             >
               {item.label}
-              {counts[item.key] ? <span className="ml-1 text-xs opacity-70">{counts[item.key]}</span> : null}
             </button>
           ))}
         </div>

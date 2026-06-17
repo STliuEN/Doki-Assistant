@@ -1,0 +1,7 @@
+id: generate_review_question
+label: 生成复习题
+description: 根据复习类型记忆事项生成一道复习题。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 73
