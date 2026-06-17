@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("mark_memory_reviewed_tool", description="标记复习类型记忆事项为已复习。参数 memory_id 为记忆事项ID。")
+@tool("mark_memory_reviewed_tool")
 async def mark_memory_reviewed_tool(memory_id: str) -> str:
+    """标记复习类事项为已复习并推进间隔（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

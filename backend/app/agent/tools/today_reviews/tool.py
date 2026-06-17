@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("today_reviews_tool", description="查询今天到期或需要提醒的复习事项。无参数。")
+@tool("today_reviews_tool")
 async def today_reviews_tool() -> str:
+    """查询今天到期或需提醒的复习事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

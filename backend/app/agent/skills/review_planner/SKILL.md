@@ -1,11 +1,11 @@
 # 复习计划
 
-当用户询问复习计划、今日要复习什么、某条复习内容、自测题或标记已复习时，使用本 skill。
+管理间隔复习（review 类型）：今日复习、推进进度、生成自测题。
 
-- 用户问“今天要复习什么”“今日复习计划”“待复习内容”时，优先使用今日复习工具。
-- 用户给出复习事项 ID 并询问内容时，获取记忆详情。
-- 用户要求生成题目、自测、检查掌握情况时，使用生成复习题工具。
-- 用户完成复习后，使用 `mark_memory_reviewed_tool` 推进间隔复习计划。
-- 用户要求暂时不复习或推迟复习时，使用延期工具。
-- 用户没有提供明确复习事项 ID 时，先列出候选复习事项，请用户确认。
-- 不要把普通待办或备忘误标记为已复习；非 `review` 类型不使用标记已复习工具。
+- “今天复习什么/待复习” → today_reviews_tool。
+- 已知复习项 ID 查看内容 → get_memory_tool；找候选 → list_memories_tool(type=review)。
+- 用户完成复习 → mark_memory_reviewed_tool（推进 1/2/4/7/15/30 天间隔，仅 review 类型）。
+- 自测/检查掌握 → generate_review_question_tool。
+- 暂时不想复习 → postpone_memory_tool。
+- 用户要把某条内容加入复习时 → create_memory_tool 并设 type=review。
+- 缺少明确 ID 时先列候选确认。

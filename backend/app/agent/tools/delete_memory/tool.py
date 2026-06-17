@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("delete_memory_tool", description="永久删除记忆事项。参数 memory_id 为记忆事项ID。仅在用户明确要求删除时使用。")
+@tool("delete_memory_tool")
 async def delete_memory_tool(memory_id: str) -> str:
+    """永久删除记忆事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

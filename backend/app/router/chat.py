@@ -26,7 +26,11 @@ CHAT_PROMPT_MODES = {
 }
 
 
-def build_chat_system_prompt(prompt_type: str, skill_prompts: list[str] | None = None) -> str:
+def build_chat_system_prompt(
+    prompt_type: str,
+    skill_prompts: list[str] | None = None,
+    tool_names: list[str] | None = None,
+) -> str:
     parts = [load_prompt("main_prompt")]
 
     if skill_prompts:
@@ -36,11 +40,17 @@ def build_chat_system_prompt(prompt_type: str, skill_prompts: list[str] | None =
             "请只依赖当前已启用 skill 的说明和已绑定工具执行任务；未启用的能力不要假装可用。",
         ])
 
+    if tool_names:
+        parts.extend([
+            "## 本次可用工具",
+            f"你当前只能调用以下工具：{', '.join(tool_names)}。未列出的能力一律视为不可用，不要假装拥有或提及。",
+        ])
+
     if prompt_type != "main_prompt":
         parts.extend([
-            "## 当前 AI 模式补充规则",
+            f"## 回答风格（当前模式：{CHAT_PROMPT_MODES[prompt_type]}）",
             load_prompt(prompt_type),
-            "请同时遵守基础 Agent 规则、已启用 skill 规则和当前 AI 模式规则；如果冲突，优先保证工具、RAG、笔记管理等基础能力正常工作，再体现当前模式的回答风格。",
+            "风格优先级：在不违反全局规则、工具调用纪律与事实准确的前提下体现以上回答风格；冲突时以全局规则为准。",
         ])
 
     return "\n\n".join(parts)
@@ -85,7 +95,8 @@ async def query_stream(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    system_prompt = build_chat_system_prompt(prompt_type, skill_resolution.skill_prompts)
+    tool_names = [tool.name for tool in skill_resolution.tools]
+    system_prompt = build_chat_system_prompt(prompt_type, skill_resolution.skill_prompts, tool_names)
 
     return StreamingResponse(
         get_agent_stream_response(

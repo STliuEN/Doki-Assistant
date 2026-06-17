@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("complete_memory_tool", description="将非复习类型的记忆事项标记为完成。参数 memory_id 为记忆事项ID。")
+@tool("complete_memory_tool")
 async def complete_memory_tool(memory_id: str) -> str:
+    """将非复习类事项标记为完成（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

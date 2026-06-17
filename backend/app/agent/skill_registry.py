@@ -143,14 +143,27 @@ class ToolRegistry:
             if tool_id != tool_dir.name:
                 raise ValueError(f"{config_path} id must match tool directory name: {tool_dir.name}")
             entrypoint = _require_string(data, "entrypoint", config_path)
-            instructions = instructions_path.read_text(encoding="utf-8").strip() if instructions_path.exists() else ""
+            # TOOL.md 是工具给模型看的描述的唯一来源，必须存在且非空
+            if not instructions_path.exists():
+                raise ValueError(f"{tool_dir} requires TOOL.md (the only source of the tool description)")
+            instructions = instructions_path.read_text(encoding="utf-8").strip()
+            if not instructions:
+                raise ValueError(f"{instructions_path} must not be empty")
+
+            # 用 TOOL.md 覆盖工具的 description，py 里的占位描述/docstring 不再生效
+            tool_obj = self._load_tool_from_entrypoint(tool_dir, entrypoint)
+            try:
+                tool_obj.description = instructions
+            except (AttributeError, ValueError):
+                tool_obj = tool_obj.model_copy(update={"description": instructions})
+
             loaded[tool_id] = ToolDefinition(
                 id=tool_id,
                 label=_require_string(data, "label", config_path),
                 description=_require_string(data, "description", config_path),
                 category=_optional_string(data, "category", "general"),
                 order=_optional_int(data, "order", 100),
-                tool=self._load_tool_from_entrypoint(tool_dir, entrypoint),
+                tool=tool_obj,
                 entrypoint=entrypoint,
                 instructions=instructions,
                 is_default=_optional_bool(data, "default", True),

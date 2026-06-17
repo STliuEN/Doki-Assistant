@@ -6,7 +6,7 @@ from app.core.logger_handler import logger
 from app.db.db_config import AsyncSessionLocal
 
 
-@tool("search_notes_tool", description="语义搜索用户的笔记，根据关键词返回最相关的笔记列表。参数 query 为搜索关键词，top_k 为返回结果数量（默认5）。")
+@tool("search_notes_tool")
 async def search_notes_tool(query: str, top_k: int = 5) -> str:
     """搜索笔记工具"""
     user_id = get_current_user_id_from_context()

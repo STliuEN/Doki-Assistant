@@ -1,5 +1,1 @@
-# 更新记忆事项
-
-用于用户明确要求修改已有记忆事项时。必须已有明确 `memory_id`。
-
-可更新标题、内容、类型、状态、优先级、到期时间、提醒时间和扩展元数据。不要在用户没有确认目标事项时猜测 ID。
+修改一条记忆事项。参数 memory_id（必填）；title/content/type/status/priority/due_at/remind_at/metadata_json 均可选，只传需要修改的字段。type∈review/todo/reminder/long_term/memo，status∈active/done/archived，priority∈low/medium/high，时间用 ISO 格式。

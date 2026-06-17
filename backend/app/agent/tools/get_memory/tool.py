@@ -29,8 +29,9 @@ def _format_memory(item: dict) -> str:
     return "\n".join(lines)
 
 
-@tool("get_memory_tool", description="按记忆事项ID获取完整详情。参数 memory_id 为记忆事项ID。")
+@tool("get_memory_tool")
 async def get_memory_tool(memory_id: str) -> str:
+    """按 ID 获取记忆事项详情（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

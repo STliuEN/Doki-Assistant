@@ -7,13 +7,7 @@ from app.schemas.memory import MemoryCreate
 from app.services.memory_service import memory_service
 
 
-@tool(
-    "create_memory_tool",
-    description=(
-        "创建记忆中心事项。参数 title 为标题，content 为内容，type 为 memo/todo/reminder/long_term/review，"
-        "priority 为 low/medium/high，due_at 为 ISO 日期时间字符串（可选）。"
-    ),
-)
+@tool("create_memory_tool")
 async def create_memory_tool(
     title: str,
     content: str = "",
@@ -21,6 +15,7 @@ async def create_memory_tool(
     priority: str = "medium",
     due_at: str | None = None,
 ) -> str:
+    """创建记忆中心事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

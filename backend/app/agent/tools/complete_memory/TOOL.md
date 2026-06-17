@@ -1,3 +1,1 @@
-# 完成记忆事项
-
-用于把待办、提醒、长期事项或普通备忘标记为完成。复习类型应使用“标记已复习”工具。
+将非复习类事项标记为完成（status=done）。参数 memory_id（必填）。仅适用于 todo/reminder/long_term/memo；review 类型请改用 mark_memory_reviewed_tool。

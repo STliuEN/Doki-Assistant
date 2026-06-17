@@ -6,7 +6,7 @@ from app.core.logger_handler import logger
 from app.db.db_config import AsyncSessionLocal
 
 
-@tool("get_note_stats_tool", description="获取用户的笔记统计信息，包括笔记总数、各分类（工作/学习/生活/项目）的笔记数量。")
+@tool("get_note_stats_tool")
 async def note_stats_tool() -> str:
     """笔记统计工具"""
     user_id = get_current_user_id_from_context()

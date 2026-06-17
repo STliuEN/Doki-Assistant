@@ -1,3 +1,1 @@
-# 查询记忆事项
-
-用于回答用户关于今日事项、待办、提醒、长期事项和复习计划的问题。
+查询记忆中心事项。参数：scope 取 today（今天到期/需提醒）或 all（默认 today）；type 可选 review/todo/reminder/long_term/memo；status 默认 active（scope=all 时可查 done/archived）。返回带 ID 的事项列表，供后续按 ID 操作。

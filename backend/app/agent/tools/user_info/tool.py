@@ -3,7 +3,7 @@ from langchain_core.tools import tool
 from app.utils.auth_utils import decode_django_jwt
 
 
-@tool("get_user_info_tools", description="当用户明确问自己的ID和用户名时，从JWT中获取当前用户ID和用户名，参数为完整的JWT token字符串")
+@tool("get_user_info_tools")
 async def user_info_tool(token: str) -> str:
     """获取用户信息工具"""
     payload = decode_django_jwt(token)

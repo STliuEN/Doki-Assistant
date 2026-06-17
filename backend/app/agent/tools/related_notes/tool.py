@@ -6,7 +6,7 @@ from app.core.logger_handler import logger
 from app.db.db_config import AsyncSessionLocal
 
 
-@tool("get_related_notes_tool", description="获取某篇笔记的关联推荐，包括语义相似的笔记和知识库文档。参数 note_id 为笔记ID，top_k 为返回数量（默认3）。")
+@tool("get_related_notes_tool")
 async def related_notes_tool(note_id: str, top_k: int = 3) -> str:
     """关联笔记推荐工具"""
     user_id = get_current_user_id_from_context()

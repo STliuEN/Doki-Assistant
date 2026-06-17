@@ -6,14 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool(
-    "list_memories_tool",
-    description=(
-        "查询记忆中心事项。scope 为 today 或 all，type 可选 review/todo/reminder/long_term/memo，"
-        "status 默认为 active。"
-    ),
-)
+@tool("list_memories_tool")
 async def list_memories_tool(scope: str = "today", type: str | None = None, status: str = "active") -> str:
+    """查询记忆中心事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

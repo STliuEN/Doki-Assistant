@@ -1,5 +1,1 @@
-# 创建记忆事项
-
-用于把用户明确要求记录的事情写入记忆中心。支持 `todo`、`reminder`、`long_term`、`memo` 和 `review` 类型。
-
-涉及相对时间时，先结合当前时间推断为明确日期，再调用工具。
+在记忆中心创建一条事项。参数：title 标题（必填）；content 内容（可选）；type 取 memo/todo/reminder/long_term/review（默认 memo）；priority 取 low/medium/high（默认 medium）；due_at 为 ISO 日期时间字符串（可选）。涉及相对时间时先用 what_time_is_now 换算为具体日期。仅在用户有明确记录/提醒意图时使用，返回标题、类型和 ID。

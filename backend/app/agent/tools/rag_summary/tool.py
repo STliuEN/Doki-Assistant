@@ -4,14 +4,7 @@ from app.agent.tool_context import get_current_user_id_from_context, get_thinkin
 from app.rag.rag_service import RagService
 
 
-@tool(
-    "rag_summary_tools",
-    description=(
-        "用于从向量数据库里检索文档并生成摘要，返回包含文档列表和摘要的结果。"
-        "返回格式为：'摘要: [摘要内容]\n\n检索到的文档列表:\n1. [文档1内容]\n2. [文档2内容]\n...'。"
-        "注意：文档已经过自动重排序，无需再调用重排序工具"
-    ),
-)
+@tool("rag_summary_tools")
 async def rag_summary_tool(query: str, user_id: str = None) -> str:
     """RAG 摘要工具"""
     effective_user_id = user_id or get_current_user_id_from_context()

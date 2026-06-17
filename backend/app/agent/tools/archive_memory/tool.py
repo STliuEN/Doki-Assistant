@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("archive_memory_tool", description="将记忆事项归档。参数 memory_id 为记忆事项ID。")
+@tool("archive_memory_tool")
 async def archive_memory_tool(memory_id: str) -> str:
+    """归档记忆事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

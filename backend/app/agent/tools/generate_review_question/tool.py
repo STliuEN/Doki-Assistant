@@ -6,8 +6,9 @@ from app.db.db_config import AsyncSessionLocal
 from app.services.memory_service import memory_service
 
 
-@tool("generate_review_question_tool", description="为复习类型记忆事项生成一道复习题。参数 memory_id 为记忆事项ID。")
+@tool("generate_review_question_tool")
 async def generate_review_question_tool(memory_id: str) -> str:
+    """为复习类事项生成一道自测题（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

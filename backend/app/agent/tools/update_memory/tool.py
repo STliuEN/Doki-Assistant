@@ -7,14 +7,7 @@ from app.schemas.memory import MemoryUpdate
 from app.services.memory_service import memory_service
 
 
-@tool(
-    "update_memory_tool",
-    description=(
-        "更新记忆事项。参数 memory_id 为记忆事项ID；title/content/type/status/priority/"
-        "due_at/remind_at/metadata_json 均为可选。type 可为 review/todo/reminder/long_term/memo，"
-        "status 可为 active/done/archived，priority 可为 low/medium/high。日期时间请使用 ISO 格式。"
-    ),
-)
+@tool("update_memory_tool")
 async def update_memory_tool(
     memory_id: str,
     title: str | None = None,
@@ -26,6 +19,7 @@ async def update_memory_tool(
     remind_at: str | None = None,
     metadata_json: str | None = None,
 ) -> str:
+    """更新记忆事项（描述见 TOOL.md）。"""
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"

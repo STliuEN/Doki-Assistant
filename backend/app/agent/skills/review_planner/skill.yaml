@@ -3,6 +3,7 @@ label: 复习计划
 description: 管理今日复习、间隔复习推进和复习题生成。
 tools:
   - current_time
+  - create_memory
   - list_memories
   - get_memory
   - today_reviews

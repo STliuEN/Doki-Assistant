@@ -7,14 +7,7 @@ from app.db.db_config import AsyncSessionLocal
 from app.schemas.models import NoteCreate
 
 
-@tool(
-    "create_note_tool",
-    description=(
-        "创建一篇新笔记。参数 title 为笔记标题，content 为笔记内容"
-        "（支持Markdown格式，可选，不传则只创建标题）。"
-        "创建后会自动生成向量索引和智能标签。"
-    ),
-)
+@tool("create_note_tool")
 async def create_note_tool(title: str, content: str = "") -> str:
     """创建笔记工具"""
     user_id = get_current_user_id_from_context()
