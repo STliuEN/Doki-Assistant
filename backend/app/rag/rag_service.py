@@ -286,7 +286,7 @@ class RagService:
                     start_time = time.time()
                     single_summary = await asyncio.wait_for(
                         self.chain.ainvoke({"input": query, "context": single_context}),
-                        timeout=30.0  # 单个文档总结超时时间
+                        timeout=45.0  # 单个文档总结超时时间
                     )
                     end_time = time.time()
                     logger.info(f"【RAG】第{i}个文档总结耗时: {end_time - start_time:.2f}秒")
@@ -300,9 +300,26 @@ class RagService:
                 # 并发执行所有总结任务，最多5个线程
                 import time
                 start_time = time.time()
-                individual_summaries = await asyncio.gather(*tasks)
+                individual_results = await asyncio.gather(*tasks, return_exceptions=True)
+                individual_summaries = [
+                    result
+                    for result in individual_results
+                    if not isinstance(result, Exception) and str(result).strip()
+                ]
                 end_time = time.time()
                 logger.info(f"【RAG】所有文档总结完成，总耗时: {end_time - start_time:.2f}秒")
+
+                if not individual_summaries:
+                    fallback_context = "\n\n".join(reordered_documents[:max_documents])
+                    logger.warning("【RAG】单文档摘要均失败，使用原始检索内容生成兜底摘要")
+                    fallback_summary = await asyncio.wait_for(
+                        self.chain.ainvoke({"input": query, "context": fallback_context[:12000]}),
+                        timeout=60.0
+                    )
+                    return {
+                        "documents": reordered_documents,
+                        "summary": fallback_summary
+                    }
 
                 # 如果只有一个文档，直接返回其摘要
                 if len(individual_summaries) == 1:
@@ -329,7 +346,7 @@ class RagService:
                 # 生成最终总结
                 final_summary = await asyncio.wait_for(
                     self.chain.ainvoke({"input": query, "context": combined_context}),
-                    timeout=30.0  # 最终总结超时时间
+                    timeout=60.0  # 最终总结超时时间
                 )
 
                 logger.info("【RAG】生成摘要成功")

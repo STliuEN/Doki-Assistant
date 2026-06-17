@@ -73,6 +73,13 @@ export interface ChatSession {
   updated_at: string
 }
 
+export interface ChatHistoryMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  created_at?: string | null
+}
+
 export type ModelType = 'default' | 'ollama' | 'openai_compatible'
 
 export interface ModelConfig {

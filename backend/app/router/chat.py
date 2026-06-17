@@ -5,14 +5,25 @@ from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.agent import get_agent_stream_response
+from app.agent.agent import get_agent_regenerate_stream_response, get_agent_stream_response
 from app.agent.intent_router import route_skills
 from app.agent.skill_registry import get_skill_catalog, resolve_skills, skill_registry
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
 from app.router.chat_service import ChatService, get_router_service
-from app.schemas.models import QueryRequest, RAGRequest, RAGResponse, ReorderRequest, ReorderResponse, SessionResponse
+from app.schemas.models import (
+    DeleteMessageResponse,
+    QueryRequest,
+    RAGRequest,
+    RAGResponse,
+    RegenerateRequest,
+    ReorderRequest,
+    ReorderResponse,
+    SessionMessagesResponse,
+    SessionResponse,
+)
+from app.services import session_manager as sm
 from app.services.model_config_service import get_model_config_service
 from app.utils.auth_utils import get_current_user_id
 from app.utils.prompt_loader import load_prompt
@@ -114,6 +125,7 @@ async def query_stream(
             user_id,
             model_config=model_config,
             custom_tools=skill_resolution.tools,
+            context_settings=request.context,
             custom_system_prompt=system_prompt,
         ),
         media_type="text/event-stream",
@@ -145,6 +157,83 @@ async def get_session(
     """获取会话信息。"""
     history = await router_service.handle_get_session(session_id, user_id)
     return success_response(data=SessionResponse(session_id=session_id, history=history))
+
+
+@chat_router.get("/session/{session_id}/messages", response_model=SessionMessagesResponse)
+async def get_session_messages(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取会话原始消息列表（带消息 ID）。"""
+    messages = await sm.session_manager.get_messages(session_id, user_id)
+    return success_response(data=SessionMessagesResponse(session_id=session_id, messages=messages))
+
+
+@chat_router.delete("/session/{session_id}/messages/{message_id}", response_model=DeleteMessageResponse)
+async def delete_session_message(
+    session_id: str,
+    message_id: int,
+    mode: str = "single",
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除会话中的单条消息或相关消息。mode: single / pair / after。"""
+    result = await sm.session_manager.delete_message(session_id, user_id, message_id, mode)
+    return success_response(data=DeleteMessageResponse(**result))
+
+
+@chat_router.post("/session/{session_id}/messages/{message_id}/regenerate/stream")
+async def regenerate_session_message_stream(
+    session_id: str,
+    message_id: int,
+    request: RegenerateRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    """重新生成已有 assistant 消息，流式返回并覆盖原消息。"""
+    svc = get_model_config_service()
+    if request.model_config_id:
+        model_config = await svc.get_config(db, user_id, request.model_config_id)
+        if model_config is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="model config not found")
+    else:
+        model_config = None
+
+    prompt_type = request.prompt_type or "main_prompt"
+    if prompt_type not in CHAT_PROMPT_MODES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="unsupported prompt_type")
+
+    payload = await sm.session_manager.get_regenerate_payload(session_id, user_id, message_id)
+    candidate_skill_ids = request.skill_ids if request.skill_ids is not None else skill_registry.default_skill_ids()
+    if request.tool_ids:
+        routed_skill_ids = candidate_skill_ids
+    else:
+        routed_skill_ids = await route_skills(payload["query"], candidate_skill_ids)
+
+    try:
+        skill_resolution = resolve_skills(routed_skill_ids, request.tool_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    tool_names = [tool.name for tool in skill_resolution.tools]
+    system_prompt = build_chat_system_prompt(prompt_type, skill_resolution.skill_prompts, tool_names)
+
+    return StreamingResponse(
+        get_agent_regenerate_stream_response(
+            session_id,
+            user_id,
+            message_id,
+            model_config=model_config,
+            custom_tools=skill_resolution.tools,
+            context_settings=request.context,
+            custom_system_prompt=system_prompt,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @chat_router.delete("/session/{session_id}")

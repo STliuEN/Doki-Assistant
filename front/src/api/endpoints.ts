@@ -43,6 +43,13 @@ export const endpoints = {
 
   // Sessions
   getSession: (id: string) => `/chat/session/${id}`,
+  getSessionMessages: (id: string) => `/chat/session/${id}/messages`,
+  deleteSessionMessage: (sessionId: string, messageId: number, mode = 'single') => (
+    `/chat/session/${sessionId}/messages/${messageId}?mode=${encodeURIComponent(mode)}`
+  ),
+  regenerateSessionMessage: (sessionId: string, messageId: number) => (
+    `/chat/session/${sessionId}/messages/${messageId}/regenerate/stream`
+  ),
   deleteSession: (id: string) => `/chat/session/${id}`,
   getAllSessions: '/chat/sessions',
   getUserSessions: (userId: string) => `/chat/sessions/${userId}`,

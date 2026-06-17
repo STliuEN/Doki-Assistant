@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+﻿import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench } from 'lucide-react'
+import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench, Trash2, RefreshCw, Gauge } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
@@ -11,8 +11,10 @@ import { modelConfigApi } from '../api/modelConfig'
 import { sessionsApi } from '../api/sessions'
 import { useThemeStore } from '../stores/useThemeStore'
 import type { ModelConfig } from '../types/api'
+import { endpoints } from '../api/endpoints'
 
 interface Message {
+  id?: number
   role: 'user' | 'assistant'
   content: string
   thinking?: string
@@ -22,6 +24,42 @@ interface Message {
 const CHAT_MODEL_STORAGE_KEY = 'ai_chat_selected_model_id'
 const CHAT_PROMPT_STORAGE_KEY = 'ai_chat_prompt_type'
 const CHAT_SKILLS_STORAGE_KEY = 'ai_chat_skill_ids'
+const CHAT_CONTEXT_STORAGE_KEY = 'ai_chat_context_settings'
+
+type ContextMode = 'auto' | 'low' | 'medium' | 'high' | 'custom' | 'current_only'
+
+interface ContextSettings {
+  mode: ContextMode
+  max_tokens: number
+  recent_turns: number
+}
+
+const defaultContextSettings: ContextSettings = {
+  mode: 'auto',
+  max_tokens: 4000,
+  recent_turns: 6,
+}
+
+const readSavedContextSettings = (): ContextSettings => {
+  const saved = localStorage.getItem(CHAT_CONTEXT_STORAGE_KEY)
+  if (!saved) return defaultContextSettings
+  try {
+    const parsed = JSON.parse(saved) as Partial<ContextSettings>
+    return {
+      mode: ['auto', 'low', 'medium', 'high', 'custom', 'current_only'].includes(parsed.mode || '')
+        ? parsed.mode as ContextMode
+        : defaultContextSettings.mode,
+      max_tokens: typeof parsed.max_tokens === 'number' && parsed.max_tokens > 0
+        ? parsed.max_tokens
+        : defaultContextSettings.max_tokens,
+      recent_turns: typeof parsed.recent_turns === 'number' && parsed.recent_turns > 0
+        ? parsed.recent_turns
+        : defaultContextSettings.recent_turns,
+    }
+  } catch {
+    return defaultContextSettings
+  }
+}
 
 const readSavedSkillIds = () => {
   const saved = localStorage.getItem(CHAT_SKILLS_STORAGE_KEY)
@@ -50,6 +88,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [currentThinking, setCurrentThinking] = useState('')
   const [currentSteps, setCurrentSteps] = useState<string[]>([])
+  const [currentStepDetails, setCurrentStepDetails] = useState<string[]>([])
   const [showThinking, setShowThinking] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([])
@@ -60,6 +99,7 @@ export default function AIChat() {
   const [tools, setTools] = useState<ChatTool[]>([])
   const [toolsById, setToolsById] = useState<Record<string, ChatTool>>({})
   const [showToolPanel, setShowToolPanel] = useState(false)
+  const [showContextPanel, setShowContextPanel] = useState(false)
   const [skillSelectionTouched, setSkillSelectionTouched] = useState(() => (
     localStorage.getItem(CHAT_SKILLS_STORAGE_KEY) !== null
   ))
@@ -68,12 +108,21 @@ export default function AIChat() {
   const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem(CHAT_MODEL_STORAGE_KEY) || '')
   const [selectedPromptType, setSelectedPromptType] = useState(() => localStorage.getItem(CHAT_PROMPT_STORAGE_KEY) || 'main_prompt')
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(readSavedSkillIds)
+  const [contextSettings, setContextSettings] = useState<ContextSettings>(readSavedContextSettings)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef('')
+  const regeneratingMessageIdRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
 
   const flushContent = useCallback(() => {
     setMessages((prev) => {
+      if (regeneratingMessageIdRef.current !== null) {
+        return prev.map((message) => (
+          message.id === regeneratingMessageIdRef.current
+            ? { ...message, content: contentRef.current }
+            : message
+        ))
+      }
       const newMsgs = [...prev]
       const last = newMsgs[newMsgs.length - 1]
       if (last?.role === 'assistant') {
@@ -137,6 +186,10 @@ export default function AIChat() {
     localStorage.setItem(CHAT_SKILLS_STORAGE_KEY, JSON.stringify(selectedSkillIds))
   }, [selectedSkillIds])
 
+  useEffect(() => {
+    localStorage.setItem(CHAT_CONTEXT_STORAGE_KEY, JSON.stringify(contextSettings))
+  }, [contextSettings])
+
   const toggleSkill = useCallback((skillId: string) => {
     setSkillSelectionTouched(true)
     setSelectedSkillIds((current) => (
@@ -146,20 +199,24 @@ export default function AIChat() {
     ))
   }, [])
 
+  const loadSessionMessages = useCallback(async (id: string) => {
+    const res = await sessionsApi.messages(id)
+    const data = res.data
+    if (data?.messages) {
+      setMessages(data.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+      })))
+    }
+  }, [])
+
   useEffect(() => {
     if (sessionId) {
       setLoadingHistory(true)
-      sessionsApi.get(sessionId).then((res) => {
-        const data = res.data as { history?: [string, string][] } | undefined
-        if (data?.history) {
-          setMessages(data.history.flatMap(([query, response]) => [
-            { role: 'user', content: query },
-            { role: 'assistant', content: response },
-          ]))
-        }
-      }).catch(() => {}).finally(() => setLoadingHistory(false))
+      loadSessionMessages(sessionId).catch(() => {}).finally(() => setLoadingHistory(false))
     }
-  }, [sessionId])
+  }, [loadSessionMessages, sessionId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -182,9 +239,11 @@ export default function AIChat() {
     setInput('')
     setCurrentThinking('')
     setCurrentSteps([])
+    setCurrentStepDetails(['请求已发送，等待 Agent 开始执行...'])
     setShowThinking(true)
 
     contentRef.current = ''
+    regeneratingMessageIdRef.current = null
     const steps: string[] = []
     let hasResponseStarted = false
 
@@ -194,6 +253,7 @@ export default function AIChat() {
         query,
         session_id: sessionId,
         prompt_type: selectedPromptType,
+        context: contextSettings,
         ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
@@ -202,6 +262,10 @@ export default function AIChat() {
           if (!steps.includes(stage)) steps.push(stage)
           setCurrentSteps([...steps])
           setCurrentThinking(content || '')
+          setCurrentStepDetails((current) => [
+            ...current,
+            `${stage || 'thinking'}: ${content || ''}`,
+          ])
         },
         onResponse: (content, sessionId) => {
           if (!hasResponseStarted) {
@@ -230,6 +294,8 @@ export default function AIChat() {
           }
           if (newSessionId && newSessionId !== sessionId) {
             navigate(`/chat/${newSessionId}`, { replace: true })
+          } else if (sessionId) {
+            void loadSessionMessages(sessionId)
           }
         },
         onError: (error) => {
@@ -237,7 +303,86 @@ export default function AIChat() {
         },
       }
     )
-  }, [loading, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
+  }, [contextSettings, loadSessionMessages, loading, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
+
+  const handleRegenerateMessage = useCallback(async (message: Message) => {
+    if (!sessionId || !message.id || message.role !== 'assistant' || loading) return
+
+    setCurrentThinking('')
+    setCurrentSteps([])
+    setCurrentStepDetails(['正在请求重新生成...'])
+    setShowThinking(true)
+    contentRef.current = ''
+    regeneratingMessageIdRef.current = message.id
+    setMessages((prev) => prev.map((item) => (
+      item.id === message.id ? { ...item, content: '' } : item
+    )))
+
+    const steps: string[] = []
+    let hasResponseStarted = false
+
+    await start(
+      endpoints.regenerateSessionMessage(sessionId, message.id),
+      {
+        prompt_type: selectedPromptType,
+        context: contextSettings,
+        ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
+        ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
+      },
+      {
+        onThinking: (stage, content) => {
+          if (!steps.includes(stage)) steps.push(stage)
+          setCurrentSteps([...steps])
+          setCurrentThinking(content || '')
+          setCurrentStepDetails((current) => [
+            ...current,
+            `${stage || 'thinking'}: ${content || ''}`,
+          ])
+        },
+        onResponse: (content) => {
+          if (!hasResponseStarted) {
+            hasResponseStarted = true
+            setShowThinking(false)
+          }
+          contentRef.current += content
+          if (rafRef.current === null) {
+            rafRef.current = requestAnimationFrame(() => {
+              rafRef.current = null
+              flushContent()
+            })
+          }
+        },
+        onDone: () => {
+          if (rafRef.current !== null) {
+            cancelAnimationFrame(rafRef.current)
+            rafRef.current = null
+          }
+          flushContent()
+          regeneratingMessageIdRef.current = null
+        },
+        onError: (error) => {
+          setMessages((prev) => prev.map((item) => (
+            item.id === message.id ? { ...item, content: `Error: ${error}` } : item
+          )))
+          regeneratingMessageIdRef.current = null
+        },
+      }
+    )
+  }, [contextSettings, flushContent, loading, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, skillSelectionTouched, start])
+
+  const handleDeleteMessage = useCallback(async (message: Message) => {
+    if (!sessionId || !message.id || loading) return
+    const mode = message.role === 'user' ? 'pair' : 'single'
+    const confirmed = window.confirm(message.role === 'user' ? '确定删除这条提问及紧随其后的回答吗？' : '确定删除这条回答吗？')
+    if (!confirmed) return
+    try {
+      const res = await sessionsApi.deleteMessage(sessionId, message.id, mode)
+      const deletedIds = new Set(res.data?.deleted_ids || [])
+      setMessages((prev) => prev.filter((item) => !item.id || !deletedIds.has(item.id)))
+    } catch {
+      setMessages((prev) => prev)
+    }
+  }, [loading, sessionId])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -298,7 +443,7 @@ export default function AIChat() {
           )}
 
           {messages.map((msg, i) => (
-            <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+            <div key={msg.id ?? i} className={`group flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
               {msg.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-lg bg-[var(--color-accent-bg)] flex items-center justify-center shrink-0">
                   <Bot size={16} className="text-[var(--color-accent)]" />
@@ -306,8 +451,23 @@ export default function AIChat() {
               )}
               <div className={`max-w-[75%] ${msg.role === 'user' ? 'order-first' : ''}`}>
                 {msg.role === 'user' ? (
-                  <div className="px-4 py-2.5 rounded-2xl bg-[var(--color-accent)] text-white text-sm">
-                    {msg.content}
+                  <div className="space-y-1">
+                    <div className="px-4 py-2.5 rounded-2xl bg-[var(--color-accent)] text-white text-sm">
+                      {msg.content}
+                    </div>
+                    {msg.id && (
+                      <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => void handleDeleteMessage(msg)}
+                          disabled={loading}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] disabled:opacity-50"
+                          title="删除"
+                        >
+                          <Trash2 size={13} />
+                          删除
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -321,9 +481,13 @@ export default function AIChat() {
                             {showThinking ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             {t('chat.thinkingSteps')}
                           </button>
-                          {showThinking && currentThinking && (
-                            <div className="px-4 pb-3">
-                              <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{currentThinking}</p>
+                          {showThinking && currentStepDetails.length > 0 && (
+                            <div className="px-4 pb-3 space-y-1">
+                              {currentStepDetails.map((detail, detailIndex) => (
+                                <p key={`${detailIndex}-${detail}`} className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                                  {detail}
+                                </p>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -339,6 +503,28 @@ export default function AIChat() {
                         <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-2 h-2 rounded-full bg-[var(--color-accent)] animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    )}
+                    {msg.id && (
+                      <div className="mt-2 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => void handleRegenerateMessage(msg)}
+                          disabled={loading}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] disabled:opacity-50"
+                          title="重新生成"
+                        >
+                          <RefreshCw size={13} />
+                          刷新
+                        </button>
+                        <button
+                          onClick={() => void handleDeleteMessage(msg)}
+                          disabled={loading}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)] disabled:opacity-50"
+                          title="删除"
+                        >
+                          <Trash2 size={13} />
+                          删除
+                        </button>
                       </div>
                     )}
                   </>
@@ -358,7 +544,7 @@ export default function AIChat() {
                 <Bot size={16} className="text-[var(--color-accent)]" />
               </div>
               <div className="space-y-2 flex-1">
-                {currentSteps.length > 0 && (
+                {currentStepDetails.length > 0 && (
                   <div className="bg-[var(--color-card)] rounded-lg border border-[var(--color-border)] overflow-hidden">
                     <button
                       onClick={() => setShowThinking(!showThinking)}
@@ -367,9 +553,13 @@ export default function AIChat() {
                       {showThinking ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       {t('chat.thinkingSteps')}
                     </button>
-                    {showThinking && currentThinking && (
-                      <div className="px-4 pb-3">
-                        <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{currentThinking}</p>
+                    {showThinking && (
+                      <div className="px-4 pb-3 space-y-1">
+                        {currentStepDetails.map((detail, detailIndex) => (
+                          <p key={`${detailIndex}-${detail}`} className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
+                            {detail}
+                          </p>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -389,13 +579,13 @@ export default function AIChat() {
 
       <div className="border-t border-[var(--color-border)] bg-[var(--color-card)] px-6 py-4">
         <div className="max-w-3xl mx-auto space-y-2">
-          <div className="flex items-center gap-3 text-xs text-[var(--color-text-secondary)]">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="shrink-0">模型</span>
+          <div className="flex flex-wrap items-center justify-start gap-2 text-xs text-[var(--color-text-secondary)]">
+            <div className="flex w-[300px] max-w-full items-center gap-1.5 min-w-0">
+              <span className="w-7 shrink-0 text-right">模型</span>
               <select
                 value={selectedModelId}
                 onChange={(e) => setSelectedModelId(e.target.value)}
-                className="h-8 w-72 max-w-[42vw] px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                className="h-8 flex-1 min-w-0 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
               >
                 <option value="">工程默认配置</option>
                 {modelConfigs.map((config) => (
@@ -406,27 +596,27 @@ export default function AIChat() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span>AI 模式</span>
+            <div className="flex w-[150px] items-center gap-1.5 shrink-0">
+              <span className="w-10 shrink-0 text-right">AI模式</span>
               <select
                 value={selectedPromptType}
                 onChange={(e) => setSelectedPromptType(e.target.value)}
-                className="h-8 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                className="h-8 w-[102px] px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
               >
                 {promptModes.map((mode) => (
                   <option key={mode.value} value={mode.value}>{mode.label}</option>
                 ))}
               </select>
             </div>
-            <div className="relative shrink-0">
+            <div className="relative w-[92px] shrink-0">
               <button
                 type="button"
                 onClick={() => setShowToolPanel((value) => !value)}
-                className="h-8 inline-flex items-center gap-1.5 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
+                className="h-8 w-full inline-flex items-center justify-center gap-1.5 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
               >
                 <Wrench size={13} />
-                Skill
-                <span className="text-[var(--color-text-tertiary)]">
+                <span className="w-7 text-left">Skill</span>
+                <span className="w-4 text-right text-[var(--color-text-tertiary)]">
                   {selectedSkillIds.length}
                 </span>
               </button>
@@ -490,6 +680,93 @@ export default function AIChat() {
                 </div>
               )}
             </div>
+            <div className="relative w-[88px] shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowContextPanel((value) => !value)}
+                className="h-8 w-full inline-flex items-center justify-center gap-1.5 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
+                title="上下文长度控制"
+              >
+                <Gauge size={13} />
+                <span>上下文</span>
+              </button>
+              {showContextPanel && (
+                <div className="absolute right-0 bottom-10 z-20 w-[320px] max-w-[calc(100vw-48px)] rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-medium text-[var(--color-text)]">上下文</span>
+                    <span className="text-[var(--color-text-secondary)]">按 token 估算裁剪</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'auto', label: 'Auto' },
+                      { value: 'low', label: '低' },
+                      { value: 'medium', label: '中' },
+                      { value: 'high', label: '高' },
+                      { value: 'custom', label: '自定义' },
+                      { value: 'current_only', label: '仅当前' },
+                    ].map((mode) => {
+                      const active = contextSettings.mode === mode.value
+                      return (
+                        <button
+                          key={mode.value}
+                          type="button"
+                          onClick={() => setContextSettings((current) => ({
+                            ...current,
+                            mode: mode.value as ContextMode,
+                            max_tokens: mode.value === 'low'
+                              ? 2000
+                              : mode.value === 'medium'
+                                ? 4000
+                                : mode.value === 'high'
+                                  ? 8000
+                                  : current.max_tokens,
+                          }))}
+                          className={`h-8 rounded-md border text-xs transition-colors ${
+                            active
+                              ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                              : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {contextSettings.mode === 'auto' && (
+                    <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
+                      <span>最大 token</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={500}
+                        value={contextSettings.max_tokens || ''}
+                        onChange={(e) => setContextSettings((current) => ({
+                          ...current,
+                          max_tokens: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
+                        }))}
+                        className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                      />
+                    </label>
+                  )}
+                  {contextSettings.mode === 'custom' && (
+                    <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
+                      <span>保留最近对话轮数</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={contextSettings.recent_turns || ''}
+                        onChange={(e) => setContextSettings((current) => ({
+                          ...current,
+                          recent_turns: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
+                        }))}
+                        className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-3">
             <textarea
@@ -513,3 +790,5 @@ export default function AIChat() {
     </div>
   )
 }
+
+

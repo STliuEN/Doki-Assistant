@@ -2,6 +2,13 @@
 from pydantic import BaseModel
 
 
+class ContextSettings(BaseModel):
+    """上下文长度控制参数"""
+    mode: str = "auto"
+    max_tokens: int | None = 4000
+    recent_turns: int | None = 6
+
+
 class QueryRequest(BaseModel):
     """查询请求模型"""
     session_id: str | None = None
@@ -9,7 +16,17 @@ class QueryRequest(BaseModel):
     prompt_type: str | None = None
     skill_ids: list[str] | None = None
     tool_ids: list[str] | None = None
+    context: ContextSettings | None = None
     query: str
+
+
+class RegenerateRequest(BaseModel):
+    """閲嶆柊鐢熸垚鍔╂墜鍥炵瓟璇锋眰妯″瀷"""
+    model_config_id: str | None = None
+    prompt_type: str | None = None
+    skill_ids: list[str] | None = None
+    tool_ids: list[str] | None = None
+    context: ContextSettings | None = None
 
 
 class RAGRequest(BaseModel):
@@ -21,6 +38,26 @@ class SessionResponse(BaseModel):
     """会话响应模型"""
     session_id: str
     history: list[tuple[str, str]]
+
+
+class ChatMessageResponse(BaseModel):
+    """会话消息响应模型"""
+    id: int
+    role: str
+    content: str
+    created_at: str | None = None
+
+
+class SessionMessagesResponse(BaseModel):
+    """会话消息列表响应模型"""
+    session_id: str
+    messages: list[ChatMessageResponse]
+
+
+class DeleteMessageResponse(BaseModel):
+    """删除会话消息响应模型"""
+    session_id: str
+    deleted_ids: list[int]
 
 
 class AgentStep(BaseModel):

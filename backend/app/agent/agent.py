@@ -239,6 +239,7 @@ async def get_agent_stream_response(
         user_id: str,
         model_config: UserModelConfig | None = None,
         custom_tools: list[BaseTool] | None = None,
+        context_settings=None,
         **kwargs
 ) -> AsyncGenerator[str, None]:
     """
@@ -266,7 +267,18 @@ async def get_agent_stream_response(
             set_current_user_id(user_id)
             set_thinking_callback(thinking_callback)
 
-            history = await sm.session_manager.get_history(session_id, user_id)
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "start",
+                "content": "正在准备上下文、模型和可用工具..."
+            })
+
+            history = await sm.session_manager.get_context(session_id, user_id, context_settings)
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "context",
+                "content": f"已载入 {len(history)} 轮历史上下文。"
+            })
             logger.info(f"【Agent流式响应】获取会话历史成功，历史记录数: {len(history)}")
 
             chat_history: list[BaseMessage] = []
@@ -277,9 +289,20 @@ async def get_agent_stream_response(
                     chat_history.append(AIMessage(content=assistant_msg))
 
             agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, model_config=model_config, **kwargs)
+            tool_names = [tool.name for tool in (custom_tools or [])]
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "tools",
+                "content": f"本轮可用工具：{', '.join(tool_names) if tool_names else '无'}。"
+            })
 
             full_response = []
             system_prompt = kwargs.get("custom_system_prompt") or agent_factory.default_system_prompt
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "agent",
+                "content": "Agent 正在执行推理和工具调用..."
+            })
 
             async for chunk in agent_executor.astream({
                 "input": query,
@@ -290,6 +313,15 @@ async def get_agent_stream_response(
                     full_response.append(chunk["output"])
                 elif "intermediate_steps" in chunk:
                     for action, observation in chunk["intermediate_steps"]:
+                        await thinking_callback({
+                            "type": "thinking",
+                            "stage": f"tool:{action.tool}",
+                            "content": f"调用工具 {action.tool}",
+                            "details": {
+                                "tool_input": action.tool_input,
+                                "tool_output": str(observation)[:1000],
+                            }
+                        })
                         logger.info(f"\n\n🧠 [Agent 思考] {action.log}")
                         logger.info(f"🛠️ [调用工具] {action.tool}")
                         logger.info(f"📥 [工具输入] {action.tool_input}")
@@ -361,6 +393,139 @@ async def get_agent_stream_response(
         logger.error(f"【Agent流式响应】处理请求失败: {e}", exc_info=True)
 
         # 取消 agent 任务
+        agent_task.cancel()
+        try:
+            await agent_task
+        except asyncio.CancelledError:
+            pass
+
+        error_message = f"错误: {str(e)}"
+        yield f"data: {json.dumps({'type': 'error', 'content': error_message, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+
+
+async def get_agent_regenerate_stream_response(
+        session_id: str,
+        user_id: str,
+        assistant_message_id: int,
+        model_config: UserModelConfig | None = None,
+        custom_tools: list[BaseTool] | None = None,
+        context_settings=None,
+        **kwargs
+) -> AsyncGenerator[str, None]:
+    """重新生成已有 assistant 消息，并用新内容覆盖原消息。"""
+    thinking_queue = asyncio.Queue()
+    agent_result_holder = {"response": None, "error": None}
+    agent_done = asyncio.Event()
+
+    payload = await sm.session_manager.get_regenerate_payload(session_id, user_id, assistant_message_id)
+    query = payload["query"]
+    history = sm.session_manager.trim_history(payload["history"], context_settings)
+
+    async def thinking_callback(data: dict):
+        logger.info(f"【重新生成思考过程】{data.get('stage', 'unknown')}: {data.get('content', '')}")
+        await thinking_queue.put(data)
+
+    async def run_agent():
+        try:
+            set_current_user_id(user_id)
+            set_thinking_callback(thinking_callback)
+
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "start",
+                "content": "正在重新生成回答..."
+            })
+
+            chat_history: list[BaseMessage] = []
+            if history:
+                from langchain_core.messages import AIMessage, HumanMessage
+                for user_msg, assistant_msg in history:
+                    chat_history.append(HumanMessage(content=user_msg))
+                    chat_history.append(AIMessage(content=assistant_msg))
+
+            agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, model_config=model_config, **kwargs)
+            tool_names = [tool.name for tool in (custom_tools or [])]
+            await thinking_callback({
+                "type": "thinking",
+                "stage": "context",
+                "content": f"已载入 {len(history)} 轮历史上下文；本轮可用工具：{', '.join(tool_names) if tool_names else '无'}。"
+            })
+            full_response = []
+            system_prompt = kwargs.get("custom_system_prompt") or agent_factory.default_system_prompt
+
+            async for chunk in agent_executor.astream({
+                "input": query,
+                "chat_history": chat_history,
+                "system_prompt": system_prompt
+            }):
+                if "output" in chunk:
+                    full_response.append(chunk["output"])
+                elif "intermediate_steps" in chunk:
+                    for action, observation in chunk["intermediate_steps"]:
+                        await thinking_callback({
+                            "type": "thinking",
+                            "stage": f"tool:{action.tool}",
+                            "content": f"调用工具 {action.tool}",
+                            "details": {
+                                "tool_input": action.tool_input,
+                                "tool_output": str(observation)[:1000],
+                            }
+                        })
+                        logger.info(f"\n\n🤔 [Agent 思考] {action.log}")
+                        logger.info(f"🛠️ [调用工具] {action.tool}")
+                        logger.info(f"📥 [工具输入] {action.tool_input}")
+                        logger.info(f"📤 [工具结果] {observation}\n")
+
+            agent_result_holder["response"] = "".join(full_response) if full_response else "抱歉，我无法理解您的请求。"
+        except Exception as e:
+            logger.error(f"【Agent重新生成】Agent执行失败: {e}", exc_info=True)
+            agent_result_holder["error"] = str(e)
+        finally:
+            agent_done.set()
+
+    agent_task = asyncio.create_task(run_agent())
+
+    try:
+        yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
+        while not agent_done.is_set():
+            try:
+                event = await asyncio.wait_for(thinking_queue.get(), timeout=0.1)
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                thinking_queue.task_done()
+            except TimeoutError:
+                continue
+
+        while not thinking_queue.empty():
+            try:
+                event = thinking_queue.get_nowait()
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                thinking_queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+
+        await agent_task
+
+        if agent_result_holder["error"]:
+            error_message = f"错误: {agent_result_holder['error']}"
+            yield f"data: {json.dumps({'type': 'error', 'content': error_message, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+            return
+
+        response = agent_result_holder["response"]
+        await sm.session_manager.update_message_content(session_id, user_id, assistant_message_id, response)
+        logger.info(f"【Agent重新生成】已覆盖会话 {session_id} 消息 {assistant_message_id}")
+
+        chunk_size = 15
+        for i in range(0, len(response), chunk_size):
+            chunk = response[i:i + chunk_size]
+            yield f"data: {json.dumps({'type': 'response', 'content': chunk, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+            await asyncio.sleep(0.03)
+
+        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+    except Exception as e:
+        logger.error(f"【Agent重新生成】处理请求失败: {e}", exc_info=True)
         agent_task.cancel()
         try:
             await agent_task
