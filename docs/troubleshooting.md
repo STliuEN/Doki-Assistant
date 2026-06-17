@@ -7,7 +7,7 @@
 **问题**：`Invalid API Key` 或 `API Key expired`
 
 **解决方法**：
-- 检查 `.env` 文件中的 `DASHSCOPE_API_KEY` 是否正确
+- 检查 `.env` 文件中的 `ALIYUN_ACCESS_KEY_SECRET` 是否正确
 - 确保 API Key 没有过期或权限不足
 - 访问阿里云 DashScope 控制台检查 API Key 状态
 
@@ -63,7 +63,7 @@ OSError: Error no file named model.safetensors, or pytorch_model.bin
 **问题**：`CUDA out of memory`
 
 **解决方法**：
-- 降低 `max_length` 参数（默认为512）
+- 降低 `RERANKER_MAX_LENGTH` 参数（默认为 8192）
 - 减小 `batch_size`（当前设置为1）
 - 使用 CPU 模式：在 `reorder_service.py` 中将 `device` 强制设置为 `"cpu"`
 - 关闭其他占用 GPU 内存的程序
@@ -126,7 +126,7 @@ current PyTorch install supports sm_50 ... sm_90
 
 **解决方法**：
 - 检查文件大小是否超过限制（单个文件20MB，多个文件总计200MB）
-- 确保文件类型为 PDF、TXT 或 DOCX
+- 确保文件类型受支持：TXT、PDF、Markdown、PPTX、DOCX
 - 检查文件权限
 
 ### 11. 会话历史丢失
@@ -147,15 +147,15 @@ current PyTorch install supports sm_50 ... sm_90
 
 - 后端 SSE 支持 `thinking / waiting_confirmation / response / done / error`。
 - RAG 工具内部会主动推送检索过程。
-- 普通工具调用当前主要在 Agent `intermediate_steps` 出现后推送 `tool_end`，仍不是完整 `tool_start/tool_end` 事件流。
-- 最终回答目前是 Agent 完成后再按 chunk 推送，不是模型 token 级实时流。
+- 工具调用通过 `astream_events` 推送真实的 `tool_start / tool_end / tool_error` 事件。
+- 最终回答为模型 token 级实时流（`on_chat_model_stream` 增量推送）。
 
 **检查方法**：
 
 - 浏览器 Network 中确认 `/chat/agent/query/stream` 返回 `text/event-stream`。
 - 确认请求头带 `Authorization: Bearer <token>`。
 - 后端日志搜索 `【思考过程】`、`【Agent流式响应】`。
-- 如果只在 RAG 场景有过程、普通工具场景较少，这是当前实现限制，不一定是故障。
+- 若 thinking 区始终为空，检查所选模型是否支持流式输出，以及代理/网关是否缓冲了 SSE。
 
 ### 13. 策略菜单设置没有生效
 
@@ -210,21 +210,20 @@ current PyTorch install supports sm_50 ... sm_90
 - 非管理员写操作应返回 403。
 - 修改 `security.yaml` 后需要重启 FastAPI 后端。
 
-### 17. Agent 请求删除记忆但没有删除
+### 17. Agent 请求删除记忆后停在确认状态
 
-**问题**：让 Agent 删除 memory 后，thinking 区显示 `waiting_confirmation`，但数据没有被删除。
+**问题**：让 Agent 删除 memory 后，thinking 区显示 `waiting_confirmation`，数据没有立即删除。
 
-**当前说明**：
+**当前说明**：这是高风险工具的预期行为，确认闭环已打通：
 
-- `delete_memory` 已标记为高风险工具。
-- 当前实现会阻断静默删除，推送 `waiting_confirmation` 并返回未执行说明。
-- 前端确认按钮、后端 pending action 和确认后续跑还未完成。
+- `delete_memory` 标记为高风险（`risk_level: high`、`requires_confirmation: true`）。
+- `GuardedTool` 在执行前拦截，保存 pending action（Redis，带 TTL 与 user_id 隔离）并推送 `waiting_confirmation`。
+- 前端弹出确认/取消按钮，确认后调用 `POST /chat/agent/confirm` 才真正执行删除，取消则放弃。
 
-处理方式：
+排查建议：
 
-- 需要立即删除时，在记忆中心页面手动删除。
-- 或使用归档操作替代永久删除。
-- 等高风险确认闭环完成后，再允许 Agent 在用户确认后执行删除。
+- 若点确认后仍未删除，检查 `/chat/agent/confirm` 是否带 token、pending action 是否已过期（默认 600s）。
+- 也可在记忆中心页面手动删除，或用归档替代永久删除。
 
 ## 日志检查
 
@@ -285,10 +284,10 @@ HTTPException: 401 Unauthorized
 ### 检查环境变量
 ```bash
 # Windows
-echo %DASHSCOPE_API_KEY%
+echo %ALIYUN_ACCESS_KEY_SECRET%
 
 # Linux/Mac
-echo $DASHSCOPE_API_KEY
+echo $ALIYUN_ACCESS_KEY_SECRET
 ```
 
 ## 联系支持

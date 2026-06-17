@@ -51,21 +51,23 @@
 - `delete_memory` 已标记为：
   - `risk_level: high`
   - `requires_confirmation: true`
-- `delete_memory_tool` 当前不会直接删除，而是推送 `waiting_confirmation` 事件并返回未执行说明。
+- 高风险工具由 `GuardedTool` 在执行前拦截，保存 pending action 并推送 `waiting_confirmation`。
+- 用户经 `POST /chat/agent/confirm` 确认后执行原工具，拒绝则放弃。
+- pending action 持久化在 Redis，带 TTL（默认 600s）、`user_id` 隔离和单次取用。
 
 当前边界：
 
-- 高风险删除已经被“刹住”，不会被 Agent 静默执行。
-- 还没有实现“确认后继续执行”的完整续跑协议。
+- 拒绝后的替代方案说明仍较简单。
+- 确认文案尚未按工具/风险等级细化。
 
 ### P0.3 执行过程事件化
 
 已完成：
 
-- Agent SSE thinking 事件开始带结构化 `details`。
+- Agent SSE thinking 事件带结构化 `details`。
 - 每轮运行生成 `run_id`。
 - 事件包含 `elapsed_ms`。
-- 普通工具调用通过 `intermediate_steps` 转成 `tool_end` 事件。
+- 工具调用通过 `astream_events(version="v2")` 产生执行器级别的真实 `tool_start / tool_end / tool_error` 事件。
 - 工具事件包含：
   - `tool`
   - `tool_call_index`
@@ -75,7 +77,6 @@
 
 当前边界：
 
-- 目前普通工具还主要在 LangChain 返回 `intermediate_steps` 后产生 `tool_end`，不是严格的 tool_start/tool_end 包装。
 - 部分工具内部主动上报的事件仍需逐步统一字段。
 
 ### P0.4 长任务预算、停止和收束
@@ -94,14 +95,13 @@ runtime:
 
 - `AgentExecutor.max_iterations` 读取配置。
 - SSE 外层支持 wall-clock 超时取消。
-- 工具调用次数超过预算时会发 `stopped` 事件并收束。
+- `GuardedTool` 在工具执行前统计调用次数，超过 `max_tool_calls` 直接硬拦截并发 `stopped` 事件。
 - 停止回答会附带 `stop_reason`。
 - 前端已有 AbortController，可停止当前 SSE 请求。
 
 当前边界：
 
-- 工具次数预算基于 `intermediate_steps` 统计，不能在工具真正执行前硬拦截所有工具。
-- 后续若要强控制，应给 Tool 做统一 wrapper 或迁移到更细粒度的运行图。
+- wall-clock 超时为外层取消，单个长工具内部仍依赖各自 timeout。
 
 ### P1 上下文自动压缩
 
@@ -130,33 +130,19 @@ system prompt
 当前边界：
 
 - 摘要触发阈值仍是简单 token 粗估。
-- `summary_message_id` 目前预留，尚未精确记录摘要覆盖到哪条消息。
+- 已通过 `summary_message_id` / `summary_boundary_id` 记录摘要边界，但覆盖判定仍可更精确。
 - 摘要生成复用当前聊天模型，后续可拆成专门的轻量模型配置。
 
 ## 当前主要剩余缺口
 
-### 高风险确认闭环
+> 高风险确认闭环与统一 Tool 执行 wrapper（`GuardedTool`）已落地，详见上方 P0.2 / P0.3 / P0.4。剩余缺口聚焦权限、摘要和事件字段统一。
+
+### 工具事件字段统一
 
 需要继续完成：
 
-- SSE 发出 `waiting_confirmation` 后，前端展示确认/拒绝控件。
-- 后端保存 pending action。
-- 用户确认后执行原工具。
-- 用户拒绝后 Agent 可以继续解释或给替代方案。
-- pending action 需要过期、用户隔离和重复提交保护。
-
-### 工具执行 wrapper
-
-需要继续完成：
-
-- 在 Tool Registry 层统一包装工具执行。
-- 产生真正的 `tool_start/tool_end/tool_error`。
-- 按工具元数据执行：
-  - timeout
-  - max output chars
-  - risk confirmation
-  - structured error
-- 将 RAG、笔记、记忆、复习题生成等内部事件字段统一。
+- 将 RAG、笔记、记忆、复习题生成等工具内部主动上报的事件字段统一。
+- 结构化错误分类：参数错误、权限错误、外部服务错误、内部异常。
 
 ### 权限模型升级
 
@@ -170,8 +156,7 @@ system prompt
 
 需要继续完成：
 
-- 精确维护 `summary_message_id`。
-- 避免重复摘要同一段历史。
+- 更精确地判定摘要覆盖边界，避免遗漏或重复摘要同一段历史。
 - 摘要质量评估和回滚。
 - 为摘要使用独立模型或配置。
 
@@ -208,7 +193,7 @@ system prompt
 
 ### P4：MCP 外部工具接入
 
-MCP 必须排在高风险确认闭环之后。当前项目已有本地 Skill/Tool 注册层，MCP 应作为外部工具来源接入，而不是替代 Skill。
+高风险确认闭环已经就绪，MCP 可以在其之上接入。当前项目已有本地 Skill/Tool 注册层，MCP 应作为外部工具来源接入，而不是替代 Skill。
 
 阶段：
 
@@ -255,12 +240,11 @@ MCP 必须排在高风险确认闭环之后。当前项目已有本地 Skill/Too
 
 ## 推荐实施顺序
 
-1. 高风险确认续跑闭环。
-2. Tool 统一 wrapper、真正 tool_start/tool_end/tool_error。
-3. 权限模型从配置文件升级到数据库角色。
-4. 上下文摘要 message 边界和重复摘要控制。
-5. 记忆中心主动提醒和事项提炼。
-6. Tool 元数据、测试和诊断。
-7. MCP 接入。
-8. 字幕/会议翻译。
-9. 桌面端验证。
+1. 权限模型从配置文件升级到数据库角色。
+2. 上下文摘要 message 边界和重复摘要控制。
+3. 工具内部事件字段统一与结构化错误分类。
+4. 记忆中心主动提醒和事项提炼。
+5. Tool 元数据、测试和诊断。
+6. MCP 接入。
+7. 字幕/会议翻译。
+8. 桌面端验证。

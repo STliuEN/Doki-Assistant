@@ -49,21 +49,74 @@
 
 ## 当前系统架构
 
-```text
-React 前端
-  -> FastAPI 后端
-    -> LangChain AgentExecutor
-    -> Skill Registry / Tool Registry
-    -> RAG / Note / Memory / Translate 服务
-    -> MySQL / Redis / ChromaDB
-  -> Django 用户服务
+当前系统是前后端分离的 Web 工作台：
+
+- React + Vite 提供工作台界面，并通过 Vite proxy 按路径转发到后端服务。
+- Django 用户服务负责登录、注册、用户资料和文件入口，生成 JWT，并使用 Redis 做用户缓存和 token 黑名单。
+- FastAPI 业务后端负责 Agent 对话、会话、知识库、笔记、记忆中心、模型配置、实时翻译以及 Skill/Tool 管理。
+- FastAPI 不重新实现登录注册，而是解析 Django JWT 得到 `user_id`，再按 `user_id` 隔离会话、笔记、知识库、记忆和模型配置。
+
+```mermaid
+flowchart TD
+  U[用户浏览器] --> F[React + Vite 前端]
+  F -->|/user /file| D[Django 用户服务]
+  F -->|业务 API 与 SSE| B[FastAPI 业务后端]
+
+  D --> UserDB[(MySQL 用户数据)]
+  D --> Redis[(Redis 缓存 / token 黑名单)]
+
+  B --> Auth[JWT 鉴权与 user_id 提取]
+  B --> AppDB[(MySQL 会话与业务数据)]
+  B --> Redis
+
+  B --> Chat[Chat / Session API]
+  B --> Knowledge[Knowledge API]
+  B --> Note[Note API]
+  B --> Memory[Memory API]
+  B --> Translate[Translate API]
+  B --> ModelConfig[Model Config API]
+  B --> SkillTool[Skill / Tool 管理 API]
+
+  Chat --> Agent[LangChain AgentExecutor]
+  Agent --> Registry[Skill / Tool Registry]
+  Registry --> Tools[本轮启用 Tools]
+
+  Tools --> Knowledge
+  Tools --> Note
+  Tools --> Memory
+
+  Knowledge --> SourceFiles[(源文件与文档元数据)]
+  Knowledge --> Chroma[(ChromaDB 向量索引)]
+  Note --> Chroma
+  Note --> AppDB
+  Memory --> AppDB
+  ModelConfig --> AppDB
+
+  Agent --> ModelLayer[模型调用层]
+  Translate --> ModelLayer
+  ModelConfig --> ModelLayer
+  ModelLayer --> DefaultLLM[工程默认模型]
+  ModelLayer --> Compatible[OpenAI-Compatible API]
+  ModelLayer --> Ollama[Ollama 本地模型]
+  Knowledge --> Embedding[Ollama Embedding]
+  Knowledge --> Reranker[本地 CrossEncoder Reranker]
 ```
 
 主要组件：
 
 - `front/src/pages/AIChat.tsx`：对话页，负责模型、AI 模式、Skill、策略菜单、消息刷新和删除。
+- `front/src/pages/KnowledgeBase.tsx`：知识库页面，负责文档导入、源文件查看、切片查看、Embedding 切换和 Reranker 切换。
+- `front/src/pages/NoteList.tsx` / `front/src/pages/NoteEditor.tsx`：笔记列表、编辑、分类标签、AI 写作辅助和相关片段推荐。
+- `front/src/pages/MemoryCenter.tsx`：记忆中心页面，管理复习、待办、提醒、长期事项和备忘。
+- `front/src/pages/RealtimeTranslate.tsx`：实时翻译页面，支持对话式翻译和整篇文本翻译。
+- `front/src/pages/ModelSettings.tsx`：用户模型配置、测试和 Ollama 模型读取。
 - `front/src/pages/ToolManager.tsx`：工具库管理，支持风险等级、确认、超时和输出限制字段。
+- `front/vite.config.ts`：开发环境代理配置，将 `/user`、`/file` 转发到 Django，将业务 API 转发到 FastAPI。
 - `backend/app/router/chat.py`：Agent 对话入口、prompt 拼接、skill 预路由和 SSE 返回。
+- `backend/app/router/knowledge_router.py`：知识库上传、源文件、切片、Embedding 和 Reranker 配置接口。
+- `backend/app/router/note_router.py`：笔记 CRUD、搜索、自动标签、相关片段和 AI 写作接口。
+- `backend/app/router/model_config_router.py`：用户模型配置、系统默认模型、模型测试和 Ollama 模型列表接口。
+- `backend/app/router/translate.py`：实时翻译接口。
 - `backend/app/agent/agent.py`：创建 LangChain tool calling Agent，执行工具并推送结构化 thinking。
 - `backend/app/agent/skill_registry.py`：扫描 Skill/Tool 文件模块，读取 Tool 风险元数据。
 - `backend/app/agent/intent_router.py`：从用户已选 Skill 中做本轮预路由。
@@ -119,7 +172,7 @@ system prompt
   -> Auto 长会话：summary + 最近 6 轮
   -> 非 Auto 或短会话：按策略裁剪历史
   -> create_tool_calling_agent
-  -> AgentExecutor.astream
+  -> AgentExecutor.astream_events(version="v2")
   -> thinking / waiting_confirmation / response / done SSE
   -> 保存 user + assistant 消息
 ```
@@ -127,9 +180,9 @@ system prompt
 当前回答流式方式：
 
 - thinking 事件会在 Agent 执行时实时推送。
-- 普通工具调用会通过 `intermediate_steps` 形成 `tool_end` thinking 事件。
+- 工具调用通过 `astream_events` 形成真实的 `tool_start / tool_end / tool_error` thinking 事件。
 - RAG 工具内部还会主动推送更细的检索 thinking。
-- 最终回答当前仍是 Agent 完整结束后再按 chunk 发送，不是模型 token 级流式。
+- 最终回答由 `on_chat_model_stream` 按模型 token 级实时流式推送。
 
 ## 上下文策略
 
@@ -207,7 +260,7 @@ chat.py
 - `long_term`
 - `memo`
 
-当前 `delete_memory` 已标记为高风险，Agent 调用时会进入 `waiting_confirmation` 并拒绝直接删除。完整确认续跑闭环仍待实现。
+当前 `delete_memory` 已标记为高风险，Agent 调用时会被 `GuardedTool` 在执行前拦截、进入 `waiting_confirmation`；用户经 `POST /chat/agent/confirm` 确认后才执行删除（pending action 持久化在 Redis，带 TTL 与 `user_id` 隔离）。
 
 ## 权限与安全现状
 
@@ -222,25 +275,22 @@ chat.py
 - `/chat/sessions` 只返回当前用户会话。
 - `/chat/reorder` 要求登录并保留限流。
 - Tool 风险元数据已进入 registry 和管理页。
-- `delete_memory_tool` 已阻断静默删除。
+- `GuardedTool` 统一包装所有工具，高风险操作执行前拦截并走确认闭环。
 
 不足：
 
 - 还不是完整多租户 RBAC。
 - 管理员仍来自配置文件和环境变量，不是数据库角色。
-- 高风险工具确认后续跑还未完成。
-- 工具执行 wrapper 还未统一接管所有工具。
 - 高风险操作不能只依赖 prompt 约束。
 
 ## 后续方向
 
 详细计划见 [下一阶段开发计划](./roadmap_next.md)。当前推荐顺序：
 
-1. 高风险确认续跑闭环。
-2. Tool wrapper 和真正 tool_start/tool_end/tool_error。
-3. 权限模型升级为数据库角色。
-4. 上下文摘要边界和重复摘要控制。
-5. 记忆中心主动提醒和事项提炼。
-6. MCP 外部工具接入。
-7. 字幕/会议翻译。
-8. 桌面端验证。
+1. 权限模型升级为数据库角色。
+2. 上下文摘要边界和重复摘要控制。
+3. 记忆中心主动提醒和事项提炼。
+4. 运行状态持久化（run 状态、停止原因、工具调用列表）。
+5. MCP 外部工具接入。
+6. 字幕/会议翻译。
+7. 桌面端验证。

@@ -127,7 +127,7 @@ const zhCN = {
   },
   about: {
     title: '关于我们',
-    description: 'Doki Assistant 正是一以RAG为核心的多Agent多skill个人 AI 工作台，整合多模型对话、RAG 知识库、Skill/Tool 编排、实时翻译和记忆中心，帮助你围绕资料、笔记与任务组织长期知识流。',
+    description: 'Doki Assistant 是面向个人知识流和日常任务的 AI Agent 工作台。它以对话为入口，把模型选择、Skill/Tool 调用、知识库、笔记、记忆中心和翻译能力组织到同一套用户上下文中。',
     techStack: '技术栈',
     features: '功能特性',
     featureList: {

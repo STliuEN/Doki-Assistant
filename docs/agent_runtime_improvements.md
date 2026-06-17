@@ -26,13 +26,13 @@ SSE 请求
   -> resolve_skills 得到工具实例
   -> 获取上下文：Auto 模式优先 summary + 最近 6 轮，否则裁剪
   -> 创建 AgentExecutor
-  -> AgentExecutor.astream
+  -> AgentExecutor.astream_events(version="v2")
   -> thinking_queue 推送结构化事件
-  -> Agent 完成后按 chunk 推送最终回答
+  -> on_chat_model_stream 增量按 token 推送最终回答
   -> 保存或覆盖数据库消息
 ```
 
-当前最终回答仍是 Agent 完成后再按 chunk 推送，不是模型 token 级实时流。
+最终回答通过 `astream_events` 的 `on_chat_model_stream` 事件按模型 token 实时流式推送（`stream_agent_events`，`agent.py`）。
 
 ## 当前前端链路
 
@@ -80,23 +80,22 @@ thinking 当前仍以文本列表展示，但已能显示结构化 details 中�
 }
 ```
 
-已完成：
+已完成（事件来自 `astream_events`，工具事件为执行器级别真实事件）：
 
 - `start`
 - `context`
 - `tools`
 - `agent`
+- `tool_start`
 - `tool_end`
+- `tool_error`
 - `stopped`
 - `done`
 - `waiting_confirmation`
 
 待完善：
 
-- 真正的 `tool_start`
-- 真正的 `tool_error`
-- 每个工具的独立 `duration_ms`
-- 各工具内部事件字段完全统一
+- 各工具内部事件字段进一步统一。
 
 ### 2. 运行预算
 
@@ -120,14 +119,11 @@ runtime:
 
 - `AgentExecutor.max_iterations` 读取配置。
 - SSE 外层按 `max_runtime_seconds` 取消任务。
-- 工具调用次数超过 `max_tool_calls` 后发 `stopped` 并收束回答。
-- 工具输出 preview 按 `max_output_chars_per_tool` 截断。
+- `GuardedTool` 在工具执行前统计调用次数，超过 `max_tool_calls` 直接硬拦截并发 `stopped`。
+- 工具输出按 `max_output_chars_per_tool` 截断。
 - 回答会附带 `stop_reason`。
 
-限制：
-
-- `max_tool_calls` 基于 LangChain 返回的 `intermediate_steps` 统计，不能在所有工具真正执行前拦截。
-- 要实现更强控制，需要 Tool wrapper 或运行图级别的执行器。
+说明：调用次数、超时和确认均由 `GuardedTool`（`tool_guard.py`）在执行前拦截，已不再依赖 `intermediate_steps` 事后统计。
 
 ### 3. Tool 风险元数据
 
@@ -146,13 +142,14 @@ max_output_chars: 4000
 - `/tools/catalog` 返回风险字段。
 - Tool 管理页可编辑风险字段。
 - `delete_memory` 标记为 high。
-- `delete_memory_tool` 当前不会执行删除，而是推送 `waiting_confirmation` 事件。
+- 高风险工具执行前由 `GuardedTool` 拦截，保存 pending action 并推送 `waiting_confirmation`。
+- 用户确认后经 `POST /chat/agent/confirm` 执行原工具，拒绝则放弃。
+- pending action 持久化在 Redis，带 TTL（默认 600s）与 `user_id` 隔离、单次取用（`pending_action_store.py`）。
 
 待完善：
 
-- 确认后继续执行。
-- 拒绝后由 Agent 解释或给替代方案。
-- pending action 的持久化、过期和用户隔离。
+- 拒绝后由 Agent 给出更细的替代方案说明。
+- 按工具/风险等级细化确认文案。
 
 ### 4. 上下文自动压缩
 
@@ -184,72 +181,50 @@ system prompt
 - 摘要失败回退原裁剪逻辑。
 - regenerate 读取已有摘要并保留最近 6 轮。
 
+已完成：
+
+- 通过 `summary_message_id` / `summary_boundary_id` 记录摘要边界，避免重复摘要同一段消息（`database_session_manager.py`）。
+
 待完善：
 
-- 精确维护 `summary_message_id`。
-- 避免重复摘要同一段消息。
-- 摘要质量检查。
+- 更精确的摘要覆盖边界与质量检查。
 - 使用独立摘要模型配置。
 
-## 当前限制
+## 已落地的运行时基建
 
-### 最终回答不是 token 级流式
+以下能力已经实现，作为后续工作的基础：
 
-当前模型虽然以 streaming 创建，但 LangChain Agent 路径中最终输出是 Agent 完成后汇总，再由后端按 15 字符切块发送。用户能看到流式文字，但不是模型实时 token。
-
-短期可以接受。真正 token 级流式可后置评估：
-
-- LangChain `astream_events()`
-- LangGraph
-- 自定义 tool calling loop
-
-### 工具事件还不是执行器级别
-
-当前 `tool_end` 来自 `intermediate_steps`，意味着工具已经执行完才知道。后续需要统一 wrapper，才能实现：
-
-- tool_start
-- tool_error
-- 工具级 timeout
-- 工具级 max output
-- 高风险确认前置拦截
+- **token 级流式**：基于 `astream_events(version="v2")`，最终回答按模型 token 实时推送。
+- **执行器级工具事件**：`tool_start / tool_end / tool_error` 来自 `astream_events`，不再依赖 `intermediate_steps`。
+- **统一 Tool wrapper**：`GuardedTool`（`tool_guard.py`）在 registry 包装每个工具（`skill_registry.py`），执行前统一处理调用次数、超时、输出截断和高风险确认。
+- **高风险确认闭环**：`waiting_confirmation` + pending action 持久化 + `POST /chat/agent/confirm` 续跑/取消。
 
 ## 下一步建议
 
-### 阶段 1：高风险确认闭环
-
-目标：
-
-- SSE 发 `waiting_confirmation`。
-- 前端显示确认/拒绝按钮。
-- 后端保存 pending action。
-- 确认后执行原工具。
-- 拒绝后收束并提示替代方案。
-
-### 阶段 2：Tool wrapper
-
-目标：
-
-- 在 registry 返回给 Agent 前包装工具。
-- wrapper 统一处理风险、超时、输出截断和事件上报。
-- 所有工具都有一致 `tool_start/tool_end/tool_error`。
-
-### 阶段 3：运行状态持久化
+### 运行状态持久化
 
 目标：
 
 - 保存 run 状态、开始时间、停止原因、工具调用列表。
 - 便于调试和未来恢复。
 
-### 阶段 4：token 级流式评估
+### 摘要与上下文边界优化
 
 目标：
 
-- 评估是否值得引入 `astream_events()` 或 LangGraph。
-- 在不牺牲工具确认和权限控制的前提下提升实时性。
+- 更精确地维护摘要覆盖边界，避免遗漏或重复。
+- 评估独立摘要模型配置。
+
+### MCP 外部工具接入
+
+目标：
+
+- 在已有确认与权限控制之上接入 MCP 工具。
+- 高风险 MCP 工具沿用 `GuardedTool` 确认闭环。
 
 ## 不建议立即做
 
 - 立即全面迁移 LangGraph。
 - 把完整工具输出无上限推给前端。
 - 让摘要替代知识库、笔记或记忆检索。
-- 在没有确认闭环前接 Shell、文件系统、数据库写入类 MCP 工具。
+- 接入 Shell、文件系统、数据库写入类 MCP 工具时，务必标记为高风险并走 `GuardedTool` 确认闭环，不要绕过。

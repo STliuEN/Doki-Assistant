@@ -56,7 +56,7 @@ front/src/types/api.ts
 
 页面已支持：
 
-- 今日事项
+- 今日
 - 进行中
 - 复习
 - 事项
@@ -70,7 +70,7 @@ front/src/types/api.ts
 - 复习题生成
 - 标记已复习
 
-前端删除 memory 当前有确认弹窗。Agent 侧 `delete_memory` 已标记为高风险，调用时会进入 `waiting_confirmation` 并拒绝直接删除；确认后续跑闭环仍待实现。
+前端删除 memory 当前有确认弹窗。Agent 侧 `delete_memory` 已标记为高风险，由 `GuardedTool` 在执行前拦截、进入 `waiting_confirmation`；用户经 `POST /chat/agent/confirm` 确认后才执行删除，确认续跑闭环已打通。
 
 ## 当前 Agent Tools
 
@@ -131,15 +131,11 @@ backend/app/agent/skills/memory_cleanup/
 
 Agent 只有在用户明确要求“记一下 / 提醒我 / 加待办”时才写入 memory。普通对话、RAG 回答、翻译结果还不会自动提炼待办或提醒。
 
-### 3. 高风险确认仍未闭环
-
-`delete_memory` 属于高风险工具。当前已通过 tool 元数据标记为 `risk_level=high`，并在工具执行时阻断静默删除、推送 `waiting_confirmation`。仍缺前端确认按钮、pending action 保存和确认后继续执行。
-
-### 4. 缺语义搜索
+### 3. 缺语义搜索
 
 memory 当前主要按类型、状态、时间查询。还没有把 memory 写入向量库做语义召回。
 
-### 5. 旧复习文案仍需继续清理
+### 4. 旧复习文案仍需继续清理
 
 部分文档、i18n 或历史变更记录里可能仍出现“每日回顾”。历史记录可以保留，但正式产品入口应统一为“记忆中心”。
 
@@ -190,16 +186,15 @@ memory 当前主要按类型、状态、时间查询。还没有把 memory 写�
 - Agent 可以通过语义查询找回相关 memory。
 - 仍然按当前 user_id 隔离。
 
-### P1.4 高风险操作确认闭环
+### P1.4 高风险操作确认闭环（已完成）
 
-目标：
+`delete_memory` 等高风险工具的确认闭环已经打通：
 
-- 前端显示确认/拒绝。
-- 后端保存待确认删除动作。
-- 用户确认后才执行删除。
-- 用户拒绝后 Agent 给出解释或替代方案。
+- 前端显示确认/拒绝控件。
+- 后端 `GuardedTool` 在执行前保存 pending action（Redis，带 TTL 与 `user_id` 隔离）。
+- 用户经 `POST /chat/agent/confirm` 确认后才执行删除，拒绝则放弃。
 
-该项依赖 [Agent 运行时改进评估](./agent_runtime_improvements.md) 中的高风险工具确认机制。
+机制细节见 [Agent 运行时现状](./agent_runtime_improvements.md) 中的高风险工具确认部分。后续仅剩拒绝后替代方案说明的细化。
 
 ## 验收命令
 

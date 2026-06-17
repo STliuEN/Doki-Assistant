@@ -128,7 +128,7 @@ const enUS = {
   },
   about: {
     title: 'About',
-    description: 'Doki Assistant is evolving from an intelligent note assistant into a personal AI workspace, combining multi-model chat, RAG knowledge bases, Skill/Tool orchestration, real-time translation, and a memory center for long-term knowledge work.',
+    description: 'Doki Assistant is a personal AI Agent workspace for knowledge flows and daily tasks. It uses chat as the entry point and brings model selection, Skill/Tool calls, knowledge bases, notes, memory, and translation into one user context.',
     techStack: 'Tech Stack',
     features: 'Features',
     featureList: {
