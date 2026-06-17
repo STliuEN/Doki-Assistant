@@ -28,7 +28,7 @@ class ToolDefinition:
     visibility: str = "public"
     risk_level: str = "low"
     requires_confirmation: bool = False
-    timeout_seconds: int = 30
+    timeout_seconds: int = 600
     max_output_chars: int = 4000
 
     def to_public_dict(self) -> dict:
@@ -185,7 +185,7 @@ class ToolRegistry:
                 visibility=_optional_string(data, "visibility", "public"),
                 risk_level=_risk_level(data, config_path),
                 requires_confirmation=_optional_bool(data, "requires_confirmation", False),
-                timeout_seconds=max(1, _optional_int(data, "timeout_seconds", 30)),
+                timeout_seconds=max(1, _optional_int(data, "timeout_seconds", 600)),
                 max_output_chars=max(256, _optional_int(data, "max_output_chars", 4000)),
             )
         return loaded
@@ -299,7 +299,9 @@ class SkillRegistry:
 
         selected_tool_id_set = set(collected_tool_ids)
         ordered_tool_ids = [tool.id for tool in self.tool_registry.all() if tool.id in selected_tool_id_set]
-        tools = [self.tool_registry.get(tool_id).tool for tool_id in ordered_tool_ids]
+        # 现包现用 GuardedTool，统一接管预算/确认/超时/截断；不修改 registry 单例。
+        from app.agent.tool_guard import wrap_tool
+        tools = [wrap_tool(self.tool_registry.get(tool_id)) for tool_id in ordered_tool_ids]
         return SkillResolution(
             skill_ids=valid_skill_ids,
             tool_ids=ordered_tool_ids,

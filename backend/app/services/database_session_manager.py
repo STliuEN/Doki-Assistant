@@ -115,6 +115,36 @@ class DatabaseSessionManager:
             session.metadata_ = metadata
             await db.commit()
 
+    async def get_history_with_ids(self, session_id: str, user_id: str) -> list[tuple[int, str, str]]:
+        """返回带 assistant 消息自增 id 的历史轮次，用作摘要边界锚点。
+
+        形如 [(assistant_message_id, user_content, assistant_content), ...]，
+        顺序与 get_history 一致。独立的 assistant 消息（如确认回执）不参与配对。
+        """
+        async with AsyncSessionLocal() as db:
+            session = await db.run_sync(
+                lambda s: s.query(ChatSession)
+                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .first()
+            )
+            if not session:
+                return []
+            messages = await db.run_sync(
+                lambda s: s.query(ChatMessage)
+                .filter(ChatMessage.session_id == session.id)
+                .order_by(ChatMessage.created_at, ChatMessage.id)
+                .all()
+            )
+        turns: list[tuple[int, str, str]] = []
+        i = 0
+        while i < len(messages):
+            if messages[i].role == "user" and i + 1 < len(messages) and messages[i + 1].role == "assistant":
+                turns.append((messages[i + 1].id, messages[i].content, messages[i + 1].content))
+                i += 2
+            else:
+                i += 1
+        return turns
+
     async def get_context_with_summary(self, session_id: str, user_id: str, context_settings=None) -> dict:
         history = await self.get_history(session_id, user_id)
         if not self.should_use_summary(history, context_settings):
@@ -126,14 +156,23 @@ class DatabaseSessionManager:
             }
 
         metadata = await self.get_session_metadata(session_id, user_id)
-        recent_history = history[-6:]
+        turns = await self.get_history_with_ids(session_id, user_id)
+        older = turns[:-6]
+        recent = turns[-6:]
+        last_boundary = metadata.get("summary_message_id") or 0
+        # 只摘要尚未被覆盖（assistant id 超过上次边界）的旧轮次，避免重复摘要。
+        new_older = [turn for turn in older if turn[0] > last_boundary]
+        history_for_summary = [(user_msg, assistant_msg) for (_aid, user_msg, assistant_msg) in new_older]
+        summary_boundary_id = older[-1][0] if older else last_boundary
+        recent_history = [(user_msg, assistant_msg) for (_aid, user_msg, assistant_msg) in recent]
         return {
             "summary": metadata.get("summary", ""),
             "history": recent_history,
             "used_summary": bool(metadata.get("summary")),
-            "total_turns": len(history),
-            "summary_message_id": metadata.get("summary_message_id"),
-            "history_for_summary": history[:-6],
+            "total_turns": len(turns),
+            "summary_message_id": last_boundary,
+            "history_for_summary": history_for_summary,
+            "summary_boundary_id": summary_boundary_id,
         }
 
     @classmethod
@@ -252,6 +291,26 @@ class DatabaseSessionManager:
 
             await db.commit()
             logger.info(f"【数据库会话管理】添加消息到会话: {session_id} 属于用户: {user_id}")
+
+    async def append_assistant_message(self, session_id: str, user_id: str, content: str) -> dict | None:
+        """追加一条独立的 assistant 消息（用于高风险确认/取消后的结果回执）。
+
+        与 add_message 不同，这里不写入配对的 user 消息。返回新消息的 dict。
+        """
+        async with AsyncSessionLocal() as db:
+            session = await db.run_sync(
+                lambda s: s.query(ChatSession)
+                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .first()
+            )
+            if not session:
+                logger.warning(f"【数据库会话管理】会话 {session_id} 不存在或不属于用户 {user_id}，无法追加消息")
+                return None
+            message = ChatMessage(session_id=session.id, role="assistant", content=content)
+            db.add(message)
+            await db.commit()
+            await db.refresh(message)
+            return self._message_to_dict(message)
 
     async def get_history(self, session_id: str, user_id: str) -> list[tuple[str, str]]:
         """获取会话历史"""

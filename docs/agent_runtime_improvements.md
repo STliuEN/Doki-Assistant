@@ -110,10 +110,10 @@ backend/app/config/agent.yaml
 
 ```yaml
 runtime:
-  max_iterations: 64
-  max_tool_calls: 32
-  max_runtime_seconds: 180
-  max_output_chars_per_tool: 8000
+  max_iterations: 160
+  max_tool_calls: 120
+  max_runtime_seconds: 1200
+  max_output_chars_per_tool: 16000
 ```
 
 已完成：

@@ -10,7 +10,7 @@ const emptyTool: ToolDetail = {
   order: 100,
   risk_level: 'low',
   requires_confirmation: false,
-  timeout_seconds: 30,
+  timeout_seconds: 600,
   max_output_chars: 4000,
   instructions: '',
 }
@@ -271,7 +271,7 @@ export default function ToolManager() {
                 type="number"
                 min={1}
                 max={600}
-                value={form.timeout_seconds || 30}
+                value={form.timeout_seconds || 600}
                 onChange={(e) => setForm((current) => ({ ...current, timeout_seconds: Number(e.target.value) }))}
                 className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
               />

@@ -5,7 +5,11 @@ from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.agent import get_agent_regenerate_stream_response, get_agent_stream_response
+from app.agent.agent import (
+    get_agent_regenerate_stream_response,
+    get_agent_stream_response,
+    get_confirm_action_stream_response,
+)
 from app.agent.intent_router import route_skills
 from app.agent.skill_registry import get_skill_catalog, resolve_skills, skill_registry
 from app.core.rate_limit import rate_limit
@@ -13,6 +17,7 @@ from app.core.success_response import success_response
 from app.db.db_config import get_db
 from app.router.chat_service import ChatService, get_router_service
 from app.schemas.models import (
+    ConfirmActionRequest,
     DeleteMessageResponse,
     QueryRequest,
     RAGRequest,
@@ -23,6 +28,7 @@ from app.schemas.models import (
     SessionMessagesResponse,
     SessionResponse,
 )
+from app.services.pending_action_store import take_pending_action
 from app.services import session_manager as sm
 from app.services.model_config_service import get_model_config_service
 from app.utils.auth_utils import get_current_user_id
@@ -129,6 +135,31 @@ async def query_stream(
             rag_retrieval_settings=request.rag_retrieval,
             custom_system_prompt=system_prompt,
         ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@chat_router.post("/agent/confirm")
+async def confirm_agent_action(
+    request: ConfirmActionRequest,
+    user_id: str = Depends(get_current_user_id),
+    _: None = Depends(rate_limit(limit=20, window=60)),
+):
+    """确认或取消一条高风险待确认动作，并以 SSE 流式返回执行结果。"""
+    action = await take_pending_action(request.pending_action_id, user_id)
+    if action is None:
+        # 不存在 / 已过期 / 已消费 / 越权，统一按 410 处理（前端提示重新发起）。
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="待确认操作不存在或已失效，请重新发起。",
+        )
+
+    return StreamingResponse(
+        get_confirm_action_stream_response(action, request.confirmed, user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

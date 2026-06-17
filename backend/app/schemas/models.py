@@ -39,6 +39,13 @@ class RegenerateRequest(BaseModel):
     rag_retrieval: RagRetrievalSettings | None = None
 
 
+class ConfirmActionRequest(BaseModel):
+    """高风险工具待确认动作的确认/取消请求模型"""
+    pending_action_id: str
+    session_id: str | None = None
+    confirmed: bool = True
+
+
 class RAGRequest(BaseModel):
     """RAG检索请求模型"""
     query: str

@@ -1,0 +1,166 @@
+"""统一工具执行包装器。
+
+GuardedTool 在不修改 registry 单例的前提下，包住每个工具，统一接管：
+- 运行预算：执行前硬拦截 max_tool_calls（不再依赖事后统计）。
+- 高风险确认：requires_confirmation 工具命中时存 pending action、推 waiting_confirmation，
+  本次不执行；待用户确认后由 /chat/agent/confirm 直接执行。
+- 超时：按 timeout_seconds 包 asyncio.wait_for。
+- 输出截断：按 max_output_chars 截断工具返回。
+
+token 级流式与 tool_start/tool_end/tool_error 的“可观测”事件由 agent.py 的
+astream_events 负责；本包装器只负责“强制执行”这部分语义。
+"""
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from langchain_core.tools import BaseTool
+
+from app.agent.tool_context import (
+    get_confirmed_action_from_context,
+    get_current_session_id_from_context,
+    get_current_user_id_from_context,
+    get_runtime_state_from_context,
+    get_thinking_callback_from_context,
+)
+from app.core.logger_handler import logger
+from app.services.pending_action_store import save_pending_action
+
+# BaseTool / run_manager 等由 LangChain 注入、不应转发给内层工具的参数名。
+_INJECTED_KEYS = {"run_manager", "callbacks", "config"}
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n[输出已截断，超过 {limit} 字符]"
+
+
+class GuardedTool(BaseTool):
+    """包住内层工具，统一执行预算、确认、超时与截断。"""
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    inner_tool: BaseTool
+    tool_id: str
+    risk_level: str = "low"
+    requires_confirmation: bool = False
+    timeout_seconds: int = 30
+    max_output_chars: int = 4000
+
+    @classmethod
+    def wrap(cls, tool_def) -> "GuardedTool":
+        inner = tool_def.tool
+        return cls(
+            name=inner.name,
+            description=inner.description,
+            args_schema=inner.args_schema,
+            inner_tool=inner,
+            tool_id=tool_def.id,
+            risk_level=tool_def.risk_level,
+            requires_confirmation=tool_def.requires_confirmation,
+            timeout_seconds=tool_def.timeout_seconds,
+            max_output_chars=tool_def.max_output_chars,
+        )
+
+    def _run(self, *args, **kwargs):  # pragma: no cover - 本项目工具均为异步
+        raise NotImplementedError("GuardedTool 只支持异步执行，请使用 _arun。")
+
+    async def _emit(self, callback, event: dict) -> None:
+        if callback:
+            try:
+                await callback(event)
+            except Exception as exc:  # 事件推送失败不应中断工具执行
+                logger.warning(f"【GuardedTool】事件推送失败: {exc}")
+
+    async def _call_inner(self, *args, **kwargs) -> Any:
+        inner = self.inner_tool
+        if getattr(inner, "coroutine", None) is not None:
+            return await inner.coroutine(*args, **kwargs)
+        if getattr(inner, "func", None) is not None:
+            return inner.func(*args, **kwargs)
+        # 兜底：极少数工具未暴露 coroutine/func 时走 ainvoke（会产生嵌套事件）。
+        return await inner.ainvoke(kwargs)
+
+    async def _arun(self, *args, **kwargs) -> str:
+        # 去掉 LangChain 注入、内层工具不认识的参数。
+        for key in _INJECTED_KEYS:
+            kwargs.pop(key, None)
+
+        callback = get_thinking_callback_from_context()
+
+        # 1) 运行预算：执行前硬拦截。
+        runtime_state = get_runtime_state_from_context()
+        if runtime_state is not None:
+            runtime_state["tool_calls"] = runtime_state.get("tool_calls", 0) + 1
+            max_calls = runtime_state.get("max_tool_calls", 0)
+            if max_calls and runtime_state["tool_calls"] > max_calls:
+                await self._emit(callback, {
+                    "type": "thinking",
+                    "stage": "stopped",
+                    "content": "已达到工具调用次数预算，未执行本次工具。",
+                    "details": {
+                        "tool": self.tool_id,
+                        "tool_calls": runtime_state["tool_calls"],
+                        "max_tool_calls": max_calls,
+                    },
+                })
+                return "已达到本轮工具调用预算，未执行该工具。请缩小任务范围后重试。"
+
+        # 2) 高风险确认：未确认则暂存并阻断本次执行。
+        if self.requires_confirmation and not get_confirmed_action_from_context():
+            user_id = get_current_user_id_from_context()
+            if not user_id:
+                return "错误: 无法确定用户身份"
+            session_id = get_current_session_id_from_context()
+            try:
+                action_id = await save_pending_action(
+                    user_id=user_id,
+                    session_id=session_id,
+                    tool_id=self.tool_id,
+                    args=dict(kwargs),
+                )
+            except Exception as exc:
+                logger.error(f"【GuardedTool】写入待确认动作失败: {exc}", exc_info=True)
+                return "高风险操作需要确认，但暂存待确认动作失败，未执行。请稍后重试。"
+
+            await self._emit(callback, {
+                "type": "waiting_confirmation",
+                "stage": "tool_confirmation",
+                "content": f"操作「{self.name}」属于高风险，需要你确认后才会执行。",
+                "details": {
+                    "tool": self.tool_id,
+                    "risk_level": self.risk_level,
+                    "pending_action_id": action_id,
+                    "input_preview": str(dict(kwargs))[:500],
+                },
+            })
+            return (
+                "该操作属于高风险，已暂存为待确认动作，当前未执行。"
+                "请在前端点击「确认」以执行，或点击「取消」放弃。"
+            )
+
+        # 3) 执行（带超时）。
+        try:
+            result = await asyncio.wait_for(
+                self._call_inner(*args, **kwargs),
+                timeout=self.timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            await self._emit(callback, {
+                "type": "thinking",
+                "stage": "tool_error",
+                "content": f"{self.name} 执行超时（>{self.timeout_seconds}s）。",
+                "details": {"tool": self.tool_id, "error": "timeout"},
+            })
+            return f"工具 {self.name} 执行超时（超过 {self.timeout_seconds} 秒），已中止本次调用。"
+
+        # 4) 输出截断。
+        text = result if isinstance(result, str) else str(result)
+        return _truncate(text, self.max_output_chars)
+
+
+def wrap_tool(tool_def) -> GuardedTool:
+    """把一个 ToolDefinition 包成 GuardedTool。"""
+    return GuardedTool.wrap(tool_def)

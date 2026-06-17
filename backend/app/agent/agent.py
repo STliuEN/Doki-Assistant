@@ -17,7 +17,14 @@ from langchain_ollama import ChatOllama
 
 from app.agent.agent_middleware import get_middleware
 from app.agent.skill_registry import get_default_tools
-from app.agent.tool_context import set_current_user_id, set_rag_retrieval_settings, set_thinking_callback
+from app.agent.tool_context import (
+    set_confirmed_action,
+    set_current_session_id,
+    set_current_user_id,
+    set_rag_retrieval_settings,
+    set_runtime_state,
+    set_thinking_callback,
+)
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm
@@ -26,10 +33,10 @@ from app.utils.prompt_loader import load_prompt
 
 
 DEFAULT_RUNTIME_BUDGET = {
-    "max_iterations": 64,
-    "max_tool_calls": 32,
-    "max_runtime_seconds": 180,
-    "max_output_chars_per_tool": 8000,
+    "max_iterations": 160,
+    "max_tool_calls": 120,
+    "max_runtime_seconds": 1200,
+    "max_output_chars_per_tool": 16000,
 }
 
 
@@ -66,6 +73,97 @@ def runtime_event(stage: str, content: str, details: dict | None = None) -> dict
         "content": content,
         "details": details or {},
     }
+
+
+def _chunk_text(chunk) -> str:
+    """从 on_chat_model_stream 的 chunk 中提取纯文本增量。"""
+    content = getattr(chunk, "content", "") or ""
+    if isinstance(content, str):
+        return content
+    # 某些供应商返回分块列表（如 [{"type":"text","text":"..."}]）
+    parts = []
+    for item in content:
+        if isinstance(item, dict):
+            parts.append(item.get("text", "") or item.get("content", "") or "")
+        else:
+            parts.append(str(item))
+    return "".join(parts)
+
+
+async def stream_agent_events(
+    agent_executor: AgentExecutor,
+    inputs: dict,
+    thinking_queue: asyncio.Queue,
+    thinking_callback,
+    full_response: list[str],
+    budget: dict,
+) -> None:
+    """用 astream_events 驱动 Agent，实现 token 级流式 + 真正的 tool 事件。
+
+    - on_chat_model_stream -> 仅在“工具区间之外”把文本增量作为 response 事件流式输出。
+      工具内部（如 RAG 的 HyDE 假设文档、摘要生成）也会触发 on_chat_model_stream，
+      这些是中间产物，必须屏蔽，否则会把假设文档当成回答流给用户。
+    - on_tool_start/on_tool_end/on_tool_error -> 结构化 thinking 事件。
+    只有工具区间之外的最终回答增量才累加进 full_response 供落库。
+    """
+    tool_index = 0
+    tool_depth = 0  # >0 表示正处于某个工具执行期间，其内部 LLM 输出不应作为回答流出
+    streamed_any = False
+    last_final_text = ""  # 工具区间之外最后一次完整模型输出，作为回答兜底
+    async for event in agent_executor.astream_events(inputs, version="v2"):
+        kind = event.get("event")
+        if kind == "on_chat_model_stream":
+            if tool_depth > 0:
+                continue  # 工具内部 LLM（HyDE/摘要等）的 token，不流式给用户
+            text = _chunk_text(event["data"].get("chunk"))
+            if text:
+                streamed_any = True
+                full_response.append(text)
+                await thinking_queue.put({"type": "response", "content": text})
+        elif kind == "on_chat_model_end":
+            if tool_depth == 0:
+                output = event["data"].get("output")
+                content = getattr(output, "content", "") if output is not None else ""
+                if content:
+                    last_final_text = content if isinstance(content, str) else _chunk_text(output)
+        elif kind == "on_tool_start":
+            tool_index += 1
+            tool_depth += 1
+            await thinking_callback(runtime_event(
+                "tool_start",
+                f"开始调用 {event.get('name')}",
+                {
+                    "tool": event.get("name"),
+                    "tool_call_index": tool_index,
+                    "input_preview": preview(event["data"].get("input"), 1000),
+                },
+            ))
+        elif kind == "on_tool_end":
+            tool_depth = max(0, tool_depth - 1)
+            await thinking_callback(runtime_event(
+                "tool_end",
+                f"{event.get('name')} 执行完成",
+                {
+                    "tool": event.get("name"),
+                    "tool_call_index": tool_index,
+                    "output_preview": preview(event["data"].get("output"), budget["max_output_chars_per_tool"]),
+                },
+            ))
+        elif kind == "on_tool_error":
+            tool_depth = max(0, tool_depth - 1)
+            await thinking_callback(runtime_event(
+                "tool_error",
+                f"{event.get('name')} 执行出错",
+                {
+                    "tool": event.get("name"),
+                    "error": preview(event["data"].get("error"), 500),
+                },
+            ))
+
+    # 兜底：模型未产生流式增量（如非流式供应商）但有完整最终输出时补发。
+    if not streamed_any and last_final_text:
+        full_response.append(last_final_text)
+        await thinking_queue.put({"type": "response", "content": last_final_text})
 
 
 async def summarize_history(
@@ -347,7 +445,7 @@ async def get_agent_stream_response(
     start_time = time.monotonic()
     agent_result_holder = {"response": None, "error": None, "stop_reason": "completed"}
     agent_done = asyncio.Event()
-    runtime_state = {"tool_calls": 0}
+    full_response: list[str] = []
 
     async def thinking_callback(data: dict):
         """思考过程回调函数，将事件放入队列"""
@@ -362,8 +460,11 @@ async def get_agent_stream_response(
         """在独立任务中执行 Agent"""
         try:
             set_current_user_id(user_id)
+            set_current_session_id(session_id)
             set_thinking_callback(thinking_callback)
             set_rag_retrieval_settings(rag_retrieval_settings)
+            set_confirmed_action(False)
+            set_runtime_state({"tool_calls": 0, "max_tool_calls": budget["max_tool_calls"]})
 
             await thinking_callback(runtime_event("start", "正在准备上下文、模型和可用工具...", {
                 "budget": budget,
@@ -384,7 +485,7 @@ async def get_agent_stream_response(
                         session_id,
                         user_id,
                         summary,
-                        None,
+                        context.get("summary_boundary_id"),
                         sm.session_manager.estimate_tokens(summary),
                     )
                     context["used_summary"] = True
@@ -409,43 +510,20 @@ async def get_agent_stream_response(
                 "tools": tool_names,
             }))
 
-            full_response = []
             system_prompt = kwargs.get("custom_system_prompt") or agent_factory.default_system_prompt
             await thinking_callback(runtime_event("agent", "Agent 正在执行推理和工具调用..."))
 
-            async for chunk in agent_executor.astream({
-                "input": query,
-                "chat_history": chat_history,
-                "system_prompt": system_prompt
-            }):
-                if "output" in chunk:
-                    full_response.append(chunk["output"])
-                elif "intermediate_steps" in chunk:
-                    for action, observation in chunk["intermediate_steps"]:
-                        runtime_state["tool_calls"] += 1
-                        if runtime_state["tool_calls"] > budget["max_tool_calls"]:
-                            agent_result_holder["stop_reason"] = "max_tool_calls"
-                            await thinking_callback(runtime_event("stopped", "已达到工具调用次数预算，正在收束回答。", {
-                                "tool_calls": runtime_state["tool_calls"],
-                                "max_tool_calls": budget["max_tool_calls"],
-                            }))
-                            break
-                        await thinking_callback(runtime_event("tool_end", f"{action.tool} 执行完成", {
-                            "tool": action.tool,
-                            "tool_call_index": runtime_state["tool_calls"],
-                            "input_preview": preview(action.tool_input, 1000),
-                            "output_preview": preview(observation, budget["max_output_chars_per_tool"]),
-                        }))
-                        logger.info(f"\n\n🧠 [Agent 思考] {action.log}")
-                        logger.info(f"🛠️ [调用工具] {action.tool}")
-                        logger.info(f"📥 [工具输入] {action.tool_input}")
-                        logger.info(f"📤 [工具结果] {observation}\n")
-                    if agent_result_holder["stop_reason"] == "max_tool_calls":
-                        break
+            await stream_agent_events(
+                agent_executor,
+                {"input": query, "chat_history": chat_history, "system_prompt": system_prompt},
+                thinking_queue,
+                thinking_callback,
+                full_response,
+                budget,
+            )
 
             agent_result_holder["response"] = "".join(full_response) if full_response else "抱歉，我无法理解您的请求。"
             await thinking_callback(runtime_event("done", "Agent 执行完成。", {
-                "tool_calls": runtime_state["tool_calls"],
                 "duration_ms": int((time.monotonic() - start_time) * 1000),
                 "stop_reason": agent_result_holder["stop_reason"],
             }))
@@ -496,10 +574,11 @@ async def get_agent_stream_response(
         try:
             await agent_task
         except asyncio.CancelledError:
-            agent_result_holder["response"] = (
-                "本次任务已停止：达到运行时间预算。"
-                "已完成的步骤见上方执行过程，可以缩小任务范围后继续。"
-            )
+            # 已流式发出的 token 保留，仅补发停止说明并落库完整文本。
+            partial = "".join(full_response)
+            note = "\n\n[本次任务已停止：达到运行时间预算，可缩小范围后继续。]"
+            yield f"data: {json.dumps({'type': 'response', 'content': note}, ensure_ascii=False)}\n\n"
+            agent_result_holder["response"] = (partial + note) if partial else note.strip()
 
         if agent_result_holder["error"]:
             error_message = f"错误: {agent_result_holder['error']}"
@@ -507,18 +586,12 @@ async def get_agent_stream_response(
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
             return
 
-        response = agent_result_holder["response"]
+        # 回答内容已在执行过程中按 token 流式发出，这里只负责落库与收尾。
+        response = agent_result_holder["response"] or "".join(full_response)
 
         # 添加到会话历史
         await sm.session_manager.add_message(session_id, user_id, query, response)
         logger.info("【Agent流式响应】添加到会话历史成功")
-
-        # 发送回答内容（按chunk发送，减少SSE事件数）
-        chunk_size = 15
-        for i in range(0, len(response), chunk_size):
-            chunk = response[i:i + chunk_size]
-            yield f"data: {json.dumps({'type': 'response', 'content': chunk}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.03)
 
         # 发送结束标记
         yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
@@ -539,6 +612,70 @@ async def get_agent_stream_response(
         yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
 
 
+async def _stream_text_message(session_id: str | None, message: str) -> AsyncGenerator[str, None]:
+    """把一段定长文本作为 SSE response 事件分块发出。"""
+    for i in range(0, len(message), 15):
+        chunk = message[i:i + 15]
+        yield f"data: {json.dumps({'type': 'response', 'content': chunk, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+        await asyncio.sleep(0.02)
+
+
+async def get_confirm_action_stream_response(
+    action: dict,
+    confirmed: bool,
+    user_id: str,
+) -> AsyncGenerator[str, None]:
+    """执行或取消一条待确认高风险动作，并以 SSE 流式返回结果。
+
+    - confirmed=True：直接调用原工具协程（已设 confirmed 上下文），不再跑整个 Agent。
+    - confirmed=False：放弃执行，回一条取消说明。
+    两种情况都把结果作为独立 assistant 消息追加到会话。
+    """
+    session_id = action.get("session_id")
+    tool_id = action.get("tool_id")
+    args = action.get("args") or {}
+
+    yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
+    if not confirmed:
+        message = f"已取消高风险操作（{tool_id}），未执行。"
+    else:
+        from app.agent.skill_registry import tool_registry
+        try:
+            tool_def = tool_registry.get(tool_id)
+        except KeyError:
+            message = f"未找到工具「{tool_id}」，无法执行确认操作。"
+            tool_def = None
+
+        if tool_def is not None:
+            set_current_user_id(user_id)
+            set_current_session_id(session_id)
+            set_confirmed_action(True)
+            set_thinking_callback(None)
+            inner = tool_def.tool
+            try:
+                if getattr(inner, "coroutine", None) is not None:
+                    result = await inner.coroutine(**args)
+                elif getattr(inner, "func", None) is not None:
+                    result = inner.func(**args)
+                else:
+                    result = await inner.ainvoke(args)
+                message = str(result)
+            except Exception as exc:
+                logger.error(f"【确认执行】工具 {tool_id} 执行失败: {exc}", exc_info=True)
+                message = f"执行确认操作时出错: {exc}"
+
+    if session_id:
+        try:
+            await sm.session_manager.append_assistant_message(session_id, user_id, message)
+        except Exception as exc:
+            logger.warning(f"【确认执行】追加结果消息失败: {exc}")
+
+    async for sse in _stream_text_message(session_id, message):
+        yield sse
+    yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
+
 async def get_agent_regenerate_stream_response(
         session_id: str,
         user_id: str,
@@ -556,7 +693,7 @@ async def get_agent_regenerate_stream_response(
     start_time = time.monotonic()
     agent_result_holder = {"response": None, "error": None, "stop_reason": "completed"}
     agent_done = asyncio.Event()
-    runtime_state = {"tool_calls": 0}
+    full_response: list[str] = []
 
     payload = await sm.session_manager.get_regenerate_payload(session_id, user_id, assistant_message_id)
     query = payload["query"]
@@ -578,8 +715,11 @@ async def get_agent_regenerate_stream_response(
     async def run_agent():
         try:
             set_current_user_id(user_id)
+            set_current_session_id(session_id)
             set_thinking_callback(thinking_callback)
             set_rag_retrieval_settings(rag_retrieval_settings)
+            set_confirmed_action(False)
+            set_runtime_state({"tool_calls": 0, "max_tool_calls": budget["max_tool_calls"]})
 
             await thinking_callback(runtime_event("start", "正在重新生成回答...", {
                 "budget": budget,
@@ -594,42 +734,19 @@ async def get_agent_regenerate_stream_response(
                 f"已载入 {len(history)} 轮历史上下文；本轮可用工具：{', '.join(tool_names) if tool_names else '无'}。",
                 {"history_turns": len(history), "tools": tool_names},
             ))
-            full_response = []
             system_prompt = kwargs.get("custom_system_prompt") or agent_factory.default_system_prompt
 
-            async for chunk in agent_executor.astream({
-                "input": query,
-                "chat_history": chat_history,
-                "system_prompt": system_prompt
-            }):
-                if "output" in chunk:
-                    full_response.append(chunk["output"])
-                elif "intermediate_steps" in chunk:
-                    for action, observation in chunk["intermediate_steps"]:
-                        runtime_state["tool_calls"] += 1
-                        if runtime_state["tool_calls"] > budget["max_tool_calls"]:
-                            agent_result_holder["stop_reason"] = "max_tool_calls"
-                            await thinking_callback(runtime_event("stopped", "已达到工具调用次数预算，正在收束回答。", {
-                                "tool_calls": runtime_state["tool_calls"],
-                                "max_tool_calls": budget["max_tool_calls"],
-                            }))
-                            break
-                        await thinking_callback(runtime_event("tool_end", f"{action.tool} 执行完成", {
-                            "tool": action.tool,
-                            "tool_call_index": runtime_state["tool_calls"],
-                            "input_preview": preview(action.tool_input, 1000),
-                            "output_preview": preview(observation, budget["max_output_chars_per_tool"]),
-                        }))
-                        logger.info(f"\n\n🤔 [Agent 思考] {action.log}")
-                        logger.info(f"🛠️ [调用工具] {action.tool}")
-                        logger.info(f"📥 [工具输入] {action.tool_input}")
-                        logger.info(f"📤 [工具结果] {observation}\n")
-                    if agent_result_holder["stop_reason"] == "max_tool_calls":
-                        break
+            await stream_agent_events(
+                agent_executor,
+                {"input": query, "chat_history": chat_history, "system_prompt": system_prompt},
+                thinking_queue,
+                thinking_callback,
+                full_response,
+                budget,
+            )
 
             agent_result_holder["response"] = "".join(full_response) if full_response else "抱歉，我无法理解您的请求。"
             await thinking_callback(runtime_event("done", "Agent 执行完成。", {
-                "tool_calls": runtime_state["tool_calls"],
                 "duration_ms": int((time.monotonic() - start_time) * 1000),
                 "stop_reason": agent_result_holder["stop_reason"],
             }))
@@ -671,10 +788,10 @@ async def get_agent_regenerate_stream_response(
         try:
             await agent_task
         except asyncio.CancelledError:
-            agent_result_holder["response"] = (
-                "本次任务已停止：达到运行时间预算。"
-                "已完成的步骤见上方执行过程，可以缩小任务范围后继续。"
-            )
+            partial = "".join(full_response)
+            note = "\n\n[本次任务已停止：达到运行时间预算，可缩小范围后继续。]"
+            yield f"data: {json.dumps({'type': 'response', 'content': note, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+            agent_result_holder["response"] = (partial + note) if partial else note.strip()
 
         if agent_result_holder["error"]:
             error_message = f"错误: {agent_result_holder['error']}"
@@ -682,17 +799,10 @@ async def get_agent_regenerate_stream_response(
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
             return
 
-        response = agent_result_holder["response"]
-        if agent_result_holder["stop_reason"] != "completed" and response:
-            response = f"{response}\n\n停止原因：{agent_result_holder['stop_reason']}"
+        # 回答内容已按 token 流式发出，这里覆盖原 assistant 消息并收尾。
+        response = agent_result_holder["response"] or "".join(full_response)
         await sm.session_manager.update_message_content(session_id, user_id, assistant_message_id, response)
         logger.info(f"【Agent重新生成】已覆盖会话 {session_id} 消息 {assistant_message_id}")
-
-        chunk_size = 15
-        for i in range(0, len(response), chunk_size):
-            chunk = response[i:i + chunk_size]
-            yield f"data: {json.dumps({'type': 'response', 'content': chunk, 'session_id': session_id}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.03)
 
         yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
     except Exception as e:

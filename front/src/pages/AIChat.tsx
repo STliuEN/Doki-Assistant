@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench, Trash2, RefreshCw, Gauge } from 'lucide-react'
+import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench, Trash2, RefreshCw, Gauge, ShieldAlert, Check, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
@@ -128,6 +128,13 @@ const quickQuestions = [
   'RAG 是什么？',
 ]
 
+type PendingConfirmation = {
+  pendingActionId: string
+  tool?: string
+  content?: string
+  inputPreview?: string
+}
+
 export default function AIChat() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -160,6 +167,7 @@ export default function AIChat() {
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(readSavedSkillIds)
   const [contextSettings, setContextSettings] = useState<ContextSettings>(readSavedContextSettings)
   const [ragRetrievalSettings, setRagRetrievalSettings] = useState<RagRetrievalSettings>(readSavedRagRetrievalSettings)
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef('')
   const regeneratingMessageIdRef = useRef<number | null>(null)
@@ -296,6 +304,7 @@ export default function AIChat() {
     setCurrentSteps([])
     setCurrentStepDetails(['请求已发送，等待 Agent 开始执行...'])
     setShowThinking(true)
+    setPendingConfirmation(null)
 
     contentRef.current = ''
     regeneratingMessageIdRef.current = null
@@ -322,6 +331,14 @@ export default function AIChat() {
             ...current,
             formatThinkingDetail(stage, content, details),
           ])
+          if (details?.pending_action_id) {
+            setPendingConfirmation({
+              pendingActionId: String(details.pending_action_id),
+              tool: details.tool ? String(details.tool) : undefined,
+              content: content || undefined,
+              inputPreview: details.input_preview ? String(details.input_preview) : undefined,
+            })
+          }
         },
         onResponse: (content, sessionId) => {
           if (!hasResponseStarted) {
@@ -360,6 +377,48 @@ export default function AIChat() {
       }
     )
   }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
+
+  const handleConfirmAction = useCallback(async (confirmed: boolean) => {
+    const pending = pendingConfirmation
+    if (!pending || loading) return
+    setPendingConfirmation(null)
+
+    // 推入一条占位 assistant 消息，确认结果按 token 流式写入其中。
+    setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+    contentRef.current = ''
+    regeneratingMessageIdRef.current = null
+
+    await start(
+      '/chat/agent/confirm',
+      {
+        pending_action_id: pending.pendingActionId,
+        session_id: sessionId,
+        confirmed,
+      },
+      {
+        onResponse: (content) => {
+          contentRef.current += content
+          if (rafRef.current === null) {
+            rafRef.current = requestAnimationFrame(() => {
+              rafRef.current = null
+              flushContent()
+            })
+          }
+        },
+        onDone: () => {
+          if (rafRef.current !== null) {
+            cancelAnimationFrame(rafRef.current)
+            rafRef.current = null
+          }
+          flushContent()
+          if (sessionId) void loadSessionMessages(sessionId)
+        },
+        onError: (error) => {
+          setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error}` }])
+        },
+      }
+    )
+  }, [pendingConfirmation, loading, sessionId, start, flushContent, loadSessionMessages])
 
   const handleRegenerateMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || message.role !== 'assistant' || loading) return
@@ -907,6 +966,39 @@ export default function AIChat() {
               )}
             </div>
           </div>
+          {pendingConfirmation && (
+            <div className="mb-3 rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-3">
+              <div className="flex items-start gap-2">
+                <ShieldAlert size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-[var(--color-text)]">
+                    {pendingConfirmation.content || '该操作属于高风险，需要你确认后才会执行。'}
+                  </p>
+                  {pendingConfirmation.inputPreview && (
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)] break-all">
+                      {pendingConfirmation.tool ? `${pendingConfirmation.tool} · ` : ''}{pendingConfirmation.inputPreview}
+                    </p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => handleConfirmAction(true)}
+                      disabled={loading}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-40 transition-colors"
+                    >
+                      <Check size={14} /> 确认执行
+                    </button>
+                    <button
+                      onClick={() => handleConfirmAction(false)}
+                      disabled={loading}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-[var(--color-border)] text-[var(--color-text)] text-xs hover:bg-[var(--color-bg-hover)] disabled:opacity-40 transition-colors"
+                    >
+                      <X size={14} /> 取消
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex gap-3">
             <textarea
               value={input}

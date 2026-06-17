@@ -1,31 +1,31 @@
 from langchain_core.tools import tool
 
-from app.agent.tool_context import get_current_user_id_from_context, get_thinking_callback_from_context
+from app.agent.tool_context import get_current_user_id_from_context
+from app.core.logger_handler import logger
+from app.db.db_config import AsyncSessionLocal
+from app.services.memory_service import memory_service
 
 
 @tool("delete_memory_tool")
 async def delete_memory_tool(memory_id: str) -> str:
-    """永久删除记忆事项（描述见 TOOL.md）。"""
+    """永久删除记忆事项（描述见 TOOL.md）。
+
+    高风险确认由 GuardedTool 统一拦截：未确认时本函数不会被调用，
+    GuardedTool 会暂存待确认动作并推送 waiting_confirmation；用户确认后
+    /chat/agent/confirm 才会真正执行到这里。
+    """
     user_id = get_current_user_id_from_context()
     if not user_id:
         return "错误: 无法确定用户身份"
-    callback = get_thinking_callback_from_context()
-    if callback:
-        await callback({
-            "type": "waiting_confirmation",
-            "stage": "tool_confirmation",
-            "content": "删除记忆事项需要用户确认，当前未执行删除操作。",
-            "details": {
-                "tool": "delete_memory_tool",
-                "risk_level": "high",
-                "action": "delete_memory",
-                "input_preview": f"memory_id={memory_id}",
-            },
-        })
-    return (
-        "删除记忆事项属于高风险操作，当前没有执行删除。"
-        "请在确认删除后重新发起明确请求，或改用归档操作。"
-    )
+    async with AsyncSessionLocal() as db:
+        try:
+            deleted = await memory_service.delete_memory(db, user_id, memory_id)
+        except Exception as exc:
+            logger.error(f"删除记忆事项失败: {exc}")
+            return f"删除记忆事项时出错: {str(exc)}"
+    if not deleted:
+        return f"未找到可删除的记忆事项（ID: {memory_id}），可能已被删除或不属于当前用户。"
+    return f"✅ 已永久删除记忆事项（ID: {memory_id}）。"
 
 
 def get_tool():
