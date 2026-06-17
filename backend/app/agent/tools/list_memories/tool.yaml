@@ -1,0 +1,7 @@
+id: list_memories
+label: 查询记忆事项
+description: 查询今日事项、待办、提醒、复习和其他记忆事项。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 61

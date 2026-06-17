@@ -173,26 +173,50 @@ export interface BatchCategoryRequest {
   category: string
 }
 
-export interface ReviewItem {
-  review_id: string
-  note_id: string
+export type MemoryType = 'review' | 'todo' | 'reminder' | 'long_term' | 'memo'
+export type MemoryStatus = 'active' | 'done' | 'archived'
+export type MemoryPriority = 'low' | 'medium' | 'high'
+
+export interface MemoryItem {
+  id: string
+  user_id?: string
+  source_type?: string
+  source_id?: string
+  type: MemoryType
   title: string
-  content_preview: string
-  tags: string[]
-  category: string
-  review_count: number
-  last_reviewed_at: string | null
-  interval_days: number
+  content?: string
+  status: MemoryStatus
+  priority: MemoryPriority
+  due_at?: string | null
+  remind_at?: string | null
+  completed_at?: string | null
+  archived_at?: string | null
+  review_count?: number
+  interval_days?: number
+  metadata_json?: string | null
+  created_at?: string | null
+  updated_at?: string | null
 }
 
-export interface ReviewQuestion {
+export interface MemoryPayload {
+  type: MemoryType
+  title: string
+  content?: string
+  priority?: MemoryPriority
+  due_at?: string
+  remind_at?: string
+  source_type?: string
+  source_id?: string
+}
+
+export interface MemoryQuestion {
   question: string
   choices: string[]
   answer: string
 }
 
-export interface ReviewListData {
-  reviews: ReviewItem[]
+export interface MemoryListData {
+  memories: MemoryItem[]
   total_count: number
 }
 

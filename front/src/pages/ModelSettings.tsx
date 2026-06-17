@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Pencil, Plus, RefreshCw, Save, Trash2, X, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { modelConfigApi } from '../api/modelConfig'
 import type { ModelConfig, ModelConfigPayload, ModelType } from '../types/api'
 
@@ -37,6 +38,14 @@ function normalizeForm(form: ModelConfigPayload): ModelConfigPayload {
 function getErrorMessage(error: unknown): string {
   const data = (error as { response?: { data?: { message?: string; detail?: string } } })?.response?.data
   return data?.message || data?.detail || '请求没有正常返回'
+}
+
+function modelToastLabel(config: Pick<ModelConfigPayload, 'provider' | 'model_name'>) {
+  return [config.provider, config.model_name].filter(Boolean).join(' / ') || '当前模型'
+}
+
+function formatTestToast(status: '连接成功' | '连接失败', label: string, detail?: string) {
+  return `${status}：${label}${detail ? `（${detail}）` : ''}`
 }
 
 export default function ModelSettings() {
@@ -226,11 +235,11 @@ export default function ModelSettings() {
     }
   }
 
-  const showTestResult = (data?: { ok: boolean; result: string; error: string }) => {
+  const showTestResult = (data: { ok: boolean; result: string; error: string } | undefined, label: string) => {
     if (data?.ok) {
-      showMessage(`连接成功：${data.result || 'ok'}`)
+      toast.success(formatTestToast('连接成功', label, data.result || 'ok'))
     } else {
-      showMessage(`连接失败：${data?.error || '未知错误'}`)
+      toast.error(formatTestToast('连接失败', label, data?.error || '未知错误'))
     }
   }
 
@@ -245,9 +254,9 @@ export default function ModelSettings() {
     setTestingId('form')
     try {
       const res = await modelConfigApi.test(payload)
-      showTestResult(res.data)
+      showTestResult(res.data, modelToastLabel(payload))
     } catch (err) {
-      showMessage(`连接失败：${getErrorMessage(err)}`)
+      toast.error(formatTestToast('连接失败', modelToastLabel(payload), getErrorMessage(err)))
     } finally {
       setTestingId(null)
     }
@@ -259,9 +268,9 @@ export default function ModelSettings() {
       const res = config.model_type === 'default'
         ? await modelConfigApi.testSystemDefault()
         : await modelConfigApi.testSaved(config.id)
-      showTestResult(res.data)
+      showTestResult(res.data, modelToastLabel(config))
     } catch (err) {
-      showMessage(`连接失败：${getErrorMessage(err)}`)
+      toast.error(formatTestToast('连接失败', modelToastLabel(config), getErrorMessage(err)))
     } finally {
       setTestingId(null)
     }

@@ -7,7 +7,6 @@ import json
 import re
 import uuid
 import zipfile
-from datetime import datetime, timedelta
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -17,27 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger_handler import logger
 from app.models.note import Note
-from app.models.review_record import ReviewRecord
 from app.schemas.models import NoteCreate, NoteResponse, NoteUpdate
+from app.services.memory_service import memory_service
 from app.utils.config import chroma_config
 from app.utils.path_tool import get_abstract_path
 from app.utils.prompt_loader import load_prompt
 
 NOTES_COLLECTION_NAME = "notes_collection"
-
-# 艾宾浩斯间隔重复数组（天）
-INTERVALS = [1, 2, 4, 7, 15, 30]
-
-
-def _get_next_interval(review_count: int) -> int:
-    """
-    根据回顾次数返回下一次回顾间隔天数。
-    超出预定义数组后固定使用 30 天间隔。
-    """
-    if review_count < len(INTERVALS):
-        return INTERVALS[review_count]
-    return INTERVALS[-1]
-
 
 class NoteService:
     """
@@ -179,7 +164,7 @@ class NoteService:
     async def delete_note(self, db: AsyncSession, note_id: str, user_id: str) -> bool:
         """
         删除笔记：
-        1. 删除 MySQL 中的笔记（review_records 通过 FK CASCADE 自动删除）
+        1. 删除 MySQL 中的笔记和对应复习记忆事项
         2. 删除 ChromaDB 中的向量
         """
         stmt = select(Note).where(Note.id == note_id, Note.user_id == user_id)
@@ -188,6 +173,7 @@ class NoteService:
         if not note:
             return False
 
+        await memory_service.delete_note_memories(db, user_id, note_id)
         await db.execute(delete(Note).where(Note.id == note_id, Note.user_id == user_id))
         await db.commit()
 
@@ -392,7 +378,7 @@ class NoteService:
 
     async def _auto_tag_and_review(self, note_id: str, user_id: str, content: str):
         """
-        后台异步任务：LLM 分析笔记内容 → 生成标签和分类 → 更新 MySQL → 创建回顾记录。
+        后台异步任务：LLM 分析笔记内容 → 生成标签和分类 → 更新 MySQL → 创建复习记忆事项。
 
         此方法在 create_note 结束后通过 asyncio.create_task 执行，
         不阻塞用户保存响应。标签延迟出现是设计意图。
@@ -429,17 +415,15 @@ class NoteService:
                 )
                 await session.execute(stmt)
 
-                # 创建回顾记录（首次间隔 1 天）
-                now = datetime.now()
-                review = ReviewRecord(
-                    id=str(uuid.uuid4()),
-                    note_id=note_id,
-                    user_id=user_id,
-                    next_review_at=now + timedelta(days=1),
-                    interval_days=1,
-                    review_count=0,
-                )
-                session.add(review)
+                note = await session.get(Note, note_id)
+                if note:
+                    await memory_service.create_review_for_note(
+                        session,
+                        user_id,
+                        note_id,
+                        note.title,
+                        (note.content or "")[:200],
+                    )
                 await session.commit()
 
         except json.JSONDecodeError as e:
@@ -590,7 +574,7 @@ class NoteService:
     async def batch_delete_notes(self, db: AsyncSession, user_id: str, note_ids: list[str]) -> int:
         """
         批量删除笔记：
-        1. MySQL 批量删除（级联 review_records）
+        1. MySQL 批量删除并清理对应复习记忆事项
         2. ChromaDB 逐个清理向量
         返回实际删除数量。
         """
@@ -604,6 +588,9 @@ class NoteService:
 
         if not existing_ids:
             return 0
+
+        for nid in existing_ids:
+            await memory_service.delete_note_memories(db, user_id, nid)
 
         await db.execute(delete(Note).where(Note.id.in_(existing_ids), Note.user_id == user_id))
         await db.commit()

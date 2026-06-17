@@ -45,7 +45,7 @@ async def create_note(
     创建笔记：
     1. MySQL 写入 + ChromaDB 向量化
     2. 立即返回笔记（tags/category 初始为空）
-    3. 后台异步生成标签和回顾记录
+    3. 后台异步生成标签和复习记忆事项
     """
     note = await init_manager.note_service.create_note(db, user_id, payload)
     return success_response(message="笔记创建成功", data=note)
@@ -265,7 +265,7 @@ async def delete_note(
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
-    删除笔记：联删 MySQL 记录、ChromaDB 向量、以及级联的 review_records。
+    删除笔记：联删 MySQL 记录、ChromaDB 向量、以及对应复习记忆事项。
     """
     deleted = await init_manager.note_service.delete_note(db, note_id, user_id)
     if not deleted:

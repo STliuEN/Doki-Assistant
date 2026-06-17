@@ -1,9 +1,0 @@
-id: mark_reviewed
-label: 标记回顾
-description: 将指定笔记标记为已回顾。
-category: review
-entrypoint: tool:get_tool
-default: true
-visibility: public
-order: 70
-

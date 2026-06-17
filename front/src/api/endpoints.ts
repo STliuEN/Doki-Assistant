@@ -92,10 +92,18 @@ export const endpoints = {
   noteBatchPin: '/note/batch/pin',
   noteCategoryDelete: (category: string) => `/note/category/${encodeURIComponent(category)}`,
 
-  // Review
-  reviewToday: '/review/today',
-  reviewDone: (id: string) => `/review/done/${id}`,
-  reviewQuestion: (id: string) => `/review/question/${id}`,
+  // Memory
+  memoryToday: '/memory/today',
+  memoryList: '/memory/list',
+  memoryDetail: (id: string) => `/memory/${id}`,
+  memoryCreate: '/memory/create',
+  memoryUpdate: (id: string) => `/memory/${id}`,
+  memoryComplete: (id: string) => `/memory/${id}/complete`,
+  memoryReviewed: (id: string) => `/memory/${id}/reviewed`,
+  memoryPostpone: (id: string) => `/memory/${id}/postpone`,
+  memoryArchive: (id: string) => `/memory/${id}/archive`,
+  memoryDelete: (id: string) => `/memory/${id}`,
+  memoryReviewQuestion: (id: string) => `/memory/${id}/review-question`,
 
   // Note Templates
   noteTemplateList: '/note-template/list',

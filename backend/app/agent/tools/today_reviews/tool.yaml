@@ -1,9 +1,0 @@
-id: today_reviews
-label: 今日回顾
-description: 获取今日待复习的笔记。
-category: review
-entrypoint: tool:get_tool
-default: true
-visibility: public
-order: 60
-

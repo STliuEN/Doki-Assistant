@@ -80,7 +80,7 @@ async def _migrate_columns(conn):
 # 初始化数据库，创建所有表
 async def init_db():
     # 确保所有 Model 已导入，注册到 Base.metadata
-    from app.models import chat_history, embedding_config, knowledge_document, model_config, note, note_template, review_record  # noqa: F401
+    from app.models import chat_history, embedding_config, knowledge_document, memory_item, model_config, note, note_template  # noqa: F401
 
     async with async_engine.begin() as conn:
         # 先删除旧表，然后创建新表

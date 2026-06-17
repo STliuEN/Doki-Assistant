@@ -1,0 +1,7 @@
+id: create_memory
+label: 创建记忆事项
+description: 创建待办、提醒、长期事项、普通备忘，或在明确要求时创建复习事项。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 60

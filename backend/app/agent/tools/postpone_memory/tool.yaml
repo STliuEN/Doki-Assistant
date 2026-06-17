@@ -1,0 +1,7 @@
+id: postpone_memory
+label: 延期记忆事项
+description: 将记忆事项延期若干天。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 63

@@ -1,2 +1,0 @@
-"""Today reviews tool."""
-

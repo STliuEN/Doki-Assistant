@@ -1,0 +1,7 @@
+id: mark_memory_reviewed
+label: 标记复习完成
+description: 推进复习类型记忆事项的间隔复习计划。
+category: memory
+entrypoint: tool:get_tool
+default: true
+order: 64
