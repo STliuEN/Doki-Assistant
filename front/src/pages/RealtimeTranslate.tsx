@@ -366,60 +366,65 @@ export default function RealtimeTranslate() {
           </section>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 grid grid-cols-2">
-          <section className="min-h-0 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-card)]">
-            <div className="h-11 shrink-0 px-5 flex items-center border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+        <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-card)]">
+          <div className="h-11 shrink-0 grid grid-cols-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+            <div className="px-5 flex items-center border-r border-[var(--color-border)]">
               <span className="text-sm font-medium text-[var(--color-text)]">对话输入</span>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
-              {dialogueItems.map((item) => (
-                <div key={item.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm leading-6 text-[var(--color-text)]">
-                  {item.source}
-                </div>
-              ))}
-              <div ref={dialogueEndRef} />
-            </div>
-            <div className="shrink-0 border-t border-[var(--color-border)] p-4">
-              <div className="flex gap-2">
-                <textarea
-                  value={dialogueInput}
-                  onChange={(event) => setDialogueInput(event.target.value)}
-                  onKeyDown={handleDialogueKeyDown}
-                  placeholder="输入一句话，按 Enter 发送，Shift+Enter 换行"
-                  rows={2}
-                  className="flex-1 resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-6 text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-                />
-                <button
-                  onClick={handleSendDialogue}
-                  disabled={!dialogueInput.trim()}
-                  className="w-10 rounded-md bg-[var(--color-accent)] text-white inline-flex items-center justify-center disabled:opacity-50"
-                  title="发送"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section className="min-h-0 flex flex-col bg-[var(--color-card)]">
-            <div className="h-11 shrink-0 px-5 flex items-center border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+            <div className="px-5 flex items-center">
               <span className="text-sm font-medium text-[var(--color-text)]">实时译文</span>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
-              {dialogueItems.length === 0 && (
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-5">
+            {dialogueItems.length === 0 ? (
+              <div className="h-full grid grid-cols-2 gap-6">
+                <div className="h-full flex items-center justify-center text-sm text-[var(--color-text-tertiary)]">
+                  输入内容会显示在这里
+                </div>
                 <div className="h-full flex items-center justify-center text-sm text-[var(--color-text-tertiary)]">
                   译文会逐句显示在这里
                 </div>
-              )}
-              {dialogueItems.map((item) => (
-                <div key={item.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm leading-6 text-[var(--color-text)]">
-                  {item.output || (item.status === 'running' ? '翻译中...' : '')}
-                  {item.status === 'running' && <Loader2 size={14} className="ml-2 inline animate-spin text-[var(--color-accent)]" />}
-                  {item.status === 'error' && <span className="text-[var(--color-danger)]">{item.error || '翻译失败'}</span>}
-                </div>
-              ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {dialogueItems.map((item) => (
+                  <div key={item.id} className="grid grid-cols-2 gap-6 items-stretch">
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm leading-6 text-[var(--color-text)] whitespace-pre-wrap break-words">
+                      {item.source}
+                    </div>
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 text-sm leading-6 text-[var(--color-text)] whitespace-pre-wrap break-words">
+                      {item.output || (item.status === 'running' ? '翻译中...' : '')}
+                      {item.status === 'running' && <Loader2 size={14} className="ml-2 inline animate-spin text-[var(--color-accent)]" />}
+                      {item.status === 'error' && <span className="text-[var(--color-danger)]">{item.error || '翻译失败'}</span>}
+                    </div>
+                  </div>
+                ))}
+                <div ref={dialogueEndRef} />
+              </div>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-[var(--color-border)] p-4">
+            <div className="flex gap-2">
+              <textarea
+                value={dialogueInput}
+                onChange={(event) => setDialogueInput(event.target.value)}
+                onKeyDown={handleDialogueKeyDown}
+                placeholder="输入一句话，按 Enter 发送，Shift+Enter 换行"
+                rows={2}
+                className="flex-1 resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-6 text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              />
+              <button
+                onClick={handleSendDialogue}
+                disabled={!dialogueInput.trim()}
+                className="w-10 rounded-md bg-[var(--color-accent)] text-white inline-flex items-center justify-center disabled:opacity-50"
+                title="发送"
+              >
+                <Send size={16} />
+              </button>
             </div>
-          </section>
+          </div>
         </div>
       )}
 
