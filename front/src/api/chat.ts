@@ -15,6 +15,10 @@ export interface ChatTool {
   order?: number
   is_default?: boolean
   visibility?: string
+  risk_level?: 'low' | 'medium' | 'high'
+  requires_confirmation?: boolean
+  timeout_seconds?: number
+  max_output_chars?: number
 }
 
 export interface ChatSkill {
@@ -53,6 +57,10 @@ export interface ToolDetail {
   entrypoint?: string
   default?: boolean
   visibility?: string
+  risk_level?: 'low' | 'medium' | 'high'
+  requires_confirmation?: boolean
+  timeout_seconds?: number
+  max_output_chars?: number
 }
 
 export interface ToolCatalog {

@@ -26,6 +26,10 @@ class ToolDefinition:
     instructions: str = ""
     is_default: bool = True
     visibility: str = "public"
+    risk_level: str = "low"
+    requires_confirmation: bool = False
+    timeout_seconds: int = 30
+    max_output_chars: int = 4000
 
     def to_public_dict(self) -> dict:
         return {
@@ -36,6 +40,10 @@ class ToolDefinition:
             "order": self.order,
             "is_default": self.is_default,
             "visibility": self.visibility,
+            "risk_level": self.risk_level,
+            "requires_confirmation": self.requires_confirmation,
+            "timeout_seconds": self.timeout_seconds,
+            "max_output_chars": self.max_output_chars,
         }
 
 
@@ -98,6 +106,13 @@ def _optional_int(data: dict[str, Any], key: str, default: int) -> int:
 def _optional_bool(data: dict[str, Any], key: str, default: bool) -> bool:
     value = data.get(key, default)
     return value if isinstance(value, bool) else default
+
+
+def _risk_level(data: dict[str, Any], path: Path) -> str:
+    value = _optional_string(data, "risk_level", "low")
+    if value not in {"low", "medium", "high"}:
+        raise ValueError(f"{path} risk_level must be one of: low, medium, high")
+    return value
 
 
 def _optional_string_list(data: dict[str, Any], key: str, path: Path) -> tuple[str, ...]:
@@ -168,6 +183,10 @@ class ToolRegistry:
                 instructions=instructions,
                 is_default=_optional_bool(data, "default", True),
                 visibility=_optional_string(data, "visibility", "public"),
+                risk_level=_risk_level(data, config_path),
+                requires_confirmation=_optional_bool(data, "requires_confirmation", False),
+                timeout_seconds=max(1, _optional_int(data, "timeout_seconds", 30)),
+                max_output_chars=max(256, _optional_int(data, "max_output_chars", 4000)),
             )
         return loaded
 

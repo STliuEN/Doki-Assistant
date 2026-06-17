@@ -70,7 +70,7 @@ front/src/types/api.ts
 - 复习题生成
 - 标记已复习
 
-前端删除 memory 当前有确认弹窗，但还没有和 Agent 高风险工具确认机制打通。
+前端删除 memory 当前有确认弹窗。Agent 侧 `delete_memory` 已标记为高风险，调用时会进入 `waiting_confirmation` 并拒绝直接删除；确认后续跑闭环仍待实现。
 
 ## 当前 Agent Tools
 
@@ -131,9 +131,9 @@ backend/app/agent/skills/memory_cleanup/
 
 Agent 只有在用户明确要求“记一下 / 提醒我 / 加待办”时才写入 memory。普通对话、RAG 回答、翻译结果还不会自动提炼待办或提醒。
 
-### 3. 缺高风险确认
+### 3. 高风险确认仍未闭环
 
-`delete_memory` 属于高风险工具。当前只靠 prompt 和前端手动删除确认，Agent 调用删除工具前没有统一二次确认。
+`delete_memory` 属于高风险工具。当前已通过 tool 元数据标记为 `risk_level=high`，并在工具执行时阻断静默删除、推送 `waiting_confirmation`。仍缺前端确认按钮、pending action 保存和确认后继续执行。
 
 ### 4. 缺语义搜索
 
@@ -190,13 +190,14 @@ memory 当前主要按类型、状态、时间查询。还没有把 memory 写�
 - Agent 可以通过语义查询找回相关 memory。
 - 仍然按当前 user_id 隔离。
 
-### P1.4 高风险操作确认
+### P1.4 高风险操作确认闭环
 
 目标：
 
-- 给 `delete_memory` 标记 `risk_level=high`。
-- Agent 调用删除前进入确认状态。
-- 用户确认后才执行。
+- 前端显示确认/拒绝。
+- 后端保存待确认删除动作。
+- 用户确认后才执行删除。
+- 用户拒绝后 Agent 给出解释或替代方案。
 
 该项依赖 [Agent 运行时改进评估](./agent_runtime_improvements.md) 中的高风险工具确认机制。
 
@@ -223,4 +224,3 @@ rg -n "DailyReview|review_router|review_service|ReviewRecord|reviewApi|/review" 
 ```
 
 说明：`review_question_prompt.txt` 和历史文档中出现 review 属于正常情况；业务入口不应继续依赖旧 review router/service/page。
-

@@ -228,7 +228,7 @@ export interface MemoryListData {
 }
 
 export interface SSEMessage {
-  type: 'thinking' | 'response' | 'done' | 'error'
+  type: 'thinking' | 'waiting_confirmation' | 'response' | 'done' | 'error'
   content?: string
   session_id?: string
   stage?: string

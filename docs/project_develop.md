@@ -27,13 +27,18 @@
 
 这一阶段的核心变化是：RAG 不再只服务上传文档问答，也开始成为笔记搜索、关联推荐和写作辅助的知识底座。
 
-### 阶段三：多功能 Agent 平台
+### 阶段三：个人 Agent 平台
 
 当前 `master` 已经转向个人 Agent 工作台：
 
 - 多模型配置与选择
 - AI 对话模式
 - Skill/Tool 注册和前端选择
+- Tool 风险元数据
+- 管理员保护的 Skill/Tool 管理接口
+- 结构化 Agent thinking 事件
+- 运行预算和停止原因
+- 会话摘要压缩
 - 记忆中心
 - 知识库 RAG
 - 笔记系统
@@ -57,11 +62,14 @@ React 前端
 主要组件：
 
 - `front/src/pages/AIChat.tsx`：对话页，负责模型、AI 模式、Skill、策略菜单、消息刷新和删除。
+- `front/src/pages/ToolManager.tsx`：工具库管理，支持风险等级、确认、超时和输出限制字段。
 - `backend/app/router/chat.py`：Agent 对话入口、prompt 拼接、skill 预路由和 SSE 返回。
-- `backend/app/agent/agent.py`：创建 LangChain tool calling Agent，执行工具并推送 thinking。
-- `backend/app/agent/skill_registry.py`：扫描 Skill/Tool 文件模块。
+- `backend/app/agent/agent.py`：创建 LangChain tool calling Agent，执行工具并推送结构化 thinking。
+- `backend/app/agent/skill_registry.py`：扫描 Skill/Tool 文件模块，读取 Tool 风险元数据。
 - `backend/app/agent/intent_router.py`：从用户已选 Skill 中做本轮预路由。
-- `backend/app/services/database_session_manager.py`：会话、消息、上下文裁剪、刷新覆盖和删除。
+- `backend/app/services/database_session_manager.py`：会话、消息、上下文裁剪、摘要压缩、刷新覆盖和删除。
+- `backend/app/config/security.yaml`：管理员名单配置。
+- `backend/app/config/agent.yaml`：Agent 运行预算配置。
 - `backend/app/rag/rag_service.py`：RAG 检索、笔记召回、摘要生成和动态检索数量。
 - `backend/app/router/memory_router.py`：记忆中心 API。
 
@@ -69,7 +77,7 @@ React 前端
 
 当前 prompt 拼接在 `backend/app/router/chat.py#build_chat_system_prompt` 中完成。
 
-拼接顺序：
+系统提示词拼接顺序：
 
 ```text
 1. main_prompt
@@ -78,16 +86,14 @@ React 前端
 4. 当前 AI 模式 prompt（非 main_prompt 时追加）
 ```
 
-对应逻辑：
+进入 AgentExecutor 的消息结构：
 
 ```text
-load_prompt("main_prompt")
-  + "## 当前启用 Skills"
-  + skill_prompts
-  + "请只依赖当前已启用 skill..."
-  + "## 本次可用工具"
-  + tool_names
-  + mode prompt
+system prompt
+  -> conversation_summary（Auto 长会话时）
+  -> recent_messages
+  -> current_user_input
+  -> agent_scratchpad
 ```
 
 注意：
@@ -110,17 +116,18 @@ load_prompt("main_prompt")
   -> resolve_skills 得到 Skill prompt 和 Tool 实例
   -> build_chat_system_prompt
   -> get_agent_stream_response
-  -> get_context 裁剪历史
+  -> Auto 长会话：summary + 最近 6 轮
+  -> 非 Auto 或短会话：按策略裁剪历史
   -> create_tool_calling_agent
   -> AgentExecutor.astream
-  -> thinking / response / done SSE
+  -> thinking / waiting_confirmation / response / done SSE
   -> 保存 user + assistant 消息
 ```
 
 当前回答流式方式：
 
 - thinking 事件会在 Agent 执行时实时推送。
-- 普通工具调用会通过 `intermediate_steps` 形成 thinking 文本。
+- 普通工具调用会通过 `intermediate_steps` 形成 `tool_end` thinking 事件。
 - RAG 工具内部还会主动推送更细的检索 thinking。
 - 最终回答当前仍是 Agent 完整结束后再按 chunk 发送，不是模型 token 级流式。
 
@@ -131,14 +138,23 @@ load_prompt("main_prompt")
 - 上下文长度：`Auto / 低 / 中 / 高 / 自定义 / 仅当前`
 - RAG 检索：`Auto / 低 / 中 / 高 / 自定义`
 
-后端上下文裁剪在 `DatabaseSessionManager.trim_history`：
+后端上下文逻辑：
 
 - `current_only`：不带历史。
 - `custom`：按最近对话轮数保留。
-- `low/medium/high/auto`：按粗略 token 预算保留历史。
-- Auto 默认 token 预算为 4000。
+- `low/medium/high`：按粗略 token 预算保留历史。
+- `auto`：短会话按预算裁剪；长会话优先使用“摘要 + 最近 6 轮”。
 
-当前仍是“裁剪”，不是“自动摘要压缩”。自动摘要见 roadmap P1。
+摘要字段保存在 `ChatSession.metadata_`：
+
+```text
+summary
+summary_message_id
+summary_updated_at
+estimated_tokens
+```
+
+摘要失败时回退到原有裁剪逻辑，不阻断聊天。
 
 ## RAG 动态检索
 
@@ -174,7 +190,7 @@ chat.py
 
 ## 记忆中心状态
 
-记忆中心已经不是计划稿，而是当前主功能之一：
+记忆中心已经是当前主功能之一：
 
 - 后端模型：`MemoryItem`
 - 后端服务：`memory_service`
@@ -191,37 +207,40 @@ chat.py
 - `long_term`
 - `memo`
 
-下一步重点是主动提醒、从对话自动提炼事项、语义搜索和高风险操作确认。
+当前 `delete_memory` 已标记为高风险，Agent 调用时会进入 `waiting_confirmation` 并拒绝直接删除。完整确认续跑闭环仍待实现。
 
 ## 权限与安全现状
 
 已有：
 
 - JWT Bearer 鉴权。
-- 多数业务路由按当前 `user_id` 隔离。
+- 主业务路由按当前 `user_id` 隔离。
 - 前端 HTTP/SSE 自动带 token。
-- 删除会话、消息、记忆、模型配置、Skill/Tool 等操作有前端确认。
+- Skill/Tool 读取接口要求登录。
+- Skill/Tool 创建、更新、删除要求管理员。
+- 管理员名单维护在 `backend/app/config/security.yaml`。
+- `/chat/sessions` 只返回当前用户会话。
+- `/chat/reorder` 要求登录并保留限流。
+- Tool 风险元数据已进入 registry 和管理页。
+- `delete_memory_tool` 已阻断静默删除。
 
 不足：
 
-- 没有角色或管理员权限模型。
-- `skill_router`、`tool_router` 当前缺少后端鉴权。
-- `/chat/sessions` 和 `/chat/reorder` 需要补齐鉴权。
-- Agent 工具没有统一风险等级和二次确认。
+- 还不是完整多租户 RBAC。
+- 管理员仍来自配置文件和环境变量，不是数据库角色。
+- 高风险工具确认后续跑还未完成。
+- 工具执行 wrapper 还未统一接管所有工具。
 - 高风险操作不能只依赖 prompt 约束。
-
-这些被列为下一阶段 P0。
 
 ## 后续方向
 
 详细计划见 [下一阶段开发计划](./roadmap_next.md)。当前推荐顺序：
 
-1. 补齐权限和高风险工具确认。
-2. thinking 事件结构化、计时和工具可观察性。
-3. 长任务预算和停止。
-4. 上下文自动摘要压缩。
+1. 高风险确认续跑闭环。
+2. Tool wrapper 和真正 tool_start/tool_end/tool_error。
+3. 权限模型升级为数据库角色。
+4. 上下文摘要边界和重复摘要控制。
 5. 记忆中心主动提醒和事项提炼。
 6. MCP 外部工具接入。
 7. 字幕/会议翻译。
 8. 桌面端验证。
-

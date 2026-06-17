@@ -1,8 +1,10 @@
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 import requests
+import yaml
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -19,6 +21,8 @@ ALGORITHM = os.getenv("ALGORITHM")
 
 # 创建Bearer认证方案
 security = HTTPBearer()
+
+SECURITY_CONFIG_PATH = Path(__file__).parents[1] / "config" / "security.yaml"
 
 
 def decode_django_jwt(token: str) -> dict[str, Any] | None:
@@ -89,6 +93,64 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
         )
 
     return user_id
+
+
+def _split_env_list(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    return {item.strip() for item in value.split(",") if item.strip()}
+
+
+def _read_security_admins() -> tuple[set[str], set[str]]:
+    try:
+        data = yaml.safe_load(SECURITY_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        logger.warning(f"读取安全配置失败，使用环境变量管理员名单: {exc}")
+        data = {}
+
+    admin_config = data.get("admin") if isinstance(data, dict) else {}
+    if not isinstance(admin_config, dict):
+        admin_config = {}
+
+    user_ids = admin_config.get("user_ids") or []
+    usernames = admin_config.get("usernames") or []
+
+    config_user_ids = {str(item).strip() for item in user_ids if str(item).strip()} if isinstance(user_ids, list) else set()
+    config_usernames = {str(item).strip() for item in usernames if str(item).strip()} if isinstance(usernames, list) else set()
+
+    return (
+        config_user_ids | _split_env_list(os.getenv("ADMIN_USER_IDS")),
+        config_usernames | _split_env_list(os.getenv("ADMIN_USERNAMES")),
+    )
+
+
+async def require_admin_user(
+    user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> str:
+    """Require a logged-in administrator.
+
+    Administrators are configured in app/config/security.yaml.
+    ADMIN_USER_IDS and ADMIN_USERNAMES can add deployment-specific admins.
+    """
+    admin_user_ids, admin_usernames = _read_security_admins()
+
+    if user_id in admin_user_ids:
+        return user_id
+
+    user_info = await get_user_info_from_redis(user_id, credentials)
+    username = None
+    if isinstance(user_info, dict):
+        data = user_info.get("data") if isinstance(user_info.get("data"), dict) else user_info
+        username = data.get("username")
+
+    if username in admin_usernames:
+        return user_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Administrator permission required",
+    )
 
 
 async def fetch_user_info_from_django_api(token: str, url: str) -> dict[str, Any] | None:

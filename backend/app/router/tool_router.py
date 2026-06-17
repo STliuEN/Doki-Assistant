@@ -3,12 +3,13 @@ import shutil
 from typing import Any
 
 import yaml
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
 from app.agent.skill_registry import TOOLS_DIR, skill_registry
 from app.core.success_response import success_response
+from app.utils.auth_utils import get_current_user_id, require_admin_user
 
 tool_router = APIRouter(prefix="/tools", tags=["tools"])
 
@@ -23,6 +24,10 @@ class ToolPayload(BaseModel):
     order: int = 100
     default: bool = True
     visibility: str = "public"
+    risk_level: str = Field(default="low", pattern="^(low|medium|high)$")
+    requires_confirmation: bool = False
+    timeout_seconds: int = Field(default=30, ge=1, le=600)
+    max_output_chars: int = Field(default=4000, ge=256, le=100000)
     instructions: str = Field(default="", max_length=20000)
 
 
@@ -71,6 +76,10 @@ def _read_tool_detail(tool_id: str) -> dict:
         "entrypoint": data.get("entrypoint", "tool:get_tool"),
         "default": bool(data.get("default", True)),
         "visibility": data.get("visibility", "public"),
+        "risk_level": data.get("risk_level", "low"),
+        "requires_confirmation": bool(data.get("requires_confirmation", False)),
+        "timeout_seconds": int(data.get("timeout_seconds", 30)),
+        "max_output_chars": int(data.get("max_output_chars", 4000)),
         "instructions": instructions_path.read_text(encoding="utf-8") if instructions_path.exists() else "",
     }
 
@@ -113,6 +122,10 @@ def _write_tool(payload: ToolPayload, existing_id: str | None = None) -> dict:
         "entrypoint": "tool:get_tool",
         "default": payload.default,
         "visibility": payload.visibility,
+        "risk_level": payload.risk_level,
+        "requires_confirmation": payload.requires_confirmation,
+        "timeout_seconds": payload.timeout_seconds,
+        "max_output_chars": payload.max_output_chars,
         "order": payload.order,
     }
     (directory / "tool.yaml").write_text(
@@ -129,14 +142,14 @@ def _write_tool(payload: ToolPayload, existing_id: str | None = None) -> dict:
 
 
 @tool_router.get("/catalog")
-async def get_tools_catalog():
+async def get_tools_catalog(_: str = Depends(get_current_user_id)):
     return success_response(data={
         "tools": [_read_tool_detail(tool.id) for tool in skill_registry.tool_registry.all()],
     })
 
 
 @tool_router.post("")
-async def create_tool(payload: ToolPayload):
+async def create_tool(payload: ToolPayload, _: str = Depends(require_admin_user)):
     directory = _tool_dir(payload.id)
     if directory.exists():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="tool already exists")
@@ -144,7 +157,7 @@ async def create_tool(payload: ToolPayload):
 
 
 @tool_router.put("/{tool_id}")
-async def update_tool(tool_id: str, payload: ToolPayload):
+async def update_tool(tool_id: str, payload: ToolPayload, _: str = Depends(require_admin_user)):
     directory = _tool_dir(tool_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
@@ -152,7 +165,7 @@ async def update_tool(tool_id: str, payload: ToolPayload):
 
 
 @tool_router.delete("/{tool_id}")
-async def delete_tool(tool_id: str):
+async def delete_tool(tool_id: str, _: str = Depends(require_admin_user)):
     directory = _tool_dir(tool_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")

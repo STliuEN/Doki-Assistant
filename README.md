@@ -203,16 +203,28 @@ AI 对话页的 `策略` 菜单还可以动态控制 RAG 召回规模：
 - 前端普通 API 与 SSE 都会携带 JWT。
 - 后端主要业务路由通过 `get_current_user_id` 获取当前用户。
 - 聊天、知识库、笔记、记忆中心、模型配置等主链路按 `user_id` 隔离。
+- `skills`、`tools` 管理接口要求管理员权限；管理员名单维护在 `backend/app/config/security.yaml`，也可通过 `ADMIN_USER_IDS` / `ADMIN_USERNAMES` 追加部署环境管理员。
+- `/chat/sessions` 只返回当前用户会话，`/chat/reorder` 已要求登录并保留限流。
 - 删除类前端操作大多有确认弹窗。
 
 当前仍需补齐：
 
-- `skills`、`tools` 管理接口需要后端鉴权。
-- `/chat/sessions`、`/chat/reorder` 需要统一访问控制。
-- 缺少角色/管理员/操作级权限。
+- 仍不是完整多租户权限系统，尚未提供数据库角色、团队租户、细粒度操作权限和审计后台。
 - Agent 写入和删除类工具缺少统一风险等级与二次确认。
 
 这些被列为下一阶段 P0，详见 [下一阶段开发计划](./docs/roadmap_next.md)。
+
+管理员名单维护方式：
+
+```yaml
+admin:
+  user_ids:
+    - stable-django-user-uuid
+  usernames:
+    - STliuEN
+```
+
+推荐长期使用 `user_ids`，因为用户名可能变更；修改配置后重启 FastAPI 后端生效。
 
 
 
@@ -259,10 +271,10 @@ LLM_TYPE=ALIYUN
 
 # ==================== Ollama 配置 (LLM_TYPE=OLLAMA) ====================
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL_NAME=qwen3.5:0.8b
+OLLAMA_MODEL_NAME=qwen3:0.6b
 
 # ==================== 阿里云百炼配置 (LLM_TYPE=ALIYUN) ====================
-ALIYUN_ACCESS_KEY=your_api_key
+ALIYUN_ACCESS_KEY_SECRET=your_api_key
 ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 CHAT_MODEL_NAME=qwen3-max
 
@@ -624,7 +636,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-backend-cu132.ps1
 
 常见问题：
 
-- **API Key 错误**：检查 ALIYUN_ACCESS_KEY 是否正确配置
+- **API Key 错误**：检查 ALIYUN_ACCESS_KEY_SECRET 是否正确配置
 - **数据库连接失败**：确认 MySQL / Redis 服务已启动
 - **ChromaDB 异常**：检查 `chroma.yaml` 中的路径配置
 - **重排序模型加载失败**：确认 `RERANKER_MODEL_PATH` 指向包含 `config.json` 和 `model.safetensors` / `pytorch_model.bin` 的完整模型目录；如果是 ModelScope 中断下载残留，删除模型目录或重启服务触发重新下载

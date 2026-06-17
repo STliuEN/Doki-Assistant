@@ -8,6 +8,10 @@ const emptyTool: ToolDetail = {
   description: '',
   category: 'general',
   order: 100,
+  risk_level: 'low',
+  requires_confirmation: false,
+  timeout_seconds: 30,
+  max_output_chars: 4000,
   instructions: '',
 }
 
@@ -245,6 +249,52 @@ export default function ToolManager() {
                 onChange={(e) => setForm((current) => ({ ...current, order: Number(e.target.value) }))}
                 className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
               />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-[var(--color-text-secondary)]">风险等级</span>
+              <select
+                value={form.risk_level || 'low'}
+                onChange={(e) => setForm((current) => ({
+                  ...current,
+                  risk_level: e.target.value as ToolDetail['risk_level'],
+                }))}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+              >
+                <option value="low">低</option>
+                <option value="medium">中</option>
+                <option value="high">高</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-[var(--color-text-secondary)]">超时秒数</span>
+              <input
+                type="number"
+                min={1}
+                max={600}
+                value={form.timeout_seconds || 30}
+                onChange={(e) => setForm((current) => ({ ...current, timeout_seconds: Number(e.target.value) }))}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-[var(--color-text-secondary)]">最大输出字符</span>
+              <input
+                type="number"
+                min={256}
+                max={100000}
+                value={form.max_output_chars || 4000}
+                onChange={(e) => setForm((current) => ({ ...current, max_output_chars: Number(e.target.value) }))}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+              />
+            </label>
+            <label className="col-span-2 inline-flex items-center gap-2 text-sm text-[var(--color-text)]">
+              <input
+                type="checkbox"
+                checked={Boolean(form.requires_confirmation)}
+                onChange={(e) => setForm((current) => ({ ...current, requires_confirmation: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              需要用户二次确认
             </label>
           </section>
 

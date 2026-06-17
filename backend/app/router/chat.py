@@ -250,10 +250,13 @@ async def delete_session(
 
 
 @chat_router.get("/sessions")
-async def get_all_sessions(router_service: ChatService = Depends(get_router_service)):
-    """获取所有会话 ID。"""
-    session_ids = await router_service.handle_get_all_sessions()
-    return success_response(data={"sessions": session_ids})
+async def get_all_sessions(
+    user_id: str = Depends(get_current_user_id),
+    router_service: ChatService = Depends(get_router_service),
+):
+    """获取当前用户所有会话。"""
+    sessions = await router_service.handle_get_all_sessions(user_id)
+    return success_response(data={"sessions": sessions})
 
 
 @chat_router.get("/sessions/{user_id}")
@@ -270,6 +273,7 @@ async def get_user_sessions(
 @chat_router.post("/reorder", response_model=ReorderResponse)
 async def reorder_documents(
     request: ReorderRequest,
+    user_id: str = Depends(get_current_user_id),
     router_service: ChatService = Depends(get_router_service),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):

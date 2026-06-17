@@ -4,12 +4,13 @@ import shutil
 from typing import Any
 
 import yaml
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
 from pydantic import BaseModel, Field
 
 from app.agent.skill_registry import SKILLS_DIR, get_skill_catalog, skill_registry
 from app.core.success_response import success_response
+from app.utils.auth_utils import get_current_user_id, require_admin_user
 
 skill_router = APIRouter(prefix="/skills", tags=["skills"])
 
@@ -115,17 +116,17 @@ def _write_skill(payload: SkillPayload, existing_id: str | None = None) -> dict:
 
 
 @skill_router.get("/catalog")
-async def get_skills_catalog():
+async def get_skills_catalog(_: str = Depends(get_current_user_id)):
     return success_response(data=get_skill_catalog())
 
 
 @skill_router.get("/{skill_id}")
-async def get_skill_detail(skill_id: str):
+async def get_skill_detail(skill_id: str, _: str = Depends(get_current_user_id)):
     return success_response(data=_read_skill_detail(skill_id))
 
 
 @skill_router.post("")
-async def create_skill(payload: SkillPayload):
+async def create_skill(payload: SkillPayload, _: str = Depends(require_admin_user)):
     directory = _skill_dir(payload.id)
     if directory.exists():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="skill already exists")
@@ -133,7 +134,7 @@ async def create_skill(payload: SkillPayload):
 
 
 @skill_router.put("/{skill_id}")
-async def update_skill(skill_id: str, payload: SkillPayload):
+async def update_skill(skill_id: str, payload: SkillPayload, _: str = Depends(require_admin_user)):
     directory = _skill_dir(skill_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")
@@ -143,7 +144,7 @@ async def update_skill(skill_id: str, payload: SkillPayload):
 
 
 @skill_router.delete("/{skill_id}")
-async def delete_skill(skill_id: str):
+async def delete_skill(skill_id: str, _: str = Depends(require_admin_user)):
     directory = _skill_dir(skill_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")

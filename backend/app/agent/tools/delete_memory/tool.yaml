@@ -5,3 +5,7 @@ category: memory
 entrypoint: tool:get_tool
 default: true
 order: 67
+risk_level: high
+requires_confirmation: true
+timeout_seconds: 30
+max_output_chars: 4000

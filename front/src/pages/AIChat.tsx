@@ -56,6 +56,16 @@ const defaultRagRetrievalSettings: RagRetrievalSettings = {
   summary_k: 3,
 }
 
+const formatThinkingDetail = (stage: string, content = '', details?: Record<string, unknown>) => {
+  const parts = [`${stage || 'thinking'}: ${content}`]
+  if (details?.tool) parts.push(`工具=${String(details.tool)}`)
+  if (details?.duration_ms) parts.push(`耗时=${String(details.duration_ms)}ms`)
+  if (details?.elapsed_ms) parts.push(`已用=${String(details.elapsed_ms)}ms`)
+  if (details?.risk_level) parts.push(`风险=${String(details.risk_level)}`)
+  if (details?.stop_reason) parts.push(`停止=${String(details.stop_reason)}`)
+  return parts.join(' | ')
+}
+
 const readSavedContextSettings = (): ContextSettings => {
   const saved = localStorage.getItem(CHAT_CONTEXT_STORAGE_KEY)
   if (!saved) return defaultContextSettings
@@ -304,13 +314,13 @@ export default function AIChat() {
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
       {
-        onThinking: (stage, content) => {
+        onThinking: (stage, content, details) => {
           if (!steps.includes(stage)) steps.push(stage)
           setCurrentSteps([...steps])
           setCurrentThinking(content || '')
           setCurrentStepDetails((current) => [
             ...current,
-            `${stage || 'thinking'}: ${content || ''}`,
+            formatThinkingDetail(stage, content, details),
           ])
         },
         onResponse: (content, sessionId) => {
@@ -377,13 +387,13 @@ export default function AIChat() {
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
       {
-        onThinking: (stage, content) => {
+        onThinking: (stage, content, details) => {
           if (!steps.includes(stage)) steps.push(stage)
           setCurrentSteps([...steps])
           setCurrentThinking(content || '')
           setCurrentStepDetails((current) => [
             ...current,
-            `${stage || 'thinking'}: ${content || ''}`,
+            formatThinkingDetail(stage, content, details),
           ])
         },
         onResponse: (content) => {

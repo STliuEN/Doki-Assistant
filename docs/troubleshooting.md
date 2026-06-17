@@ -145,9 +145,9 @@ current PyTorch install supports sm_50 ... sm_90
 
 **当前说明**：
 
-- 后端 SSE 支持 `thinking / response / done / error`。
+- 后端 SSE 支持 `thinking / waiting_confirmation / response / done / error`。
 - RAG 工具内部会主动推送检索过程。
-- 普通工具调用当前主要在 Agent `intermediate_steps` 出现后推送，仍不是完整 `tool_start/tool_end` 事件流。
+- 普通工具调用当前主要在 Agent `intermediate_steps` 出现后推送 `tool_end`，仍不是完整 `tool_start/tool_end` 事件流。
 - 最终回答目前是 Agent 完成后再按 chunk 推送，不是模型 token 级实时流。
 
 **检查方法**：
@@ -199,15 +199,32 @@ current PyTorch install supports sm_50 ... sm_90
 
 **当前说明**：
 
-- 当前版本 `skill_router` 和 `tool_router` 仍需要补齐后端鉴权。
-- 这是已知安全缺口，已列入下一阶段 P0。
-- 在正式部署前，不建议将这些管理接口暴露到公网。
+- 当前版本 `skill_router` 和 `tool_router` 已补齐基础后端鉴权。
+- 读取接口要求登录。
+- 创建、更新、删除要求管理员。
+- 管理员名单维护在 `backend/app/config/security.yaml`，环境变量 `ADMIN_USER_IDS` / `ADMIN_USERNAMES` 可追加部署环境管理员。
 
-临时建议：
+排查建议：
 
-- 仅在本地开发环境启用 Skill/Tool 管理页。
-- 通过反向代理限制 `/skills` 和 `/tools`。
-- 等后端补齐 `Depends(get_current_user_id)` 和管理权限后再开放。
+- 未登录应返回 401。
+- 非管理员写操作应返回 403。
+- 修改 `security.yaml` 后需要重启 FastAPI 后端。
+
+### 17. Agent 请求删除记忆但没有删除
+
+**问题**：让 Agent 删除 memory 后，thinking 区显示 `waiting_confirmation`，但数据没有被删除。
+
+**当前说明**：
+
+- `delete_memory` 已标记为高风险工具。
+- 当前实现会阻断静默删除，推送 `waiting_confirmation` 并返回未执行说明。
+- 前端确认按钮、后端 pending action 和确认后续跑还未完成。
+
+处理方式：
+
+- 需要立即删除时，在记忆中心页面手动删除。
+- 或使用归档操作替代永久删除。
+- 等高风险确认闭环完成后，再允许 Agent 在用户确认后执行删除。
 
 ## 日志检查
 

@@ -90,6 +90,7 @@ export function useSSE() {
                 const msg = data as SSEMessage
                 switch (msg.type) {
                   case 'thinking':
+                  case 'waiting_confirmation':
                     flushResponse()
                     callbacks.onThinking?.(msg.stage || '', msg.content, msg.details as Record<string, unknown> | undefined)
                     break

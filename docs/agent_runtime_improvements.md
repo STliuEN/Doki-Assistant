@@ -1,222 +1,173 @@
-# Agent 运行时改进评估
+# Agent 运行时现状与改进清单
 
-本文细化 [下一阶段开发计划](./roadmap_next.md) 中运行时相关工作。当前 Agent 已经能用，但还不是可长期运行、可观察、可控风险的 Agent 运行时。
+本文细化 Agent 运行时相关工作，并同步当前已经完成的 P0/P1 改动。路线图见 [下一阶段开发计划](./roadmap_next.md)。
 
-## 当前实现
+## 当前后端链路
 
-### 后端链路
+核心文件：
 
-- SSE 入口：`backend/app/router/chat.py#/chat/agent/query/stream`
-- Agent 执行：`backend/app/agent/agent.py#get_agent_stream_response`
-- 重新生成：`backend/app/agent/agent.py#get_agent_regenerate_stream_response`
-- 会话上下文：`backend/app/services/database_session_manager.py`
-- Skill/Tool：`backend/app/agent/skill_registry.py`
-- Skill 预路由：`backend/app/agent/intent_router.py`
-- Tool 上下文：`backend/app/agent/tool_context.py`
+```text
+backend/app/router/chat.py
+backend/app/agent/agent.py
+backend/app/agent/skill_registry.py
+backend/app/agent/tool_context.py
+backend/app/services/database_session_manager.py
+backend/app/config/agent.yaml
+backend/app/config/security.yaml
+```
 
 当前执行流程：
 
 ```text
 SSE 请求
-  -> 鉴权 user_id
+  -> JWT 鉴权 user_id
   -> prompt / skill / tool 解析
-  -> 获取裁剪后的历史
+  -> Skill 预路由
+  -> resolve_skills 得到工具实例
+  -> 获取上下文：Auto 模式优先 summary + 最近 6 轮，否则裁剪
   -> 创建 AgentExecutor
   -> AgentExecutor.astream
-  -> thinking_queue 推送 thinking
+  -> thinking_queue 推送结构化事件
   -> Agent 完成后按 chunk 推送最终回答
   -> 保存或覆盖数据库消息
 ```
 
-### 前端链路
+当前最终回答仍是 Agent 完成后再按 chunk 推送，不是模型 token 级实时流。
 
-- SSE hook：`front/src/hooks/useSSE.ts`
-- 对话页：`front/src/pages/AIChat.tsx`
-- 支持事件：`thinking / response / done / error`
-- thinking 当前以文本列表展示在折叠区。
-- 消息刷新会覆盖原 assistant 消息。
-- 消息删除会调用后端删除。
+## 当前前端链路
 
-## 当前限制
+核心文件：
 
-### 1. thinking 事件还不够结构化
+```text
+front/src/hooks/useSSE.ts
+front/src/pages/AIChat.tsx
+front/src/pages/ToolManager.tsx
+front/src/api/chat.ts
+front/src/types/api.ts
+```
 
-已有：
+支持事件：
 
-- `start`
-- `context`
-- `tools`
-- `agent`
-- `tool:<tool_name>`
-- RAG 内部检索事件
+```text
+thinking
+waiting_confirmation
+response
+done
+error
+```
 
-缺少：
+thinking 当前仍以文本列表展示，但已能显示结构化 details 中的工具、耗时、风险和停止原因。
 
-- 统一 `run_id`
-- `tool_start/tool_end/tool_error`
-- 耗时
-- 状态
-- 输入摘要/输出摘要分离
-- 前端事件列表和计时
+## 已完成能力
 
-### 2. 最终回答不是 token 级流式
+### 1. 运行 ID 与结构化 details
 
-当前模型虽然以 streaming 创建，但 LangChain Agent 路径中最终输出是 Agent 完成后汇总，再由后端按 15 字符切块发送。用户能看到流式文字，但不是模型实时 token。
-
-短期可以接受，优先先做工具过程可观察；真正 token 级流式可后置评估 `astream_events()` 或 LangGraph。
-
-### 3. 上下文只有裁剪，没有摘要
-
-当前 `trim_history` 已支持：
-
-- current_only
-- custom 最近 N 轮
-- low/medium/high/auto token 粗估
-
-但没有：
-
-- conversation summary
-- summary 覆盖到的 message id
-- 摘要失败回退策略
-- 摘要 prompt
-
-### 4. 长任务没有预算
-
-当前：
-
-- `max_iterations=64`
-- 前端 `AbortController` 可以取消请求
-
-缺少：
-
-- wall-clock 超时
-- 最大工具调用次数
-- 最大工具输出长度
-- 停止原因
-- 高风险操作暂停确认
-- run 状态持久化
-
-## 推荐事件模型
-
-统一 thinking 事件：
+每轮 Agent 运行会生成 `run_id`，并把它写入 thinking 事件：
 
 ```json
 {
   "type": "thinking",
   "stage": "tool_end",
-  "content": "工具 search_notes_tool 执行完成",
+  "content": "search_notes_tool 执行完成",
   "details": {
     "run_id": "uuid",
-    "status": "success",
+    "elapsed_ms": 1200,
     "tool": "search_notes_tool",
-    "started_at": "2026-06-17T12:00:00",
-    "ended_at": "2026-06-17T12:00:01",
-    "duration_ms": 1000,
+    "tool_call_index": 1,
     "input_preview": "...",
-    "output_preview": "...",
-    "error": null
+    "output_preview": "..."
   }
 }
 ```
 
-建议阶段：
+已完成：
 
-- `agent_start`
-- `skill_route`
-- `context_loaded`
-- `model_start`
-- `tool_start`
+- `start`
+- `context`
+- `tools`
+- `agent`
 - `tool_end`
-- `tool_error`
-- `agent_end`
-- `budget_stop`
+- `stopped`
+- `done`
 - `waiting_confirmation`
 
-## P0 实施顺序
+待完善：
 
-### 阶段 1：工具调用事件化
+- 真正的 `tool_start`
+- 真正的 `tool_error`
+- 每个工具的独立 `duration_ms`
+- 各工具内部事件字段完全统一
 
-目标：
+### 2. 运行预算
 
-- 不改变 Agent 架构，先把现有 `intermediate_steps` 转成结构化事件。
-- RAG 内部 thinking 保持兼容，但 `details` 补齐耗时和检索计划。
-
-改动点：
-
-- `agent.py` 中为每次请求生成 `run_id`。
-- 捕获 `intermediate_steps` 时发 `tool_end` 事件。
-- 如果能包装 Tool 执行，再补 `tool_start`。
-- 前端 `currentStepDetails` 替换为 `ThinkingEvent[]`。
-
-验收：
-
-- 用户能看到工具名、输入摘要、输出摘要。
-- 工具失败时能看到失败工具。
-
-### 阶段 2：计时与运行状态
-
-目标：
-
-- thinking 区显示总耗时和每步耗时。
-- SSE done 事件带停止原因。
-
-改动点：
-
-- 后端记录 `started_at`。
-- 每个事件带 `duration_ms`。
-- 前端运行中显示计时。
-
-验收：
-
-- 用户能知道 Agent 已运行多久。
-- 每个工具调用都有耗时。
-
-### 阶段 3：运行预算
-
-目标：
-
-- 限制长任务失控。
-
-建议：
+预算配置位于：
 
 ```text
-max_runtime_seconds = 180
-max_tool_calls = 32
-max_output_chars_per_tool = 8000
+backend/app/config/agent.yaml
 ```
 
-改动点：
+当前默认值：
 
-- 增加 `RunBudget`。
-- 每次工具结果截断 preview。
-- 达到预算时发 `budget_stop` 并生成收束回答。
+```yaml
+runtime:
+  max_iterations: 64
+  max_tool_calls: 32
+  max_runtime_seconds: 180
+  max_output_chars_per_tool: 8000
+```
 
-验收：
+已完成：
 
-- 不会无限执行。
-- 达到限制时前端可见原因。
+- `AgentExecutor.max_iterations` 读取配置。
+- SSE 外层按 `max_runtime_seconds` 取消任务。
+- 工具调用次数超过 `max_tool_calls` 后发 `stopped` 并收束回答。
+- 工具输出 preview 按 `max_output_chars_per_tool` 截断。
+- 回答会附带 `stop_reason`。
 
-### 阶段 4：高风险确认
+限制：
 
-目标：
+- `max_tool_calls` 基于 LangChain 返回的 `intermediate_steps` 统计，不能在所有工具真正执行前拦截。
+- 要实现更强控制，需要 Tool wrapper 或运行图级别的执行器。
 
-- 删除、清空、外部写入、MCP 高风险工具必须等待用户确认。
+### 3. Tool 风险元数据
 
-改动点：
+Tool 配置支持：
 
-- `tool.yaml` 增加风险字段。
-- Agent 调用前检查工具风险。
-- SSE 发 `waiting_confirmation`。
-- 前端显示确认/拒绝。
-- 后端支持确认后继续或拒绝后收束。
+```yaml
+risk_level: low | medium | high
+requires_confirmation: true | false
+timeout_seconds: 30
+max_output_chars: 4000
+```
 
-验收：
+已完成：
 
-- 删除类工具不能被 Agent 静默执行。
+- `ToolDefinition` 读取风险字段。
+- `/tools/catalog` 返回风险字段。
+- Tool 管理页可编辑风险字段。
+- `delete_memory` 标记为 high。
+- `delete_memory_tool` 当前不会执行删除，而是推送 `waiting_confirmation` 事件。
 
-## P1：上下文自动压缩
+待完善：
 
-推荐结构：
+- 确认后继续执行。
+- 拒绝后由 Agent 解释或给替代方案。
+- pending action 的持久化、过期和用户隔离。
+
+### 4. 上下文自动压缩
+
+会话摘要保存在 `ChatSession.metadata_`：
+
+```json
+{
+  "summary": "...",
+  "summary_message_id": null,
+  "summary_updated_at": "...",
+  "estimated_tokens": 123
+}
+```
+
+Auto 模式长会话结构：
 
 ```text
 system prompt
@@ -226,27 +177,79 @@ system prompt
   -> agent_scratchpad
 ```
 
-实现建议：
+已完成：
 
-- `ChatSession.metadata_` 保存：
-  - `summary`
-  - `summary_message_id`
-  - `summary_updated_at`
-  - `estimated_tokens`
-- 超过阈值后压缩早期消息。
+- 长会话压缩早期消息。
 - 保留最近 6 轮原文。
-- 事实型信息仍通过 RAG/Note/Memory 工具查询。
+- 摘要失败回退原裁剪逻辑。
+- regenerate 读取已有摘要并保留最近 6 轮。
 
-风险：
+待完善：
 
-- 摘要可能丢细节。
-- 摘要不能保存敏感 token。
-- 摘要失败不能阻断聊天。
+- 精确维护 `summary_message_id`。
+- 避免重复摘要同一段消息。
+- 摘要质量检查。
+- 使用独立摘要模型配置。
+
+## 当前限制
+
+### 最终回答不是 token 级流式
+
+当前模型虽然以 streaming 创建，但 LangChain Agent 路径中最终输出是 Agent 完成后汇总，再由后端按 15 字符切块发送。用户能看到流式文字，但不是模型实时 token。
+
+短期可以接受。真正 token 级流式可后置评估：
+
+- LangChain `astream_events()`
+- LangGraph
+- 自定义 tool calling loop
+
+### 工具事件还不是执行器级别
+
+当前 `tool_end` 来自 `intermediate_steps`，意味着工具已经执行完才知道。后续需要统一 wrapper，才能实现：
+
+- tool_start
+- tool_error
+- 工具级 timeout
+- 工具级 max output
+- 高风险确认前置拦截
+
+## 下一步建议
+
+### 阶段 1：高风险确认闭环
+
+目标：
+
+- SSE 发 `waiting_confirmation`。
+- 前端显示确认/拒绝按钮。
+- 后端保存 pending action。
+- 确认后执行原工具。
+- 拒绝后收束并提示替代方案。
+
+### 阶段 2：Tool wrapper
+
+目标：
+
+- 在 registry 返回给 Agent 前包装工具。
+- wrapper 统一处理风险、超时、输出截断和事件上报。
+- 所有工具都有一致 `tool_start/tool_end/tool_error`。
+
+### 阶段 3：运行状态持久化
+
+目标：
+
+- 保存 run 状态、开始时间、停止原因、工具调用列表。
+- 便于调试和未来恢复。
+
+### 阶段 4：token 级流式评估
+
+目标：
+
+- 评估是否值得引入 `astream_events()` 或 LangGraph。
+- 在不牺牲工具确认和权限控制的前提下提升实时性。
 
 ## 不建议立即做
 
 - 立即全面迁移 LangGraph。
 - 把完整工具输出无上限推给前端。
 - 让摘要替代知识库、笔记或记忆检索。
-- 在没有权限与确认机制前接 Shell、文件系统、数据库写入类 MCP 工具。
-
+- 在没有确认闭环前接 Shell、文件系统、数据库写入类 MCP 工具。

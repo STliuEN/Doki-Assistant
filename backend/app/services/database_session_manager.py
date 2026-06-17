@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from app.core.logger_handler import logger
 from app.db.db_config import AsyncSessionLocal
@@ -66,6 +67,74 @@ class DatabaseSessionManager:
             used_tokens += turn_tokens
 
         return list(reversed(selected))
+
+    def should_use_summary(self, history: list[tuple[str, str]], context_settings=None) -> bool:
+        mode = getattr(context_settings, "mode", "auto") if context_settings else "auto"
+        if mode != "auto" or len(history) <= 6:
+            return False
+        total_tokens = sum(
+            self.estimate_tokens(user_msg) + self.estimate_tokens(assistant_msg)
+            for user_msg, assistant_msg in history
+        )
+        return total_tokens > 4000
+
+    async def get_session_metadata(self, session_id: str, user_id: str) -> dict:
+        async with AsyncSessionLocal() as db:
+            session = await db.run_sync(
+                lambda s: s.query(ChatSession)
+                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .first()
+            )
+            if not session:
+                return {}
+            return session.metadata_ or {}
+
+    async def update_session_summary(
+        self,
+        session_id: str,
+        user_id: str,
+        summary: str,
+        summary_message_id: int | None,
+        estimated_tokens: int,
+    ) -> None:
+        async with AsyncSessionLocal() as db:
+            session = await db.run_sync(
+                lambda s: s.query(ChatSession)
+                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .first()
+            )
+            if not session:
+                return
+            metadata = dict(session.metadata_ or {})
+            metadata.update({
+                "summary": summary,
+                "summary_message_id": summary_message_id,
+                "summary_updated_at": datetime.now(timezone.utc).isoformat(),
+                "estimated_tokens": estimated_tokens,
+            })
+            session.metadata_ = metadata
+            await db.commit()
+
+    async def get_context_with_summary(self, session_id: str, user_id: str, context_settings=None) -> dict:
+        history = await self.get_history(session_id, user_id)
+        if not self.should_use_summary(history, context_settings):
+            return {
+                "summary": "",
+                "history": self.trim_history(history, context_settings),
+                "used_summary": False,
+                "total_turns": len(history),
+            }
+
+        metadata = await self.get_session_metadata(session_id, user_id)
+        recent_history = history[-6:]
+        return {
+            "summary": metadata.get("summary", ""),
+            "history": recent_history,
+            "used_summary": bool(metadata.get("summary")),
+            "total_turns": len(history),
+            "summary_message_id": metadata.get("summary_message_id"),
+            "history_for_summary": history[:-6],
+        }
 
     @classmethod
     async def create(cls) -> "DatabaseSessionManager":
