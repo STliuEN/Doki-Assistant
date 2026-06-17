@@ -1,0 +1,12 @@
+id: memory_cleanup
+label: 记忆事项·清理（归档/删除）
+description: 归档或永久删除事项，仅在用户明确要求时使用。
+tools:
+  - current_time
+  - list_memories
+  - get_memory
+  - archive_memory
+  - delete_memory
+default: false
+visibility: public
+order: 52

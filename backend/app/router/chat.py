@@ -6,7 +6,8 @@ from fastapi.routing import APIRouter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.agent import get_agent_stream_response
-from app.agent.skill_registry import get_skill_catalog, resolve_skills
+from app.agent.intent_router import route_skills
+from app.agent.skill_registry import get_skill_catalog, resolve_skills, skill_registry
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
@@ -90,8 +91,16 @@ async def query_stream(
     if prompt_type not in CHAT_PROMPT_MODES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="unsupported prompt_type")
 
+    # 已选 skill 作为允许集（上界）；预路由只在其中挑出与本次 query 相关的子集。
+    # 显式指定 tool_ids 时视为精确控制，跳过路由。
+    candidate_skill_ids = request.skill_ids if request.skill_ids is not None else skill_registry.default_skill_ids()
+    if request.tool_ids:
+        routed_skill_ids = candidate_skill_ids
+    else:
+        routed_skill_ids = await route_skills(request.query, candidate_skill_ids)
+
     try:
-        skill_resolution = resolve_skills(request.skill_ids, request.tool_ids)
+        skill_resolution = resolve_skills(routed_skill_ids, request.tool_ids)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

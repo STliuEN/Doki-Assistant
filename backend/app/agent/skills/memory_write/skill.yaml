@@ -1,0 +1,14 @@
+id: memory_write
+label: 记忆事项·记录与变更
+description: 创建新事项，或对已有事项做完成、修改、延期。
+tools:
+  - current_time
+  - create_memory
+  - list_memories
+  - get_memory
+  - update_memory
+  - complete_memory
+  - postpone_memory
+default: true
+visibility: public
+order: 50

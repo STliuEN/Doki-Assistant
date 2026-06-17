@@ -1,0 +1,10 @@
+id: memory_read
+label: 记忆事项·查询
+description: 查看今日事项、按类型浏览、查看单条详情。
+tools:
+  - current_time
+  - list_memories
+  - get_memory
+default: true
+visibility: public
+order: 51

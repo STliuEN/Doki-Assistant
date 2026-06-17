@@ -226,6 +226,9 @@ class SkillRegistry:
     def all(self) -> list[SkillDefinition]:
         return sorted(self._skills.values(), key=lambda item: (item.order, item.id))
 
+    def get(self, skill_id: str) -> SkillDefinition | None:
+        return self._skills.get(skill_id)
+
     def reload(self) -> None:
         self.tool_registry.reload()
         self._skills = self._load_skills()
