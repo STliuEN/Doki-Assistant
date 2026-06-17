@@ -9,6 +9,14 @@ class ContextSettings(BaseModel):
     recent_turns: int | None = 6
 
 
+class RagRetrievalSettings(BaseModel):
+    """RAG 检索数量控制参数"""
+    mode: str = "auto"
+    knowledge_k: int | None = 6
+    note_k: int | None = 3
+    summary_k: int | None = 3
+
+
 class QueryRequest(BaseModel):
     """查询请求模型"""
     session_id: str | None = None
@@ -17,6 +25,7 @@ class QueryRequest(BaseModel):
     skill_ids: list[str] | None = None
     tool_ids: list[str] | None = None
     context: ContextSettings | None = None
+    rag_retrieval: RagRetrievalSettings | None = None
     query: str
 
 
@@ -27,6 +36,7 @@ class RegenerateRequest(BaseModel):
     skill_ids: list[str] | None = None
     tool_ids: list[str] | None = None
     context: ContextSettings | None = None
+    rag_retrieval: RagRetrievalSettings | None = None
 
 
 class RAGRequest(BaseModel):

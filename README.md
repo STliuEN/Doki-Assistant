@@ -8,7 +8,7 @@
 </div>
 
 
-AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent 对话 + 实时翻译 + 笔记管理 + RAG 知识库 + 可扩展工具链**，让系统从“会问答的笔记工具”升级为“可持续演进的智能 Agent 平台”。
+AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + LangChain Tool Calling Agent + Skill/Tool 编排 + 记忆中心 + 笔记管理 + RAG 知识库 + 实时翻译**。当前项目已经从“会问答的笔记工具”升级为“可持续演进的个人 Agent 平台”。
 
 ---
 
@@ -49,14 +49,15 @@ AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent
 - **多模型接入**：支持工程默认配置，也支持用户自行导入 OpenAI-compatible 外部模型和 Ollama 本地模型
 - **模型选择**：用户可按账号保存外部模型配置，并在对话和翻译页切换
 - **AI 对话**：支持多种 prompt 模式，保留默认角色，同时可切换不同风格
-- **Skill/Tool 编排**：Agent 能力拆分为可扫描的 Skill 和 Tool 模块，前端可选择启用，默认全开以保持原始链路
+- **Skill/Tool 编排**：Agent 能力拆分为可扫描的 Skill 和 Tool 模块，前端可选择启用，后端会在已选 Skill 范围内做预路由
+- **策略菜单**：AI 对话页支持上下文长度控制和 RAG 检索数量控制
 - **实时翻译**：支持双语实时对话式翻译和整篇翻译两种模式
 - **笔记管理**：Markdown 编辑器、智能标签（LLM 自动分类）、语义搜索、Markdown 导出
-- **RAG 知识库**：多格式文档上传（txt/pdf/md/pptx/docx），基于向量检索的精准问答
-- **间隔重复回顾**：艾宾浩斯遗忘曲线算法，对抗遗忘
+- **RAG 知识库**：多格式文档上传（txt/pdf/md/pptx/docx），支持动态控制知识库召回、笔记召回和摘要文档数量
+- **记忆中心**：统一管理复习、待办、提醒、长期事项和普通备忘，并提供 Agent tools
 - **AI 写作辅助**：联机补全、续写/扩写/摘要、关联笔记推荐
 
-系统支持会话持久化（MySQL）、向量检索（ChromaDB）、JWT 用户隔离，前端采用React+Tailwind CSS构建现代化界面。
+系统支持会话持久化（MySQL）、向量检索（ChromaDB）、JWT 用户隔离，前端采用 React + Tailwind CSS 构建现代化界面。
 
 ## 核心特性
 
@@ -69,11 +70,15 @@ AI 驱动的个人知识与任务协作平台，融合 **多模型接入 + Agent
 - **🔗 跨源关联推荐**：编辑笔记时，从笔记库和知识库双向检索 Top k 相关文档
 - **💬 智能问答**：基于 RAG 技术的 Agent 对话，支持文档引用来源展示
 - **🧩 Skill/Tool 注册**：Skill 与 Tool 采用独立目录模块，支持前端查看、编辑、新增、删除和勾选启用
+- **🧭 Skill 预路由**：后端按用户问题在已选 Skill 内挑选本轮相关能力，减少工具噪音
+- **🎚️ 上下文与 RAG 策略**：对话页支持上下文 Auto/低/中/高/自定义/仅当前，以及 RAG Auto/低/中/高/自定义
+- **🧾 消息级操作**：同一条回答支持刷新覆盖，消息删除会同步后端
+- **🧠 记忆中心**：统一管理 review/todo/reminder/long_term/memo，并支持 Agent 创建、查询、更新和推进
 - **🧠 多模型接入**：工程默认模型兜底，用户可自行导入 OpenAI-compatible API、第三方中转站、自部署兼容服务或 Ollama 本地模型
 - **💾 会话持久化**：MySQL 存储对话历史，随时回溯
 - **📄 文档管理**：支持 TXT / PDF / MD / PPTX / DOCX 上传，可视化切片详情
 - **🌐 多语言支持**：前端 i18n，中英文界面切换
-- **⛑️ 安全隔离**：用户级知识库隔离，RAG 检索只能访问本人数据
+- **⛑️ 基础安全隔离**：JWT 登录鉴权和用户级数据隔离；完整角色权限与高风险工具确认仍在下一阶段计划中
 
 ## 项目架构
 
@@ -138,7 +143,23 @@ AI 对话由 `LangChain AgentExecutor + Tools` 驱动。Agent 会根据前端传
 - 前端 AI 对话页在模式旁提供 Skill 下拉勾选，默认全开；如果用户没有显式修改选择，请求不会发送 `skill_ids/tool_ids`，后端会解析全部默认 Skill，保持初版 Agent 链路不变。
 - 左侧 `Skill` 与 `工具库` 页面支持查看、编辑、新增和删除文件模块。当前阶段先写入本地模块文件，暂不持久化到数据库。
 
-完整执行链路是：前端发送消息 → `POST /chat/agent/query/stream` → 后端根据 `skill_ids/tool_ids` 调用 `resolve_skills` → 拼接主 Prompt、AI 模式 Prompt 和已启用 Skill 指令 → 注入已绑定 Tool 的 `BaseTool` 实例 → LangChain Agent 执行。
+完整执行链路是：
+
+```text
+前端发送消息
+  -> POST /chat/agent/query/stream
+  -> JWT 鉴权得到 user_id
+  -> 根据模型配置选择 LLM
+  -> 在用户已选 Skill 范围内做预路由
+  -> resolve_skills 得到 Skill prompt 与 Tool 实例
+  -> 拼接 main_prompt / Skill 指令 / 可用工具列表 / AI 模式 prompt
+  -> 根据策略裁剪上下文并传入 RAG 检索设置
+  -> LangChain create_tool_calling_agent + AgentExecutor 执行
+  -> SSE 推送 thinking / response / done
+  -> 保存或覆盖数据库消息
+```
+
+当前最终回答是 Agent 完成后按 chunk 推送；thinking 已能展示部分执行过程，但结构化工具事件、计时、预算和高风险确认仍在下一阶段计划中。
 
 知识库和笔记检索使用 ChromaDB 存储向量，MySQL 存储业务数据和会话历史，Redis 用于缓存和限流辅助。文档进入知识库后会经历解析、切片、向量化、混合检索、重排序等流程，再交给 LLM 生成回答。实时翻译和对话模式则通过统一的模型选择与 prompt 组合层进行路由。
 
@@ -165,14 +186,35 @@ RAG 执行链路：
   -> 拼接上下文并交给 LLM 生成回答
 ```
 
-## 项目演示
+AI 对话页的 `策略` 菜单还可以动态控制 RAG 召回规模：
 
-| 功能模块 | 界面展示 |
-|---------|:--------|
-| 笔记编辑 | ![笔记编辑](./images/editor_note.png) |
-| 笔记列表 | ![笔记列表](./images/note.png) |
-| AI 聊天 | ![AI 聊天](./images/aichat.png) |
-| 知识库 | ![知识库](./images/knowledge_manager.png) |
+| 模式 | 知识库召回 | 笔记召回 | 摘要文档 |
+|------|------------|----------|----------|
+| 低 | 4 | 2 | 2 |
+| 中 | 6 | 3 | 3 |
+| 高 | 10 | 5 | 5 |
+| 自定义 | 1-20 | 1-20 | 1-8 |
+| Auto | 根据问题长度和“总结/对比/分析/全部/详细/综合”等意图自动选择 | | |
+
+### 权限与安全现状
+
+当前版本具备基础安全能力：
+
+- 前端普通 API 与 SSE 都会携带 JWT。
+- 后端主要业务路由通过 `get_current_user_id` 获取当前用户。
+- 聊天、知识库、笔记、记忆中心、模型配置等主链路按 `user_id` 隔离。
+- 删除类前端操作大多有确认弹窗。
+
+当前仍需补齐：
+
+- `skills`、`tools` 管理接口需要后端鉴权。
+- `/chat/sessions`、`/chat/reorder` 需要统一访问控制。
+- 缺少角色/管理员/操作级权限。
+- Agent 写入和删除类工具缺少统一风险等级与二次确认。
+
+这些被列为下一阶段 P0，详见 [下一阶段开发计划](./docs/roadmap_next.md)。
+
+
 
 ## 快速开始
 
@@ -396,7 +438,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── translate.py     # 实时翻译路由
 │   │   │   ├── model_config_router.py # 用户模型配置与测试
 │   │   │   ├── note_router.py   # 笔记 CRUD & AI 路由
-│   │   │   ├── review_router.py # 间隔重复回顾路由
+│   │   │   ├── memory_router.py # 记忆中心路由
 │   │   │   ├── knowledge_router.py
 │   │   │   ├── user.py
 │   │   │   └── health.py
@@ -408,7 +450,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── reranker_config_service.py # Reranker 本地扫描与切换
 │   │   │   ├── knowledge_document_service.py # 知识库源文件与元数据服务
 │   │   │   ├── translate_service.py # 实时翻译服务
-│   │   │   └── review_service.py# 回顾服务（艾宾浩斯算法）
+│   │   │   └── memory_service.py# 记忆中心与复习调度服务
 │   │   └── utils/               # 工具函数
 │   │       ├── clean_openai_chat.py # OpenAI-compatible 干净调用器
 │   │       ├── model_provider.py    # 模型工厂与路由
@@ -425,7 +467,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   │   ├── notes.ts         # 笔记接口
 │   │   │   ├── knowledge.ts     # 知识库接口
 │   │   │   ├── modelConfig.ts   # 模型配置接口
-│   │   │   ├── review.ts        # 回顾接口
+│   │   │   ├── memory.ts        # 记忆中心接口
 │   │   │   └── sessions.ts      # 会话接口
 │   │   ├── components/          # 组件
 │   │   │   ├── common/          # 通用组件（TagBadge, ConfirmDialog, EmptyState 等）
@@ -440,7 +482,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   ├── pages/               # 页面
 │   │   │   ├── NoteEditor.tsx   # 笔记编辑器
 │   │   │   ├── NoteList.tsx     # 笔记列表
-│   │   │   ├── DailyReview.tsx  # 每日回顾
+│   │   │   ├── MemoryCenter.tsx # 记忆中心
 │   │   │   ├── AIChat.tsx       # AI 聊天
 │   │   │   ├── SkillManager.tsx # Skill 管理与工具绑定
 │   │   │   ├── ToolManager.tsx  # 工具库管理
@@ -468,6 +510,10 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 │   │   └── utils/              # 工具函数
 │   └── api.md                  # 用户服务 API 文档
 ├── docs/                        # 项目文档
+│   ├── project_develop.md      # 项目发展、当前架构和 prompt 拼接方式
+│   ├── roadmap_next.md         # 下一阶段开发计划
+│   ├── agent_runtime_improvements.md # Agent 运行时改进拆解
+│   ├── memory_center_implementation.md # 记忆中心当前实现与后续计划
 │   ├── modelscope_model.md     # 模型下载和配置
 │   └── troubleshooting.md      # 故障排除
 ├── images/                      # 截图资源
@@ -584,6 +630,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rebuild-backend-cu132.ps1
 - **重排序模型加载失败**：确认 `RERANKER_MODEL_PATH` 指向包含 `config.json` 和 `model.safetensors` / `pytorch_model.bin` 的完整模型目录；如果是 ModelScope 中断下载残留，删除模型目录或重启服务触发重新下载
 - **RTX 50 系列无法使用 CUDA**：当前 PyTorch wheel 可能不支持 `sm_120`，需要升级到 CUDA 13.x 构建并重建后端 `.venv`
 - **Ollama 连接失败**：确认 `ollama serve` 已运行且模型已拉取
+
+## 开发路线
+
+当前下一阶段优先级：
+
+1. 补齐权限控制和高风险工具确认。
+2. Agent thinking 事件结构化、工具耗时和运行状态展示。
+3. 长任务预算、停止和收束回答。
+4. 上下文自动摘要压缩。
+5. 记忆中心主动提醒和对话后事项提炼。
+6. Tool 元数据、测试和诊断。
+7. MCP 外部工具接入。
+
+详细方案见 [docs/roadmap_next.md](./docs/roadmap_next.md)。
 
 ## License
 

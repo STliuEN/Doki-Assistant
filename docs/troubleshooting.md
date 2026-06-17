@@ -139,6 +139,76 @@ current PyTorch install supports sm_50 ... sm_90
 - 验证用户权限是否正确
 - 检查会话 ID 是否正确
 
+### 12. AI 对话 thinking 折叠区不显示过程
+
+**问题**：发送消息后只看到最终回答，或 thinking 区内容很少。
+
+**当前说明**：
+
+- 后端 SSE 支持 `thinking / response / done / error`。
+- RAG 工具内部会主动推送检索过程。
+- 普通工具调用当前主要在 Agent `intermediate_steps` 出现后推送，仍不是完整 `tool_start/tool_end` 事件流。
+- 最终回答目前是 Agent 完成后再按 chunk 推送，不是模型 token 级实时流。
+
+**检查方法**：
+
+- 浏览器 Network 中确认 `/chat/agent/query/stream` 返回 `text/event-stream`。
+- 确认请求头带 `Authorization: Bearer <token>`。
+- 后端日志搜索 `【思考过程】`、`【Agent流式响应】`。
+- 如果只在 RAG 场景有过程、普通工具场景较少，这是当前实现限制，不一定是故障。
+
+### 13. 策略菜单设置没有生效
+
+**问题**：上下文或 RAG 检索数量看起来没有变化。
+
+**检查方法**：
+
+- 前端请求体应包含：
+  - `context`
+  - `rag_retrieval`
+- `context.mode=custom` 时只按最近对话轮数保留。
+- `context.mode=auto/low/medium/high` 时按粗略 token 预算裁剪。
+- `rag_retrieval.mode=custom` 时知识库和笔记最大 20，摘要最大 8。
+- RAG thinking 中应能看到检索计划，例如知识库、笔记、摘要数量。
+
+### 14. 刷新回答没有覆盖原回答
+
+**问题**：点击 assistant 消息的刷新后出现新消息，或刷新后数据库没有更新。
+
+**检查方法**：
+
+- 前端应调用 `/chat/session/{session_id}/messages/{message_id}/regenerate/stream`。
+- 目标消息必须是 assistant 消息。
+- 后端会用上一条 user 消息重新生成，并覆盖原 assistant 消息。
+- 如果刷新后页面正确但刷新浏览器又恢复旧内容，检查 `update_message_content` 是否执行成功。
+
+### 15. 删除消息后又出现
+
+**问题**：前端删除了消息，但刷新会话后又回来。
+
+**检查方法**：
+
+- 前端应调用 `DELETE /chat/session/{session_id}/messages/{message_id}`。
+- user 消息默认用 `mode=pair`，会连同紧随其后的 assistant 回答删除。
+- assistant 消息默认用 `mode=single`。
+- 如果只前端消失，刷新后恢复，说明后端删除请求失败或未带 token。
+
+### 16. Skill/Tool 管理接口风险
+
+**问题**：未登录或非管理员也能访问 Skill/Tool 管理接口。
+
+**当前说明**：
+
+- 当前版本 `skill_router` 和 `tool_router` 仍需要补齐后端鉴权。
+- 这是已知安全缺口，已列入下一阶段 P0。
+- 在正式部署前，不建议将这些管理接口暴露到公网。
+
+临时建议：
+
+- 仅在本地开发环境启用 Skill/Tool 管理页。
+- 通过反向代理限制 `/skills` 和 `/tools`。
+- 等后端补齐 `Depends(get_current_user_id)` 和管理权限后再开放。
+
 ## 日志检查
 
 ### 应用日志

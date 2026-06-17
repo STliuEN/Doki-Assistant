@@ -12,7 +12,7 @@ from langchain_ollama import ChatOllama
 
 from app.agent.agent_middleware import get_middleware
 from app.agent.skill_registry import get_default_tools
-from app.agent.tool_context import set_current_user_id, set_thinking_callback
+from app.agent.tool_context import set_current_user_id, set_rag_retrieval_settings, set_thinking_callback
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
 from app.services import session_manager as sm
@@ -240,6 +240,7 @@ async def get_agent_stream_response(
         model_config: UserModelConfig | None = None,
         custom_tools: list[BaseTool] | None = None,
         context_settings=None,
+        rag_retrieval_settings=None,
         **kwargs
 ) -> AsyncGenerator[str, None]:
     """
@@ -266,6 +267,7 @@ async def get_agent_stream_response(
         try:
             set_current_user_id(user_id)
             set_thinking_callback(thinking_callback)
+            set_rag_retrieval_settings(rag_retrieval_settings)
 
             await thinking_callback({
                 "type": "thinking",
@@ -411,6 +413,7 @@ async def get_agent_regenerate_stream_response(
         model_config: UserModelConfig | None = None,
         custom_tools: list[BaseTool] | None = None,
         context_settings=None,
+        rag_retrieval_settings=None,
         **kwargs
 ) -> AsyncGenerator[str, None]:
     """重新生成已有 assistant 消息，并用新内容覆盖原消息。"""
@@ -430,6 +433,7 @@ async def get_agent_regenerate_stream_response(
         try:
             set_current_user_id(user_id)
             set_thinking_callback(thinking_callback)
+            set_rag_retrieval_settings(rag_retrieval_settings)
 
             await thinking_callback({
                 "type": "thinking",

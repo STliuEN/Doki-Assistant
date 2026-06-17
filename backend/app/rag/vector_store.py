@@ -231,20 +231,20 @@ class VectorStoreService:
         await asyncio.to_thread(store.add_documents, docs, ids=ids)
         return len(docs)
 
-    async def get_bm25_retriever(self, user_id: str = None):
+    async def get_bm25_retriever(self, user_id: str = None, k: int | None = None):
         if not user_id:
-            return await self.hybrid_retriever.get_bm25_retriever(user_id)
+            return await self.hybrid_retriever.get_bm25_retriever(user_id, k)
         store = await self.get_user_rag_store(user_id)
-        return await HybridRetriever(store).get_bm25_retriever(user_id)
+        return await HybridRetriever(store).get_bm25_retriever(user_id, k)
 
     async def _get_all_documents(self) -> list[Document]:
         return await self.hybrid_retriever._get_all_documents()
 
-    async def get_retriever(self, query: str = None, user_id: str = None):
+    async def get_retriever(self, query: str = None, user_id: str = None, k: int | None = None):
         if not user_id:
-            return await self.hybrid_retriever.get_retriever(query, user_id)
+            return await self.hybrid_retriever.get_retriever(query, user_id, k)
         store = await self.get_user_rag_store(user_id)
-        return await HybridRetriever(store).get_retriever(query, user_id)
+        return await HybridRetriever(store).get_retriever(query, user_id, k)
 
     @staticmethod
     async def get_dynamic_weights(query: str = None):

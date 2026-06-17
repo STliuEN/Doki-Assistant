@@ -4,6 +4,7 @@ from contextvars import ContextVar
 
 current_user_id_var: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 thinking_callback_var: ContextVar[Callable | None] = ContextVar("thinking_callback", default=None)
+rag_retrieval_settings_var: ContextVar[object | None] = ContextVar("rag_retrieval_settings", default=None)
 
 
 def set_current_user_id(user_id: str) -> None:
@@ -25,3 +26,12 @@ def get_thinking_callback_from_context() -> Callable | None:
     """Read the current thinking callback."""
     return thinking_callback_var.get()
 
+
+def set_rag_retrieval_settings(settings: object | None) -> None:
+    """Set RAG retrieval settings for tool execution."""
+    rag_retrieval_settings_var.set(settings)
+
+
+def get_rag_retrieval_settings_from_context() -> object | None:
+    """Read RAG retrieval settings for tool execution."""
+    return rag_retrieval_settings_var.get()

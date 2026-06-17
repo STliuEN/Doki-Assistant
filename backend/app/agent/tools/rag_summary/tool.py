@@ -1,6 +1,10 @@
 from langchain_core.tools import tool
 
-from app.agent.tool_context import get_current_user_id_from_context, get_thinking_callback_from_context
+from app.agent.tool_context import (
+    get_current_user_id_from_context,
+    get_rag_retrieval_settings_from_context,
+    get_thinking_callback_from_context,
+)
 from app.rag.rag_service import RagService
 
 
@@ -12,7 +16,12 @@ async def rag_summary_tool(query: str, user_id: str = None) -> str:
         return "错误: 无法确定用户身份，请提供有效的user_id"
 
     thinking_callback = get_thinking_callback_from_context()
-    result = await RagService(effective_user_id, thinking_callback=thinking_callback).get_documents_and_summary(query)
+    retrieval_settings = get_rag_retrieval_settings_from_context()
+    result = await RagService(
+        effective_user_id,
+        thinking_callback=thinking_callback,
+        retrieval_settings=retrieval_settings,
+    ).get_documents_and_summary(query)
     documents = result.get("documents", [])
     summary = result.get("summary", "")
 
@@ -26,4 +35,3 @@ async def rag_summary_tool(query: str, user_id: str = None) -> str:
 
 def get_tool():
     return rag_summary_tool
-

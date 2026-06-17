@@ -11,11 +11,13 @@ from app.utils.prompt_loader import load_prompt
 
 
 class RagService:
-    def __init__(self, user_id: str = None, thinking_callback=None):
+    def __init__(self, user_id: str = None, thinking_callback=None, retrieval_settings=None):
         self.vector_store = VectorStoreService()
         self.note_service = init_manager.note_service
         self.retriever = None
         self.user_id = user_id
+        self.retrieval_settings = retrieval_settings
+        self.retrieval_plan = None
         self.prompt_text = load_prompt(prompt_type="rag_summary_prompt")
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.chat_model = init_manager.chat_model
@@ -26,6 +28,44 @@ class RagService:
         )
         self.thinking_callback = thinking_callback
 
+    @staticmethod
+    def _clamp(value, default: int, min_value: int = 1, max_value: int = 20) -> int:
+        if not isinstance(value, int) or value <= 0:
+            return default
+        return max(min_value, min(value, max_value))
+
+    def get_retrieval_plan(self, query: str | None = None) -> dict:
+        if self.retrieval_plan is not None:
+            return self.retrieval_plan
+
+        mode = getattr(self.retrieval_settings, "mode", "auto") if self.retrieval_settings else "auto"
+        presets = {
+            "low": {"knowledge_k": 4, "note_k": 2, "summary_k": 2},
+            "medium": {"knowledge_k": 6, "note_k": 3, "summary_k": 3},
+            "high": {"knowledge_k": 10, "note_k": 5, "summary_k": 5},
+        }
+
+        if mode == "custom":
+            plan = {
+                "mode": mode,
+                "knowledge_k": self._clamp(getattr(self.retrieval_settings, "knowledge_k", None), 6),
+                "note_k": self._clamp(getattr(self.retrieval_settings, "note_k", None), 3),
+                "summary_k": self._clamp(getattr(self.retrieval_settings, "summary_k", None), 3, max_value=8),
+            }
+        elif mode in presets:
+            plan = {"mode": mode, **presets[mode]}
+        else:
+            query_text = query or ""
+            if len(query_text) > 80 or any(word in query_text for word in ("总结", "对比", "分析", "全部", "详细", "综合")):
+                plan = {"mode": "auto", **presets["high"]}
+            elif len(query_text) < 20:
+                plan = {"mode": "auto", **presets["low"]}
+            else:
+                plan = {"mode": "auto", **presets["medium"]}
+
+        self.retrieval_plan = plan
+        return plan
+
     async def initialize_retriever(self, query: str = None):
         """
         初始化检索器
@@ -34,19 +74,25 @@ class RagService:
         if self.retriever is None:
             # 获取动态权重信息
             weights = await self.vector_store.get_dynamic_weights(query)
+            plan = self.get_retrieval_plan(query)
 
             if self.thinking_callback:
                 await self.thinking_callback({
                     "type": "thinking",
                     "stage": "retrieval",
-                    "content": f"初始化检索器（向量权重: {weights[0]:.1f}, BM25权重: {weights[1]:.1f}）",
+                    "content": (
+                        f"初始化检索器（策略: {plan['mode']}, 知识库: {plan['knowledge_k']}, "
+                        f"笔记: {plan['note_k']}, 摘要: {plan['summary_k']}；"
+                        f"向量权重: {weights[0]:.1f}, BM25权重: {weights[1]:.1f}）"
+                    ),
                     "details": {
                         "vector_weight": weights[0],
-                        "bm25_weight": weights[1]
+                        "bm25_weight": weights[1],
+                        "retrieval_plan": plan,
                     }
                 })
 
-            self.retriever = await self.vector_store.get_retriever(query, self.user_id)
+            self.retriever = await self.vector_store.get_retriever(query, self.user_id, k=plan["knowledge_k"])
 
 
     def _init_chain(self):
@@ -127,10 +173,11 @@ class RagService:
             # 同时检索笔记库
             note_docs = []
             try:
+                plan = self.get_retrieval_plan(query)
                 notes_store = await self.vector_store.get_user_notes_store(self.user_id)
                 note_docs = await asyncio.to_thread(
                     notes_store.similarity_search,
-                    hypothetical_doc, k=3,
+                    hypothetical_doc, k=plan["note_k"],
                     filter={"user_id": self.user_id}
                 )
             except Exception as e:
@@ -261,7 +308,7 @@ class RagService:
             try:
                 # 对每个文档单独总结（使用线程池并发处理）
                 individual_summaries = []
-                max_documents = 3  # 使用前3个最相关的文档
+                max_documents = self.get_retrieval_plan(query)["summary_k"]
 
                 if self.thinking_callback:
                     await self.thinking_callback({

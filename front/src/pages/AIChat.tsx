@@ -25,8 +25,10 @@ const CHAT_MODEL_STORAGE_KEY = 'ai_chat_selected_model_id'
 const CHAT_PROMPT_STORAGE_KEY = 'ai_chat_prompt_type'
 const CHAT_SKILLS_STORAGE_KEY = 'ai_chat_skill_ids'
 const CHAT_CONTEXT_STORAGE_KEY = 'ai_chat_context_settings'
+const CHAT_RAG_RETRIEVAL_STORAGE_KEY = 'ai_chat_rag_retrieval_settings'
 
 type ContextMode = 'auto' | 'low' | 'medium' | 'high' | 'custom' | 'current_only'
+type RagRetrievalMode = 'auto' | 'low' | 'medium' | 'high' | 'custom'
 
 interface ContextSettings {
   mode: ContextMode
@@ -34,10 +36,24 @@ interface ContextSettings {
   recent_turns: number
 }
 
+interface RagRetrievalSettings {
+  mode: RagRetrievalMode
+  knowledge_k: number
+  note_k: number
+  summary_k: number
+}
+
 const defaultContextSettings: ContextSettings = {
   mode: 'auto',
   max_tokens: 4000,
   recent_turns: 6,
+}
+
+const defaultRagRetrievalSettings: RagRetrievalSettings = {
+  mode: 'auto',
+  knowledge_k: 6,
+  note_k: 3,
+  summary_k: 3,
 }
 
 const readSavedContextSettings = (): ContextSettings => {
@@ -58,6 +74,30 @@ const readSavedContextSettings = (): ContextSettings => {
     }
   } catch {
     return defaultContextSettings
+  }
+}
+
+const readSavedRagRetrievalSettings = (): RagRetrievalSettings => {
+  const saved = localStorage.getItem(CHAT_RAG_RETRIEVAL_STORAGE_KEY)
+  if (!saved) return defaultRagRetrievalSettings
+  try {
+    const parsed = JSON.parse(saved) as Partial<RagRetrievalSettings>
+    return {
+      mode: ['auto', 'low', 'medium', 'high', 'custom'].includes(parsed.mode || '')
+        ? parsed.mode as RagRetrievalMode
+        : defaultRagRetrievalSettings.mode,
+      knowledge_k: typeof parsed.knowledge_k === 'number' && parsed.knowledge_k > 0
+        ? parsed.knowledge_k
+        : defaultRagRetrievalSettings.knowledge_k,
+      note_k: typeof parsed.note_k === 'number' && parsed.note_k > 0
+        ? parsed.note_k
+        : defaultRagRetrievalSettings.note_k,
+      summary_k: typeof parsed.summary_k === 'number' && parsed.summary_k > 0
+        ? parsed.summary_k
+        : defaultRagRetrievalSettings.summary_k,
+    }
+  } catch {
+    return defaultRagRetrievalSettings
   }
 }
 
@@ -109,6 +149,7 @@ export default function AIChat() {
   const [selectedPromptType, setSelectedPromptType] = useState(() => localStorage.getItem(CHAT_PROMPT_STORAGE_KEY) || 'main_prompt')
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(readSavedSkillIds)
   const [contextSettings, setContextSettings] = useState<ContextSettings>(readSavedContextSettings)
+  const [ragRetrievalSettings, setRagRetrievalSettings] = useState<RagRetrievalSettings>(readSavedRagRetrievalSettings)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef('')
   const regeneratingMessageIdRef = useRef<number | null>(null)
@@ -190,6 +231,10 @@ export default function AIChat() {
     localStorage.setItem(CHAT_CONTEXT_STORAGE_KEY, JSON.stringify(contextSettings))
   }, [contextSettings])
 
+  useEffect(() => {
+    localStorage.setItem(CHAT_RAG_RETRIEVAL_STORAGE_KEY, JSON.stringify(ragRetrievalSettings))
+  }, [ragRetrievalSettings])
+
   const toggleSkill = useCallback((skillId: string) => {
     setSkillSelectionTouched(true)
     setSelectedSkillIds((current) => (
@@ -254,6 +299,7 @@ export default function AIChat() {
         session_id: sessionId,
         prompt_type: selectedPromptType,
         context: contextSettings,
+        rag_retrieval: ragRetrievalSettings,
         ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
@@ -303,7 +349,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [contextSettings, loadSessionMessages, loading, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
+  }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
 
   const handleRegenerateMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || message.role !== 'assistant' || loading) return
@@ -326,6 +372,7 @@ export default function AIChat() {
       {
         prompt_type: selectedPromptType,
         context: contextSettings,
+        rag_retrieval: ragRetrievalSettings,
         ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
@@ -368,7 +415,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [contextSettings, flushContent, loading, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, skillSelectionTouched, start])
+  }, [contextSettings, flushContent, loading, ragRetrievalSettings, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, skillSelectionTouched, start])
 
   const handleDeleteMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || loading) return
@@ -685,85 +732,167 @@ export default function AIChat() {
                 type="button"
                 onClick={() => setShowContextPanel((value) => !value)}
                 className="h-8 w-full inline-flex items-center justify-center gap-1.5 px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)] hover:border-[var(--color-accent)] transition-colors"
-                title="上下文长度控制"
+                title="策略设置"
               >
                 <Gauge size={13} />
-                <span>上下文</span>
+                <span>策略</span>
               </button>
               {showContextPanel && (
-                <div className="absolute right-0 bottom-10 z-20 w-[320px] max-w-[calc(100vw-48px)] rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="font-medium text-[var(--color-text)]">上下文</span>
-                    <span className="text-[var(--color-text-secondary)]">按 token 估算裁剪</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: 'auto', label: 'Auto' },
-                      { value: 'low', label: '低' },
-                      { value: 'medium', label: '中' },
-                      { value: 'high', label: '高' },
-                      { value: 'custom', label: '自定义' },
-                      { value: 'current_only', label: '仅当前' },
-                    ].map((mode) => {
-                      const active = contextSettings.mode === mode.value
-                      return (
-                        <button
-                          key={mode.value}
-                          type="button"
-                          onClick={() => setContextSettings((current) => ({
+                <div className="absolute right-0 bottom-10 z-20 w-[360px] max-w-[calc(100vw-48px)] rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg p-3 space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-medium text-[var(--color-text)]">上下文长度</span>
+                      <span className="text-[var(--color-text-secondary)]">按 token 估算裁剪</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'auto', label: 'Auto' },
+                        { value: 'low', label: '低' },
+                        { value: 'medium', label: '中' },
+                        { value: 'high', label: '高' },
+                        { value: 'custom', label: '自定义' },
+                        { value: 'current_only', label: '仅当前' },
+                      ].map((mode) => {
+                        const active = contextSettings.mode === mode.value
+                        return (
+                          <button
+                            key={mode.value}
+                            type="button"
+                            onClick={() => setContextSettings((current) => ({
+                              ...current,
+                              mode: mode.value as ContextMode,
+                              max_tokens: mode.value === 'low'
+                                ? 2000
+                                : mode.value === 'medium'
+                                  ? 4000
+                                  : mode.value === 'high'
+                                    ? 8000
+                                    : current.max_tokens,
+                            }))}
+                            className={`h-8 rounded-md border text-xs transition-colors ${
+                              active
+                                ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                                : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                            }`}
+                          >
+                            {mode.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {contextSettings.mode === 'auto' && (
+                      <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
+                        <span>最大 token</span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={500}
+                          value={contextSettings.max_tokens || ''}
+                          onChange={(e) => setContextSettings((current) => ({
                             ...current,
-                            mode: mode.value as ContextMode,
-                            max_tokens: mode.value === 'low'
-                              ? 2000
-                              : mode.value === 'medium'
-                                ? 4000
-                                : mode.value === 'high'
-                                  ? 8000
-                                  : current.max_tokens,
+                            max_tokens: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
                           }))}
-                          className={`h-8 rounded-md border text-xs transition-colors ${
-                            active
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
-                              : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
-                          }`}
-                        >
-                          {mode.label}
-                        </button>
-                      )
-                    })}
+                          className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                        />
+                      </label>
+                    )}
+                    {contextSettings.mode === 'custom' && (
+                      <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
+                        <span>保留最近对话轮数</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={50}
+                          value={contextSettings.recent_turns || ''}
+                          onChange={(e) => setContextSettings((current) => ({
+                            ...current,
+                            recent_turns: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
+                          }))}
+                          className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                        />
+                      </label>
+                    )}
                   </div>
-                  {contextSettings.mode === 'auto' && (
-                    <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
-                      <span>最大 token</span>
-                      <input
-                        type="number"
-                        min={1}
-                        step={500}
-                        value={contextSettings.max_tokens || ''}
-                        onChange={(e) => setContextSettings((current) => ({
-                          ...current,
-                          max_tokens: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
-                        }))}
-                        className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
-                      />
-                    </label>
-                  )}
-                  {contextSettings.mode === 'custom' && (
-                    <label className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
-                      <span>保留最近对话轮数</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={contextSettings.recent_turns || ''}
-                        onChange={(e) => setContextSettings((current) => ({
-                          ...current,
-                          recent_turns: e.target.value === '' ? 0 : Math.max(1, Number(e.target.value) || 0),
-                        }))}
-                        className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
-                      />
-                    </label>
-                  )}
+
+                  <div className="space-y-3 border-t border-[var(--color-border)] pt-3">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-medium text-[var(--color-text)]">RAG 检索</span>
+                      <span className="text-[var(--color-text-secondary)]">控制检索与摘要数量</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { value: 'auto', label: 'Auto' },
+                        { value: 'low', label: '低' },
+                        { value: 'medium', label: '中' },
+                        { value: 'high', label: '高' },
+                        { value: 'custom', label: '自定义' },
+                      ].map((mode) => {
+                        const active = ragRetrievalSettings.mode === mode.value
+                        return (
+                          <button
+                            key={mode.value}
+                            type="button"
+                            onClick={() => setRagRetrievalSettings((current) => ({
+                              ...current,
+                              mode: mode.value as RagRetrievalMode,
+                              knowledge_k: mode.value === 'low'
+                                ? 4
+                                : mode.value === 'medium'
+                                  ? 6
+                                  : mode.value === 'high'
+                                    ? 10
+                                    : current.knowledge_k,
+                              note_k: mode.value === 'low'
+                                ? 2
+                                : mode.value === 'medium'
+                                  ? 3
+                                  : mode.value === 'high'
+                                    ? 5
+                                    : current.note_k,
+                              summary_k: mode.value === 'low'
+                                ? 2
+                                : mode.value === 'medium'
+                                  ? 3
+                                  : mode.value === 'high'
+                                    ? 5
+                                    : current.summary_k,
+                            }))}
+                            className={`h-8 rounded-md border text-xs transition-colors ${
+                              active
+                                ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+                                : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                            }`}
+                          >
+                            {mode.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {ragRetrievalSettings.mode === 'custom' && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { key: 'knowledge_k', label: '知识库', max: 20 },
+                          { key: 'note_k', label: '笔记', max: 20 },
+                          { key: 'summary_k', label: '摘要', max: 8 },
+                        ].map((item) => (
+                          <label key={item.key} className="block space-y-1 text-xs text-[var(--color-text-secondary)]">
+                            <span>{item.label}</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.max}
+                              value={ragRetrievalSettings[item.key as keyof RagRetrievalSettings] || ''}
+                              onChange={(e) => setRagRetrievalSettings((current) => ({
+                                ...current,
+                                [item.key]: e.target.value === '' ? 0 : Math.max(1, Math.min(item.max, Number(e.target.value) || 0)),
+                              }))}
+                              className="h-8 w-full px-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs text-[var(--color-text)]"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

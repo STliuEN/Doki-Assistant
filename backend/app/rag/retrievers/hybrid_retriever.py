@@ -17,7 +17,7 @@ class HybridRetriever:
     def __init__(self, vectors_store: Chroma):
         self.vectors_store = vectors_store
 
-    async def get_bm25_retriever(self, user_id: str = None):
+    async def get_bm25_retriever(self, user_id: str = None, k: int | None = None):
         """
         获取BM25检索器
         :param user_id: 用户ID，必须提供，否则返回None
@@ -39,7 +39,7 @@ class HybridRetriever:
         if documents:
             bm25_retriever = BM25Retriever.from_documents(
                 documents=documents,
-                k=chroma_config['k']
+                k=k or chroma_config['k']
             )
             return bm25_retriever
         else:
@@ -60,7 +60,7 @@ class HybridRetriever:
             documents.append(Document(page_content=doc, metadata=metadata))
         return documents
 
-    async def get_retriever(self, query: str = None, user_id: str = None) -> BaseRetriever:
+    async def get_retriever(self, query: str = None, user_id: str = None, k: int | None = None) -> BaseRetriever:
         """
         获取混合检索器（BM25 + 向量检索）
         :param query: 查询语句，用于动态调整权重
@@ -73,9 +73,9 @@ class HybridRetriever:
         filter_dict = {'user_id': user_id}
         vector_retriever = self.vectors_store.as_retriever(
             search_type='similarity',
-            search_kwargs={'k': chroma_config['k'], 'filter': filter_dict},
+            search_kwargs={'k': k or chroma_config['k'], 'filter': filter_dict},
         )
-        bm25_retriever = await self.get_bm25_retriever(user_id)
+        bm25_retriever = await self.get_bm25_retriever(user_id, k)
 
         if bm25_retriever:
             weights = await self.get_dynamic_weights(query)
