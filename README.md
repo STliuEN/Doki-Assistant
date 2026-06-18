@@ -299,6 +299,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 - [项目发展与当前架构](./docs/project_develop.md)
 - [下一阶段开发计划](./docs/roadmap_next.md)
 - [Agent 运行时现状](./docs/agent_runtime_improvements.md)
+- [MCP 外部工具接入方案](./docs/mcp_integration_plan.md)
 - [记忆中心实现](./docs/memory_center_implementation.md)
 - [ModelScope 与 Reranker 配置](./docs/modelscope_model.md)
 - [故障排除](./docs/troubleshooting.md)

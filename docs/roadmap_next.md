@@ -195,19 +195,23 @@ system prompt
 
 高风险确认闭环已经就绪，MCP 可以在其之上接入。当前项目已有本地 Skill/Tool 注册层，MCP 应作为外部工具来源接入，而不是替代 Skill。
 
+详细开发方案见 [MCP 外部工具接入开发方案](./mcp_integration_plan.md)。
+
 阶段：
 
-1. 配置 MCP server，发现 tools。
-2. MCP tool 适配为内部 `ToolDefinition`。
-3. Skill 可以绑定 MCP tool。
-4. Agent 可以调用 MCP tool。
-5. 启用工具权限、超时、最大输出和高风险确认。
+1. 新增 MCP server 配置和 provider 层，先完成只读发现。
+2. 将 MCP tool 适配为内部 `ToolDefinition`，并标记 `source/provider_id/external_name`。
+3. 合并本地 Tool 和 MCP Tool catalog，但 MCP tool 默认禁用且不进入默认 Skill。
+4. Skill 可以绑定已启用的 MCP tool，Agent 可通过 LangChain `BaseTool` 包装调用。
+5. MCP tool 统一走 `GuardedTool`，启用权限、超时、最大输出、调用次数预算和高风险确认。
+6. 前端工具库展示工具来源、server 状态、启用状态、风险字段和测试结果。
 
 验收：
 
 - 本地工具链路不受影响。
 - MCP 工具可选择、可禁用、可观察。
 - 文件系统、Shell、数据库类工具默认关闭。
+- 未配置 MCP 或 MCP server 离线时，FastAPI 主链路仍可正常启动和聊天。
 
 ### P5：实时翻译升级
 
