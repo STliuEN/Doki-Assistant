@@ -1,6 +1,6 @@
 # 下一阶段开发计划
 
-本文记录当前 `master` 的真实状态，以及后续继续推进的优先级。项目已经从基础 RAG 服务演进为个人 Agent 平台：FastAPI 后端、React 前端、Django 用户服务、MySQL 会话与业务数据、Redis 缓存、Chroma 向量库、LangChain tool calling Agent、Skill/Tool 文件注册、知识库 RAG、笔记、记忆中心、实时翻译和用户模型配置已经接在一起。
+本文记录当前 `master` 的真实状态，以及后续继续推进的优先级。项目已经从基础 RAG 服务演进为个人 Agent 平台：FastAPI 后端、React 前端、Django 用户服务、MySQL 会话与业务数据、Redis 缓存、Chroma 向量库、LangChain tool calling Agent、Skill/Tool 文件注册、MCP 外部工具接入骨架、知识库 RAG、笔记、记忆中心、实时翻译和用户模型配置已经接在一起。
 
 下一阶段重点不是继续堆页面，而是把 Agent 运行时、权限边界、高风险操作确认和长期上下文闭环做稳。
 
@@ -12,7 +12,8 @@
 - **用户数据隔离**：聊天、知识库、笔记、记忆中心、模型配置等主链路按 `user_id` 查询。
 - **Agent 对话**：`/chat/agent/query/stream` 使用 SSE；后端基于 LangChain `create_tool_calling_agent` + `AgentExecutor`。
 - **Prompt 拼接**：后端按 `main_prompt`、当前 AI 模式 prompt、已启用 Skill 指令、可用工具列表组合系统提示词。
-- **Skill/Tool 注册**：扫描 `backend/app/agent/skills/*` 和 `backend/app/agent/tools/*`，前端可以管理和勾选。
+- **Skill/Tool 注册**：扫描 `backend/app/agent/skills/*` 和 `backend/app/agent/tools/*`，并合并已发现的 MCP tools，前端可以管理和勾选。
+- **MCP 外部工具**：已有 `mcp.yaml`、provider、adapter、registry 和 `/api/mcp/*` 管理接口，支持 stdio、SSE、streamable HTTP 的发现和调用。
 - **Skill 预路由**：后端会在用户已选 Skill 范围内，用规则和 LLM 兜底挑出本轮相关 Skill。
 - **RAG 检索策略**：前端提供 Auto/低/中/高/自定义；后端动态控制知识库召回数、笔记召回数和摘要文档数。
 - **消息级操作**：同一条 assistant 回答支持刷新覆盖，消息删除会同步后端删除。
@@ -133,6 +134,28 @@ system prompt
 - 已通过 `summary_message_id` / `summary_boundary_id` 记录摘要边界，但覆盖判定仍可更精确。
 - 摘要生成复用当前聊天模型，后续可拆成专门的轻量模型配置。
 
+### P0.5 MCP 外部工具基础接入
+
+已完成：
+
+- 新增 `backend/app/config/mcp.yaml`，默认 `servers: []`，未配置时不影响主链路。
+- 新增 `backend/app/agent/mcp/config.py`、`provider.py`、`adapter.py`、`registry.py`。
+- 支持 MCP `stdio`、`sse`、`http` / `streamable_http` transport。
+- `McpToolProvider` 通过 `tools/list` 发现工具，通过 `tools/call` 调用工具。
+- `McpLangChainTool` 将 MCP tool 包装成 LangChain `BaseTool`。
+- `ToolRegistry` 合并本地工具和启用 server 发现到的 MCP tools。
+- MCP tool 标记 `source/provider_id/external_name/read_only/server_status/last_error`。
+- `/api/mcp/servers`、`/api/mcp/tools`、`POST /api/mcp/servers/refresh` 已接入。
+- 启动时尝试 refresh MCP tools，失败时仅降级到本地工具。
+- MCP tools 进入 Agent 后复用 `GuardedTool` 的调用次数、确认、超时和输出截断。
+
+当前边界：
+
+- MCP server 仍由配置文件管理，未做数据库化。
+- 当前是 server 级启用和 allow/deny 过滤，还没有持久化的 tool 级启用/禁用。
+- ToolManager 可以只读展示 MCP 来源信息，但 MCP refresh、test、启用/禁用和诊断 UI 仍待补齐。
+- 高风险确认后的直接执行路径仍需进一步统一超时与截断策略。
+
 ## 当前主要剩余缺口
 
 > 高风险确认闭环与统一 Tool 执行 wrapper（`GuardedTool`）已落地，详见上方 P0.2 / P0.3 / P0.4。剩余缺口聚焦权限、摘要和事件字段统一。
@@ -191,20 +214,28 @@ system prompt
 - 新增 Tool 前可运行 smoke test。
 - Tool 返回结构化错误：参数错误、权限错误、外部服务错误、内部异常。
 
-### P4：MCP 外部工具接入
+### P4：MCP 外部工具治理与管理页
 
-高风险确认闭环已经就绪，MCP 可以在其之上接入。当前项目已有本地 Skill/Tool 注册层，MCP 应作为外部工具来源接入，而不是替代 Skill。
+MCP 基础接入已经落地。当前项目把 MCP 作为外部工具来源接入现有 Skill/Tool 注册层，而不是替代 Skill。本阶段重点转为管理、诊断、持久化和高风险外部能力治理。
 
 详细开发方案见 [MCP 外部工具接入开发方案](./mcp_integration_plan.md)。
 
-阶段：
+已完成基础链路：
 
-1. 新增 MCP server 配置和 provider 层，先完成只读发现。
-2. 将 MCP tool 适配为内部 `ToolDefinition`，并标记 `source/provider_id/external_name`。
-3. 合并本地 Tool 和 MCP Tool catalog，但 MCP tool 默认禁用且不进入默认 Skill。
-4. Skill 可以绑定已启用的 MCP tool，Agent 可通过 LangChain `BaseTool` 包装调用。
-5. MCP tool 统一走 `GuardedTool`，启用权限、超时、最大输出、调用次数预算和高风险确认。
-6. 前端工具库展示工具来源、server 状态、启用状态、风险字段和测试结果。
+- MCP server 配置和 provider 层。
+- MCP tool 到内部 `ToolDefinition` 的适配。
+- 本地 Tool 与 MCP Tool catalog 合并。
+- Skill 可绑定 MCP tool，chat 请求可显式传 MCP `tool_ids`。
+- MCP tool 统一走 `GuardedTool`。
+- 工具库可展示来源、provider、外部工具名和错误信息。
+
+后续任务：
+
+1. ToolManager 增加 MCP refresh、test、last_error 和只读/高风险标签。
+2. MCP tool 级启用/禁用、风险等级、确认要求、超时和输出限制持久化。
+3. 高风险 MCP 工具确认后仍走统一 wrapper 或等价的超时/截断路径。
+4. 对文件系统、Shell、数据库写入、外部发送类 MCP server 做默认关闭和明确 allowlist。
+5. MCP 调用错误分类和审计记录。
 
 验收：
 
@@ -212,6 +243,7 @@ system prompt
 - MCP 工具可选择、可禁用、可观察。
 - 文件系统、Shell、数据库类工具默认关闭。
 - 未配置 MCP 或 MCP server 离线时，FastAPI 主链路仍可正常启动和聊天。
+- 管理员可以在页面或 API 侧刷新、测试和诊断 MCP 工具。
 
 ### P5：实时翻译升级
 
@@ -249,6 +281,6 @@ system prompt
 3. 工具内部事件字段统一与结构化错误分类。
 4. 记忆中心主动提醒和事项提炼。
 5. Tool 元数据、测试和诊断。
-6. MCP 接入。
+6. MCP 管理页、测试调用和高风险治理。
 7. 字幕/会议翻译。
 8. 桌面端验证。

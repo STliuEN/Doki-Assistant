@@ -34,6 +34,7 @@
 - 多模型配置与选择
 - AI 对话模式
 - Skill/Tool 注册和前端选择
+- MCP 外部工具接入骨架
 - Tool 风险元数据
 - 管理员保护的 Skill/Tool 管理接口
 - 结构化 Agent thinking 事件
@@ -53,7 +54,7 @@
 
 - React + Vite 提供工作台界面，并通过 Vite proxy 按路径转发到后端服务。
 - Django 用户服务负责登录、注册、用户资料和文件入口，生成 JWT，并使用 Redis 做用户缓存和 token 黑名单。
-- FastAPI 业务后端负责 Agent 对话、会话、知识库、笔记、记忆中心、模型配置、实时翻译以及 Skill/Tool 管理。
+- FastAPI 业务后端负责 Agent 对话、会话、知识库、笔记、记忆中心、模型配置、实时翻译、Skill/Tool 管理以及 MCP 外部工具发现和调用。
 - FastAPI 不重新实现登录注册，而是解析 Django JWT 得到 `user_id`，再按 `user_id` 隔离会话、笔记、知识库、记忆和模型配置。
 
 ```mermaid
@@ -76,14 +77,17 @@ flowchart TD
   B --> Translate[Translate API]
   B --> ModelConfig[Model Config API]
   B --> SkillTool[Skill / Tool 管理 API]
+  B --> MCPAPI[MCP 管理 API]
 
   Chat --> Agent[LangChain AgentExecutor]
   Agent --> Registry[Skill / Tool Registry]
   Registry --> Tools[本轮启用 Tools]
+  Registry --> MCPTools[MCP Tool 适配]
 
   Tools --> Knowledge
   Tools --> Note
   Tools --> Memory
+  Tools --> MCPServer[MCP Server]
 
   Knowledge --> SourceFiles[(源文件与文档元数据)]
   Knowledge --> Chroma[(ChromaDB 向量索引)]
@@ -111,6 +115,7 @@ flowchart TD
 - `front/src/pages/RealtimeTranslate.tsx`：实时翻译页面，支持对话式翻译和整篇文本翻译。
 - `front/src/pages/ModelSettings.tsx`：用户模型配置、测试和 Ollama 模型读取。
 - `front/src/pages/ToolManager.tsx`：工具库管理，支持风险等级、确认、超时和输出限制字段。
+- `front/src/pages/ToolManager.tsx`：工具库管理，支持风险等级、确认、超时、输出限制和 MCP 来源展示。
 - `front/vite.config.ts`：开发环境代理配置，将 `/user`、`/file` 转发到 Django，将业务 API 转发到 FastAPI。
 - `backend/app/router/chat.py`：Agent 对话入口、prompt 拼接、skill 预路由和 SSE 返回。
 - `backend/app/router/knowledge_router.py`：知识库上传、源文件、切片、Embedding 和 Reranker 配置接口。
@@ -118,7 +123,12 @@ flowchart TD
 - `backend/app/router/model_config_router.py`：用户模型配置、系统默认模型、模型测试和 Ollama 模型列表接口。
 - `backend/app/router/translate.py`：实时翻译接口。
 - `backend/app/agent/agent.py`：创建 LangChain tool calling Agent，执行工具并推送结构化 thinking。
-- `backend/app/agent/skill_registry.py`：扫描 Skill/Tool 文件模块，读取 Tool 风险元数据。
+- `backend/app/agent/skill_registry.py`：扫描 Skill/Tool 文件模块，合并启用的 MCP tools，读取 Tool 风险元数据。
+- `backend/app/agent/mcp/config.py`：读取 `backend/app/config/mcp.yaml`，解析 MCP server 配置。
+- `backend/app/agent/mcp/provider.py`：负责 MCP tools/list 发现和 tools/call 调用。
+- `backend/app/agent/mcp/adapter.py`：把 MCP tool schema 适配成 LangChain `BaseTool`。
+- `backend/app/agent/mcp/registry.py`：缓存 MCP 工具发现结果，提供 refresh 和 catalog。
+- `backend/app/router/mcp_router.py`：提供 `/api/mcp/servers`、`/api/mcp/tools`、`/api/mcp/servers/refresh`。
 - `backend/app/agent/intent_router.py`：从用户已选 Skill 中做本轮预路由。
 - `backend/app/services/database_session_manager.py`：会话、消息、上下文裁剪、摘要压缩、刷新覆盖和删除。
 - `backend/app/config/security.yaml`：管理员名单配置。
@@ -152,6 +162,7 @@ system prompt
 注意：
 
 - `TOOL.md` 不直接拼进 `system_prompt`，而是覆盖 LangChain tool description，让模型在 tool calling schema 中看到工具说明。
+- MCP tool 的描述来自外部 MCP server 的 `tools/list`，会被包装成 LangChain tool description。
 - 用户未手动选择 Skill 时，后端使用 registry 中的默认 Skill。
 - 用户手动选择 Skill 后，后端只在这些 Skill 内做预路由，不会自动引入未选择能力。
 - 如果请求显式传 `tool_ids`，会按精确工具控制跳过 skill 预路由。
@@ -181,6 +192,7 @@ system prompt
 
 - thinking 事件会在 Agent 执行时实时推送。
 - 工具调用通过 `astream_events` 形成真实的 `tool_start / tool_end / tool_error` thinking 事件。
+- MCP 工具调用与本地工具一样进入 `GuardedTool`，再由 provider 通过 MCP `tools/call` 执行外部 server。
 - RAG 工具内部还会主动推送更细的检索 thinking。
 - 最终回答由 `on_chat_model_stream` 按模型 token 级实时流式推送。
 
@@ -262,6 +274,56 @@ chat.py
 
 当前 `delete_memory` 已标记为高风险，Agent 调用时会被 `GuardedTool` 在执行前拦截、进入 `waiting_confirmation`；用户经 `POST /chat/agent/confirm` 确认后才执行删除（pending action 持久化在 Redis，带 TTL 与 `user_id` 隔离）。
 
+## MCP 外部工具状态
+
+MCP 当前作为外部工具来源接入现有 Skill/Tool 体系，而不是替代本地工具。配置文件位于：
+
+```text
+backend/app/config/mcp.yaml
+```
+
+当前支持的 transport：
+
+- `stdio`
+- `sse`
+- `http` / `streamable_http`
+
+发现流程：
+
+```text
+backend/app/config/mcp.yaml
+  -> McpToolProvider.discover_tools()
+  -> McpToolRegistry.refresh()
+  -> ToolRegistry._load_mcp_tools()
+  -> resolve_skills()
+  -> GuardedTool
+  -> AgentExecutor
+```
+
+调用流程：
+
+```text
+Agent 调用 mcp_xxx_tool
+  -> GuardedTool 处理预算、确认、超时和截断
+  -> McpLangChainTool._arun()
+  -> McpToolProvider.call_tool()
+  -> MCP tools/call
+```
+
+本地 Tool 与 MCP Tool 的差别：
+
+| 类型 | 注册来源 | 执行位置 | 适合场景 |
+|------|----------|----------|----------|
+| 本地 Tool | `backend/app/agent/tools/*` | FastAPI 后端进程内 | 访问内部服务、数据库、RAG、记忆中心 |
+| MCP Tool | `backend/app/config/mcp.yaml` 指向的外部 server | 外部 MCP server | 浏览器、文件系统、桌面应用、第三方服务、跨语言工具 |
+
+当前边界：
+
+- MCP server 默认不配置，未配置时主聊天链路不受影响。
+- MCP tools 不进入默认 Skill，需要通过 Skill 绑定或显式 `tool_ids` 使用。
+- MCP 工具由外部 server 提供，前端工具库当前只读展示来源、server、外部名和错误信息。
+- Web 端完整的 MCP server 管理、测试调用、启用/禁用和审计后台仍待补齐。
+
 ## 权限与安全现状
 
 已有：
@@ -276,6 +338,7 @@ chat.py
 - `/chat/reorder` 要求登录并保留限流。
 - Tool 风险元数据已进入 registry 和管理页。
 - `GuardedTool` 统一包装所有工具，高风险操作执行前拦截并走确认闭环。
+- MCP refresh 接口要求管理员，MCP 工具进入 Agent 后复用 `GuardedTool` 风险控制。
 
 不足：
 
@@ -290,7 +353,7 @@ chat.py
 1. 权限模型升级为数据库角色。
 2. 上下文摘要边界和重复摘要控制。
 3. 记忆中心主动提醒和事项提炼。
-4. 运行状态持久化（run 状态、停止原因、工具调用列表）。
-5. MCP 外部工具接入。
+4. MCP 管理页、测试调用和审计。
+5. 运行状态持久化（run 状态、停止原因、工具调用列表）。
 6. 字幕/会议翻译。
 7. 桌面端验证。

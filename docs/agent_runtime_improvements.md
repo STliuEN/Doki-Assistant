@@ -10,6 +10,7 @@
 backend/app/router/chat.py
 backend/app/agent/agent.py
 backend/app/agent/skill_registry.py
+backend/app/agent/mcp/
 backend/app/agent/tool_context.py
 backend/app/services/database_session_manager.py
 backend/app/config/agent.yaml
@@ -23,7 +24,7 @@ SSE 请求
   -> JWT 鉴权 user_id
   -> prompt / skill / tool 解析
   -> Skill 预路由
-  -> resolve_skills 得到工具实例
+  -> resolve_skills 得到本地 Tool 与 MCP Tool 实例
   -> 获取上下文：Auto 模式优先 summary + 最近 6 轮，否则裁剪
   -> 创建 AgentExecutor
   -> AgentExecutor.astream_events(version="v2")
@@ -145,6 +146,7 @@ max_output_chars: 4000
 - 高风险工具执行前由 `GuardedTool` 拦截，保存 pending action 并推送 `waiting_confirmation`。
 - 用户确认后经 `POST /chat/agent/confirm` 执行原工具，拒绝则放弃。
 - pending action 持久化在 Redis，带 TTL（默认 600s）与 `user_id` 隔离、单次取用（`pending_action_store.py`）。
+- MCP tools 进入统一 `ToolDefinition` 后，同样会被 `GuardedTool` 包装。
 
 待完善：
 
@@ -198,6 +200,7 @@ system prompt
 - **执行器级工具事件**：`tool_start / tool_end / tool_error` 来自 `astream_events`，不再依赖 `intermediate_steps`。
 - **统一 Tool wrapper**：`GuardedTool`（`tool_guard.py`）在 registry 包装每个工具（`skill_registry.py`），执行前统一处理调用次数、超时、输出截断和高风险确认。
 - **高风险确认闭环**：`waiting_confirmation` + pending action 持久化 + `POST /chat/agent/confirm` 续跑/取消。
+- **MCP 外部工具来源**：`backend/app/agent/mcp/*` 将 MCP tools/list 发现到的外部工具适配为 LangChain tool，并合并到统一 registry。
 
 ## 下一步建议
 
@@ -215,16 +218,17 @@ system prompt
 - 更精确地维护摘要覆盖边界，避免遗漏或重复。
 - 评估独立摘要模型配置。
 
-### MCP 外部工具接入
+### MCP 外部工具治理
 
 目标：
 
-- 在已有确认与权限控制之上接入 MCP 工具。
-- 高风险 MCP 工具沿用 `GuardedTool` 确认闭环。
+- 完善 MCP 工具管理页、测试调用、错误诊断和审计。
+- 高风险 MCP 工具确认后继续统一超时、截断和调用记录。
+- 对 Shell、文件系统、数据库写入、外部发送类 MCP server 做默认关闭和 allowlist。
 
 ## 不建议立即做
 
 - 立即全面迁移 LangGraph。
 - 把完整工具输出无上限推给前端。
 - 让摘要替代知识库、笔记或记忆检索。
-- 接入 Shell、文件系统、数据库写入类 MCP 工具时，务必标记为高风险并走 `GuardedTool` 确认闭环，不要绕过。
+- 接入 Shell、文件系统、数据库写入类 MCP 工具时，务必标记为高风险并走确认闭环，不要绕过 `GuardedTool` 或等价控制。

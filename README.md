@@ -49,7 +49,7 @@ Doki助手基于 **FastAPI + LangChain + React** 构建，能力围绕四条主�
 - **Agent 运行时** — 对话由 LangChain tool calling Agent 驱动，前端可选模型、prompt 模式、Skill、上下文和 RAG 策略，后端通过 SSE 流式返回。
 - **个人知识系统** — 知识库负责文档上传、解析切片、向量检索和重排序；笔记负责编辑、分类、搜索和 AI 写作；两者共同进入 RAG 召回。
 - **长期上下文** — 会话历史、摘要压缩、记忆中心和模型配置按 `user_id` 隔离存储，记忆中心统一管理复习、待办、提醒等事项并暴露给 Agent。
-- **辅助工作流** — 实时翻译、Skill/Tool 管理、工具风险元数据和管理员权限控制。
+- **辅助工作流** — 实时翻译、Skill/Tool 管理、MCP 外部工具接入、工具风险元数据和管理员权限控制。
 
 ## 核心特性
 
@@ -60,6 +60,7 @@ Doki助手基于 **FastAPI + LangChain + React** 构建，能力围绕四条主�
 - **笔记系统**：笔记编辑、分类标签、搜索、AI 辅助写作、相关知识片段推荐。
 - **记忆中心**：统一管理复习、待办、提醒、长期事项和备忘。
 - **Skill/Tool 注册**：通过 `skill.yaml`、`SKILL.md`、`tool.yaml`、`TOOL.md`、`tool.py` 组织 Agent 能力。
+- **MCP 外部工具**：支持通过 `mcp.yaml` 配置 stdio、SSE 或 streamable HTTP MCP server，发现外部 tools 并合并进统一工具库。
 - **Tool 风险元数据**：工具支持风险等级、确认要求、超时秒数和最大输出字符数。
 - **高风险删除阻断**：`delete_memory` 已标记为高风险，当前不会被 Agent 静默执行。
 - **多模型配置**：用户可添加个人模型配置，未选择时回退到默认模型。
@@ -73,7 +74,7 @@ Doki助手基于 **FastAPI + LangChain + React** 构建，能力围绕四条主�
 - **Django 用户服务** — 登录、注册、用户资料和文件入口。
 - **FastAPI 业务后端** — Agent 对话、知识库、笔记、记忆中心、模型配置和翻译。
 
-对话请求进入后端后由 LangChain Agent 驱动，按本轮启用的 Skill/Tool 访问知识库、笔记和记忆中心。数据落在 MySQL（会话与业务数据）、Redis（缓存、限流、token 黑名单）和 ChromaDB（向量索引）。
+对话请求进入后端后由 LangChain Agent 驱动，按本轮启用的 Skill/Tool 访问知识库、笔记、记忆中心和可选的 MCP 外部工具。数据落在 MySQL（会话与业务数据）、Redis（缓存、限流、token 黑名单）和 ChromaDB（向量索引）。
 
 ```mermaid
 flowchart TD
@@ -86,6 +87,7 @@ flowchart TD
   Tools --> Knowledge[知识库 RAG]
   Tools --> Notes[笔记]
   Tools --> Memory[记忆中心]
+  Tools --> MCP[MCP 外部工具]
 
   D --> Store[(MySQL / Redis / ChromaDB)]
   B --> Store
@@ -128,6 +130,39 @@ requires_confirmation: true | false
 timeout_seconds: 30
 max_output_chars: 4000
 ```
+
+### 本地 Tool 与 MCP Tool
+
+本地 Tool 是后端进程内的 Python 工具模块，目录结构位于：
+
+```text
+backend/app/agent/tools/<tool_id>/
+  tool.yaml
+  TOOL.md
+  tool.py
+```
+
+后端启动或 registry reload 时会扫描本地工具目录，直接 import `tool.py`，并把返回的 LangChain `BaseTool` 放入统一工具库。本地工具适合访问项目内部服务，例如知识库、笔记、记忆中心和当前用户上下文。
+
+MCP Tool 是外部 MCP server 暴露的工具，配置位于：
+
+```text
+backend/app/config/mcp.yaml
+```
+
+后端通过 `tools/list` 发现 MCP 工具，再把它们包装成内部 `ToolDefinition`。Agent 调用时会通过 MCP `tools/call` 发送给外部 server 执行。MCP 适合接入浏览器、文件系统、桌面应用、第三方服务或非 Python 语言实现的工具。
+
+两类工具进入 Agent 后共用同一条运行链路：
+
+```text
+本地 Tool / MCP Tool
+  -> ToolDefinition
+  -> Skill 绑定或显式 tool_ids
+  -> GuardedTool
+  -> AgentExecutor
+```
+
+因此两者都会受风险等级、二次确认、超时、输出截断、调用次数预算和 SSE 工具事件约束。区别在于本地 Tool 在 FastAPI 进程内执行，MCP Tool 由外部 MCP server 执行。
 
 ## 知识库与笔记
 
@@ -175,11 +210,12 @@ RAG 执行链路：
 - `/chat/reorder` 要求登录并保留限流。
 - Agent 运行预算维护在 `backend/app/config/agent.yaml`。
 - SSE thinking 事件包含运行 ID、工具调用摘要、停止原因等信息。
+- MCP server 和工具发现接口要求登录，刷新 MCP 工具要求管理员。
 
 当前仍在推进：
 
-- 高风险工具确认后的继续执行流程。
-- Tool wrapper 统一实现 `tool_start/tool_end/tool_error`。
+- MCP 管理页的 refresh、test、启用/禁用和诊断能力。
+- Tool smoke test 与结构化错误分类。
 - 数据库角色权限。
 - 更精确的摘要覆盖边界。
 
@@ -204,6 +240,15 @@ RAG 执行链路：
 ```powershell
 cd backend
 uv sync
+```
+
+如果更新了后端依赖或需要重建锁文件：
+
+```powershell
+cd backend
+uv lock
+uv sync
+uv pip compile pyproject.toml -o requirements.txt
 ```
 
 前端：
@@ -245,6 +290,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 |------|------|
 | FastAPI | 业务后端与 Agent API |
 | LangChain | AgentExecutor 与 Tool Calling |
+| MCP SDK | 外部 MCP server 的工具发现与调用 |
 | SQLAlchemy | MySQL ORM |
 | ChromaDB | 知识库和笔记向量索引 |
 | Redis | 缓存和限流辅助 |
@@ -270,8 +316,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 ```text
 ├── backend/                     # FastAPI 后端
 │   ├── app/
-│   │   ├── agent/               # Agent、Skill、Tool
-│   │   ├── config/              # agent/security/chroma/rag/prompt 配置
+│   │   ├── agent/               # Agent、Skill、Tool、MCP 适配
+│   │   ├── config/              # agent/security/chroma/rag/prompt/mcp 配置
 │   │   ├── db/                  # MySQL / Redis 配置
 │   │   ├── models/              # SQLAlchemy 模型
 │   │   ├── rag/                 # 文档解析、切片、向量库、检索器
@@ -308,14 +354,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 
 当前下一阶段优先级：
 
-1. 高风险工具确认后的继续执行流程。
-2. Tool wrapper，统一实现 `tool_start/tool_end/tool_error`。
-3. 数据库角色权限。
-4. 更精确的上下文摘要边界。
-5. 记忆中心主动提醒和对话后事项提炼。
-6. Tool 测试和诊断。
-7. MCP 外部工具接入。
-8. 字幕/会议翻译与桌面端验证。
+1. 数据库角色权限。
+2. 更精确的上下文摘要边界。
+3. 记忆中心主动提醒和对话后事项提炼。
+4. Tool 测试、诊断和结构化错误分类。
+5. MCP 管理页与高风险外部工具治理。
+6. 字幕/会议翻译与桌面端验证。
 
 详细方案见 [下一阶段开发计划](./docs/roadmap_next.md)。
 

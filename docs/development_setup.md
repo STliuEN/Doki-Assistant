@@ -55,6 +55,12 @@ Agent 运行预算：
 backend/app/config/agent.yaml
 ```
 
+MCP 外部工具：
+
+```text
+backend/app/config/mcp.yaml
+```
+
 知识库与向量库：
 
 ```text
@@ -135,9 +141,100 @@ FastAPI 和 Django 的 JWT 密钥、算法需要保持一致。
 | 前端 | React 19、TypeScript、Vite、Tailwind CSS、Zustand、i18next |
 | 后端 | FastAPI、SQLAlchemy、Redis、MySQL、ChromaDB |
 | 用户服务 | Django、JWT、MySQL |
-| Agent | LangChain、Tool Calling、Skill/Tool Registry |
+| Agent | LangChain、Tool Calling、Skill/Tool Registry、MCP SDK |
 | RAG | ChromaDB、Ollama Embedding、CrossEncoder Reranker |
 | 模型 | 阿里云百炼、OpenAI-compatible API、Ollama |
+
+## 依赖重建
+
+后端使用 `uv` 管理依赖。更新 `backend/pyproject.toml` 后，按下面顺序重建锁文件、同步虚拟环境，并更新兼容 `pip` 的 `requirements.txt`：
+
+```powershell
+cd backend
+uv lock
+uv sync
+uv pip compile pyproject.toml -o requirements.txt
+```
+
+MCP 接入依赖当前包含：
+
+```text
+mcp==1.28.0
+uvicorn==0.49.0
+```
+
+验证：
+
+```powershell
+cd backend
+uv run python -c "from importlib.metadata import version; import uvicorn; print('mcp', version('mcp')); print('uvicorn', uvicorn.__version__)"
+```
+
+如果 Windows 上 `uv sync` 下载 `pywin32` 时出现 `.uv-cache` 拒绝访问，可用管理员权限 PowerShell 重新执行 `uv sync`。
+
+## MCP 测试工具
+
+最小 stdio MCP server 可放在：
+
+```text
+backend/mcp_servers/echo_server.py
+```
+
+示例：
+
+```python
+from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
+
+
+mcp = FastMCP("Doki Test MCP")
+
+
+@mcp.tool(
+    description="Echo a message back for MCP integration testing.",
+    annotations=ToolAnnotations(readOnlyHint=True),
+)
+def echo(message: str) -> str:
+    return f"echo: {message}"
+
+
+if __name__ == "__main__":
+    mcp.run("stdio")
+```
+
+配置 `backend/app/config/mcp.yaml`：
+
+```yaml
+servers:
+  - id: doki_test
+    label: Doki Test MCP
+    enabled: true
+    transport: stdio
+    command: python
+    args:
+      - mcp_servers/echo_server.py
+    allow_tools:
+      - echo
+    deny_tools: []
+    default_risk_level: low
+    default_requires_confirmation: false
+    timeout_seconds: 10
+    max_output_chars: 2000
+```
+
+刷新发现：
+
+```powershell
+cd backend
+uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print(asyncio.run(mcp_tool_registry.refresh()))"
+```
+
+后端启动后也可以使用：
+
+```text
+POST /api/mcp/servers/refresh
+GET  /api/mcp/tools
+```
 
 ## 开发检查
 
