@@ -13,6 +13,7 @@ const emptyTool: ToolDetail = {
   timeout_seconds: 600,
   max_output_chars: 4000,
   instructions: '',
+  source: 'local',
 }
 
 const errorMessage = (error: unknown, fallback: string) => (
@@ -29,6 +30,8 @@ const slugifyId = (value: string, fallback: string) => {
   return id.slice(0, 64)
 }
 
+const sourceLabel = (tool: ToolDetail) => (tool.source === 'mcp' ? 'MCP' : '本地')
+
 export default function ToolManager() {
   const [tools, setTools] = useState<ToolDetail[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -41,6 +44,7 @@ export default function ToolManager() {
     () => tools.some((tool) => tool.id === selectedId),
     [tools, selectedId]
   )
+  const isMcpTool = form.source === 'mcp'
 
   const loadCatalog = useCallback(async (nextSelectedId?: string) => {
     const res = await chatApi.toolCatalog()
@@ -82,6 +86,10 @@ export default function ToolManager() {
   }
 
   const save = async () => {
+    if (isMcpTool) {
+      setMessage('MCP 工具由 MCP 配置管理，当前页面只读')
+      return
+    }
     setSaving(true)
     setMessage('')
     try {
@@ -104,7 +112,7 @@ export default function ToolManager() {
   }
 
   const remove = async () => {
-    if (!selectedExists || !selectedId) return
+    if (!selectedExists || !selectedId || isMcpTool) return
     const ok = window.confirm(`删除工具「${selectedId}」？`)
     if (!ok) return
     setSaving(true)
@@ -154,7 +162,10 @@ export default function ToolManager() {
                   : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-secondary)] hover:text-[var(--color-text)]'
               }`}
             >
-              <div className="text-sm font-medium">{tool.label}</div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-medium">{tool.label}</span>
+                <span className="shrink-0 text-[11px] opacity-70">{sourceLabel(tool)}</span>
+              </div>
               <div className="text-xs opacity-75 truncate">{tool.id}</div>
             </button>
           ))}
@@ -174,11 +185,11 @@ export default function ToolManager() {
                 {selectedExists ? form.label || selectedId : '新增工具'}
               </h2>
               <p className="text-sm text-[var(--color-text-secondary)]">
-                维护工具的展示信息和执行说明。
+                {isMcpTool ? 'MCP 工具由外部 server 提供，当前页面只读。' : '维护工具的展示信息和执行说明。'}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {selectedExists && (
+              {selectedExists && !isMcpTool && (
                 <button
                   type="button"
                   onClick={remove}
@@ -192,7 +203,7 @@ export default function ToolManager() {
               <button
                 type="button"
                 onClick={save}
-                disabled={saving}
+                disabled={saving || isMcpTool}
                 className="h-9 inline-flex items-center gap-2 px-3 rounded-md bg-[var(--color-accent)] text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 <Save size={15} />
@@ -208,12 +219,22 @@ export default function ToolManager() {
           )}
 
           <section className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 grid grid-cols-3 gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+              <span>来源：{sourceLabel(form)}</span>
+              <span>Server：{form.provider_id || '-'}</span>
+              <span>外部名：{form.external_name || '-'}</span>
+            </div>
+            {form.last_error && (
+              <div className="col-span-2 rounded-md border border-[var(--color-danger)] px-3 py-2 text-sm text-[var(--color-danger)]">
+                {form.last_error}
+              </div>
+            )}
             <label className="space-y-1">
               <span className="text-xs text-[var(--color-text-secondary)]">ID</span>
               <input
                 value={form.id}
                 onChange={(e) => setForm((current) => ({ ...current, id: e.target.value }))}
-                disabled={selectedExists}
+                disabled={selectedExists || isMcpTool}
                 className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
@@ -222,7 +243,8 @@ export default function ToolManager() {
               <input
                 value={form.label}
                 onChange={(e) => setForm((current) => ({ ...current, label: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="space-y-1 col-span-2">
@@ -230,7 +252,8 @@ export default function ToolManager() {
               <input
                 value={form.description}
                 onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="space-y-1">
@@ -238,7 +261,8 @@ export default function ToolManager() {
               <input
                 value={form.category}
                 onChange={(e) => setForm((current) => ({ ...current, category: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="space-y-1">
@@ -247,7 +271,8 @@ export default function ToolManager() {
                 type="number"
                 value={form.order}
                 onChange={(e) => setForm((current) => ({ ...current, order: Number(e.target.value) }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="space-y-1">
@@ -258,7 +283,8 @@ export default function ToolManager() {
                   ...current,
                   risk_level: e.target.value as ToolDetail['risk_level'],
                 }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               >
                 <option value="low">低</option>
                 <option value="medium">中</option>
@@ -273,7 +299,8 @@ export default function ToolManager() {
                 max={600}
                 value={form.timeout_seconds || 600}
                 onChange={(e) => setForm((current) => ({ ...current, timeout_seconds: Number(e.target.value) }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="space-y-1">
@@ -284,7 +311,8 @@ export default function ToolManager() {
                 max={100000}
                 value={form.max_output_chars || 4000}
                 onChange={(e) => setForm((current) => ({ ...current, max_output_chars: Number(e.target.value) }))}
-                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)]"
+                disabled={isMcpTool}
+                className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"
               />
             </label>
             <label className="col-span-2 inline-flex items-center gap-2 text-sm text-[var(--color-text)]">
@@ -292,6 +320,7 @@ export default function ToolManager() {
                 type="checkbox"
                 checked={Boolean(form.requires_confirmation)}
                 onChange={(e) => setForm((current) => ({ ...current, requires_confirmation: e.target.checked }))}
+                disabled={isMcpTool}
                 className="h-4 w-4"
               />
               需要用户二次确认
@@ -301,10 +330,11 @@ export default function ToolManager() {
           <section className="space-y-1">
             <span className="text-xs text-[var(--color-text-secondary)]">执行说明</span>
             <textarea
-              value={form.instructions}
+              value={isMcpTool ? (form.instructions || form.description || '') : form.instructions}
               onChange={(e) => setForm((current) => ({ ...current, instructions: e.target.value }))}
+              disabled={isMcpTool}
               rows={12}
-              className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] resize-y"
+              className="w-full px-3 py-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] resize-y disabled:opacity-60"
             />
           </section>
         </div>

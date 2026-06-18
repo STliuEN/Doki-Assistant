@@ -379,8 +379,8 @@ export default function SkillManager() {
                             active ? 'border-[var(--color-accent)] bg-[var(--color-accent)]' : 'border-[var(--color-border)]'
                           }`} />
                           <span className="min-w-0">
-                            <span className="block text-sm font-medium">{tool.label}</span>
-                            <span className="block truncate text-xs text-[var(--color-text-secondary)]">{tool.description}</span>
+                            <span className="block text-sm font-medium">{tool.label} <span className="text-[11px] text-[var(--color-text-secondary)]">[{tool.source === 'mcp' ? 'MCP' : '本地'}]</span></span>
+                            <span className="block truncate text-xs text-[var(--color-text-secondary)]">{tool.provider_id ? `${tool.provider_id} / ${tool.external_name || tool.id}` : tool.description}</span>
                           </span>
                         </button>
                       )

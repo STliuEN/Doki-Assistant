@@ -144,7 +144,7 @@ def _write_tool(payload: ToolPayload, existing_id: str | None = None) -> dict:
 @tool_router.get("/catalog")
 async def get_tools_catalog(_: str = Depends(get_current_user_id)):
     return success_response(data={
-        "tools": [_read_tool_detail(tool.id) for tool in skill_registry.tool_registry.all()],
+        "tools": skill_registry.tool_registry.public_catalog(),
     })
 
 

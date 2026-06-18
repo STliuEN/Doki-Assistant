@@ -31,6 +31,9 @@ async def save_pending_action(
     tool_id: str,
     args: dict,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
+    source: str = "local",
+    provider_id: str | None = None,
+    external_name: str | None = None,
 ) -> str:
     """存入一条待确认动作，返回 pending_action_id。"""
     action_id = str(uuid.uuid4())
@@ -40,6 +43,9 @@ async def save_pending_action(
         "session_id": session_id,
         "tool_id": tool_id,
         "args": args,
+        "source": source,
+        "provider_id": provider_id,
+        "external_name": external_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     redis = await connect_redis()

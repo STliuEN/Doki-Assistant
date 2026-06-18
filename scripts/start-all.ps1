@@ -5,7 +5,7 @@ param(
     [switch]$SkipBackend,
     [switch]$SkipUserService,
     [switch]$NoReload,
-    [int]$FrontendPort = 3000,
+    [int]$FrontendPort = 5173,
     [int]$BackendPort = 8000,
     [int]$UserPort = 8001
 )
@@ -44,6 +44,23 @@ function Test-PortOpen([string]$HostName, [int]$Port) {
 function Find-CommandPath([string]$Name) {
     $cmd = Get-Command $Name -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
+    return $null
+}
+
+function Find-NpmCommand() {
+    $npm = Find-CommandPath "npm.cmd"
+    if (-not $npm) { $npm = Find-CommandPath "npm" }
+    if ($npm) { return $npm }
+
+    $candidates = @(
+        "C:\nvm4w\nodejs\npm.cmd",
+        "$env:ProgramFiles\nodejs\npm.cmd"
+    )
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            return $candidate
+        }
+    }
     return $null
 }
 
@@ -128,8 +145,15 @@ if (-not $SkipFrontend) {
     if (Test-PortOpen "127.0.0.1" $FrontendPort) {
         Write-Ok "Frontend already running on 127.0.0.1:$FrontendPort"
     } else {
-        Write-Info "Starting React frontend..."
-        Start-ServiceWindow "RAG React Frontend" $FrontDir "npm run dev -- --host 0.0.0.0 --port $FrontendPort"
+        $npm = Find-NpmCommand
+        if (-not $npm) {
+            Write-Warn "npm was not found. Install Node.js or add npm to PATH, then start frontend manually."
+        } else {
+            $npmDir = Split-Path -Parent $npm
+            $frontendCommand = "`$env:Path = '$npmDir;' + `$env:Path; & '$npm' run dev -- --host 127.0.0.1 --port $FrontendPort"
+            Write-Info "Starting React frontend..."
+            Start-ServiceWindow "RAG React Frontend" $FrontDir $frontendCommand
+        }
     }
 }
 
@@ -145,3 +169,4 @@ Write-Host "Tips:" -ForegroundColor Cyan
 Write-Host "  - Keep the opened PowerShell windows running."
 Write-Host "  - Restart this script after changing front/vite.config.ts."
 Write-Host "  - If Redis/Ollama/MySQL are installed as services, starting them manually as services is also fine."
+

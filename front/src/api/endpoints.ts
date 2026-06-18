@@ -29,6 +29,10 @@ export const endpoints = {
   toolUpdate: (id: string) => `/api/tools/${id}`,
   toolDelete: (id: string) => `/api/tools/${id}`,
 
+  mcpServers: '/api/mcp/servers',
+  mcpRefreshAll: '/api/mcp/servers/refresh',
+  mcpTools: '/api/mcp/tools',
+
   // Model Config
   modelConfigList: '/model-config/list',
   modelConfigSystemDefault: '/model-config/system-default',

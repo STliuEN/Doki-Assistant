@@ -17,7 +17,7 @@ dependencies = [
     # Web API
     "fastapi~=0.123.0",
     "starlette~=0.50.0",
-    "uvicorn==0.21.1",
+    "uvicorn>=0.31.1,<0.50.0",
     "python-multipart>=0.0.22",
 
     # Database / cache / auth
@@ -45,6 +45,7 @@ dependencies = [
     "langchain-dashscope>=0.1.8",
     "langgraph>=1.1.0",
     "langsmith>=0.7.22",
+    "mcp>=1.9.0",
     "chromadb>=1.5.0",
     "rank-bm25>=0.2.2",
 

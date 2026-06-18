@@ -13,6 +13,7 @@ from app.router.chat import chat_router
 from app.router.health import health_router
 from app.router.knowledge_router import knowledge_router
 from app.router.memory_router import memory_router
+from app.router.mcp_router import mcp_router
 from app.router.model_config_router import model_config_router
 from app.router.note_router import note_router
 from app.router.note_template_router import note_template_router
@@ -49,6 +50,7 @@ app.include_router(user_router)
 app.include_router(note_router)
 app.include_router(note_template_router)
 app.include_router(memory_router)
+app.include_router(mcp_router)
 app.include_router(skill_router)
 app.include_router(tool_router)
 app.include_router(model_config_router)
@@ -97,9 +99,23 @@ async def startup_event():
     await init_manager.start()
     logger.info("部分资源正在初始化（模型加载、ChromaDB初始化等将在后台继续加载）")
 
+    # 发现 MCP 外部工具，并刷新工具注册表使其对 agent 可见
+    try:
+        from app.agent.mcp.registry import mcp_tool_registry
+        from app.agent.skill_registry import skill_registry
+
+        tools = await mcp_tool_registry.refresh()
+        skill_registry.reload()
+        logger.info(f"MCP 工具发现完成，已加载 {len(tools)} 个工具")
+    except Exception as exc:
+        logger.warning(f"MCP 工具发现失败，将仅使用本地工具: {exc}")
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """应用关闭时清理资源"""
+    from app.agent.mcp.provider import mcp_provider
+    await mcp_provider.close()
+
     # 关闭 Redis 连接
     await close_redis()
     logger.info("Redis连接已关闭")

@@ -19,6 +19,13 @@ export interface ChatTool {
   requires_confirmation?: boolean
   timeout_seconds?: number
   max_output_chars?: number
+  source?: 'local' | 'mcp'
+  provider_id?: string | null
+  external_name?: string | null
+  enabled?: boolean
+  read_only?: boolean
+  server_status?: 'enabled' | 'disabled' | 'offline' | 'error'
+  last_error?: string | null
 }
 
 export interface ChatSkill {
@@ -61,6 +68,13 @@ export interface ToolDetail {
   requires_confirmation?: boolean
   timeout_seconds?: number
   max_output_chars?: number
+  source?: 'local' | 'mcp'
+  provider_id?: string | null
+  external_name?: string | null
+  enabled?: boolean
+  read_only?: boolean
+  server_status?: 'enabled' | 'disabled' | 'offline' | 'error'
+  last_error?: string | null
 }
 
 export interface ToolCatalog {

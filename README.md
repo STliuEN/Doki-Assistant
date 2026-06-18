@@ -234,7 +234,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 | 服务 | 命令 | 端口 |
 |------|------|------|
 | FastAPI 后端 | `cd backend && uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload` | 8000 |
-| React 前端 | `cd front && npm run dev -- --host 0.0.0.0 --port 3000` | 3000 |
+| React 前端 | `cd front && npm run dev -- --host 127.0.0.1 --port 5173` | 5173 |
 | Django 用户服务 | `cd DjangoUserService && uv run python manage.py runserver 127.0.0.1:8001` | 8001 |
 
 ## 技术栈

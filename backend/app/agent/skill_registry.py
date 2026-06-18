@@ -9,6 +9,9 @@ from typing import Any
 import yaml
 from langchain_core.tools import BaseTool
 
+from app.agent.mcp.adapter import make_langchain_tool
+from app.agent.mcp.registry import mcp_tool_registry
+
 
 SKILLS_DIR = Path(__file__).parent / "skills"
 TOOLS_DIR = Path(__file__).parent / "tools"
@@ -30,6 +33,11 @@ class ToolDefinition:
     requires_confirmation: bool = False
     timeout_seconds: int = 600
     max_output_chars: int = 4000
+    source: str = "local"
+    provider_id: str | None = None
+    external_name: str | None = None
+    enabled: bool = True
+    read_only: bool = False
 
     def to_public_dict(self) -> dict:
         return {
@@ -44,6 +52,12 @@ class ToolDefinition:
             "requires_confirmation": self.requires_confirmation,
             "timeout_seconds": self.timeout_seconds,
             "max_output_chars": self.max_output_chars,
+            "instructions": self.instructions,
+            "source": self.source,
+            "provider_id": self.provider_id,
+            "external_name": self.external_name,
+            "enabled": self.enabled,
+            "read_only": self.read_only,
         }
 
 
@@ -145,6 +159,33 @@ class ToolRegistry:
             raise ValueError(f"{tool_dir / 'tool.yaml'} entrypoint must return a LangChain BaseTool")
         return tool_obj
 
+    def _load_mcp_tools(self) -> dict[str, ToolDefinition]:
+        loaded: dict[str, ToolDefinition] = {}
+        for spec in mcp_tool_registry.all():
+            tool_obj = make_langchain_tool(spec)
+            loaded[spec.id] = ToolDefinition(
+                id=spec.id,
+                label=spec.label,
+                description=spec.description,
+                category="mcp",
+                order=1000,
+                tool=tool_obj,
+                entrypoint=f"mcp:{spec.server_id}:{spec.name}",
+                instructions=spec.description,
+                is_default=False,
+                visibility="public",
+                risk_level=spec.risk_level,
+                requires_confirmation=spec.requires_confirmation,
+                timeout_seconds=spec.timeout_seconds,
+                max_output_chars=spec.max_output_chars,
+                source="mcp",
+                provider_id=spec.server_id,
+                external_name=spec.name,
+                enabled=spec.enabled,
+                read_only=spec.read_only,
+            )
+        return loaded
+
     def _load_tools(self) -> dict[str, ToolDefinition]:
         loaded: dict[str, ToolDefinition] = {}
         for tool_dir in sorted(path for path in self.tools_dir.iterdir() if path.is_dir()):
@@ -188,6 +229,7 @@ class ToolRegistry:
                 timeout_seconds=max(1, _optional_int(data, "timeout_seconds", 600)),
                 max_output_chars=max(256, _optional_int(data, "max_output_chars", 4000)),
             )
+        loaded.update(self._load_mcp_tools())
         return loaded
 
     def all(self) -> list[ToolDefinition]:

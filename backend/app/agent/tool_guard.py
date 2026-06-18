@@ -48,6 +48,9 @@ class GuardedTool(BaseTool):
     requires_confirmation: bool = False
     timeout_seconds: int = 30
     max_output_chars: int = 4000
+    source: str = "local"
+    provider_id: str | None = None
+    external_name: str | None = None
 
     @classmethod
     def wrap(cls, tool_def) -> "GuardedTool":
@@ -62,6 +65,9 @@ class GuardedTool(BaseTool):
             requires_confirmation=tool_def.requires_confirmation,
             timeout_seconds=tool_def.timeout_seconds,
             max_output_chars=tool_def.max_output_chars,
+            source=tool_def.source,
+            provider_id=tool_def.provider_id,
+            external_name=tool_def.external_name,
         )
 
     def _run(self, *args, **kwargs):  # pragma: no cover - 本项目工具均为异步
@@ -120,6 +126,9 @@ class GuardedTool(BaseTool):
                     session_id=session_id,
                     tool_id=self.tool_id,
                     args=dict(kwargs),
+                    source=self.source,
+                    provider_id=self.provider_id,
+                    external_name=self.external_name,
                 )
             except Exception as exc:
                 logger.error(f"【GuardedTool】写入待确认动作失败: {exc}", exc_info=True)
@@ -134,6 +143,9 @@ class GuardedTool(BaseTool):
                     "risk_level": self.risk_level,
                     "pending_action_id": action_id,
                     "input_preview": str(dict(kwargs))[:500],
+                    "source": self.source,
+                    "provider_id": self.provider_id,
+                    "external_name": self.external_name,
                 },
             })
             return (
