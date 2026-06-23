@@ -1,6 +1,6 @@
 id: public_info_lookup
 label: 外部信息查询
-description: 查询中国大学公开信息，并进行公共域名或公网 IP 的 PING/端口连通检测。
+description: 查询中国大学公开资料；对公网域名或公网 IP 做 ping 和端口连通检测。
 tools:
   - mcp_public_info_lookup_query_university_info
   - mcp_public_info_lookup_ping_check

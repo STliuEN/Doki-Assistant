@@ -1,6 +1,6 @@
 id: memory_read
 label: 记忆事项·查询
-description: 查看今日事项、按类型浏览、查看单条详情。
+description: 查看、浏览、列出已有的待办提醒事项清单与单条详情，只读不修改。
 tools:
   - current_time
   - list_memories

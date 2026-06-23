@@ -1,6 +1,6 @@
 id: memory_write
 label: 记忆事项·记录与变更
-description: 创建新事项，或对已有事项做完成、修改、延期。
+description: 新建、创建、登记、记下提醒待办事项；以及对已有事项做完成、修改、更新、延期、推迟。
 tools:
   - current_time
   - create_memory

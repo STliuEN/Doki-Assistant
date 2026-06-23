@@ -75,6 +75,10 @@ class SkillDefinition:
     is_default: bool = True
     order: int = 100
     visibility: str = "public"
+    # always_on：选中即常驻，不参与意图收窄竞争（如时间/身份等低风险上下文）。
+    always_on: bool = False
+    # routable：是否参与预路由收窄；False 表示一旦被选中就保留、不被裁。
+    routable: bool = True
 
     def to_public_dict(self) -> dict:
         return {
@@ -84,6 +88,8 @@ class SkillDefinition:
             "tool_ids": list(self.tool_ids),
             "is_default": self.is_default,
             "visibility": self.visibility,
+            "always_on": self.always_on,
+            "routable": self.routable,
         }
 
 
@@ -296,6 +302,8 @@ class SkillRegistry:
                 is_default=_optional_bool(data, "default", True),
                 order=_optional_int(data, "order", 100),
                 visibility=_optional_string(data, "visibility", "public"),
+                always_on=_optional_bool(data, "always_on", False),
+                routable=_optional_bool(data, "routable", True),
             )
         return loaded
 

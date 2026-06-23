@@ -1,6 +1,6 @@
 id: memory_cleanup
 label: 记忆事项·清理（归档/删除）
-description: 归档或永久删除事项，仅在用户明确要求时使用。
+description: 删除、移除、清除、归档、存档不再需要的事项；仅在用户明确要求时使用。
 tools:
   - current_time
   - list_memories

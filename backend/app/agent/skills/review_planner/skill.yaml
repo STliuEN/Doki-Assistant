@@ -1,6 +1,6 @@
 id: review_planner
 label: 复习计划
-description: 管理今日复习、间隔复习推进和复习题生成。
+description: 间隔复习管理：今日复习、推进间隔复习进度、生成复习自测题。
 tools:
   - current_time
   - today_reviews
