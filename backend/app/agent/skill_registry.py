@@ -79,6 +79,8 @@ class SkillDefinition:
     always_on: bool = False
     # routable：是否参与预路由收窄；False 表示一旦被选中就保留、不被裁。
     routable: bool = True
+    # routing_examples：仅供意图预路由阈值校准使用，不注入 Agent prompt。
+    routing_examples: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def to_public_dict(self) -> dict:
         return {
@@ -90,6 +92,10 @@ class SkillDefinition:
             "visibility": self.visibility,
             "always_on": self.always_on,
             "routable": self.routable,
+            "routing_examples": {
+                key: list(value)
+                for key, value in self.routing_examples.items()
+            },
         }
 
 
@@ -147,6 +153,24 @@ def _optional_string_list(data: dict[str, Any], key: str, path: Path) -> tuple[s
     if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"{path} field {key} must be a list of strings")
     return tuple(dict.fromkeys(item.strip() for item in value))
+
+
+def _optional_routing_examples(data: dict[str, Any], path: Path) -> dict[str, tuple[str, ...]]:
+    value = data.get("routing_examples", {})
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{path} field routing_examples must be a mapping")
+
+    examples: dict[str, tuple[str, ...]] = {}
+    for key in ("positive", "negative"):
+        items = value.get(key, [])
+        if items is None:
+            items = []
+        if not isinstance(items, list) or not all(isinstance(item, str) and item.strip() for item in items):
+            raise ValueError(f"{path} routing_examples.{key} must be a list of strings")
+        examples[key] = tuple(dict.fromkeys(item.strip() for item in items))
+    return examples
 
 
 class ToolRegistry:
@@ -304,6 +328,7 @@ class SkillRegistry:
                 visibility=_optional_string(data, "visibility", "public"),
                 always_on=_optional_bool(data, "always_on", False),
                 routable=_optional_bool(data, "routable", True),
+                routing_examples=_optional_routing_examples(data, config_path),
             )
         return loaded
 

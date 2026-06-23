@@ -7,3 +7,8 @@ tools:
 default: false
 visibility: public
 order: 95
+routing_examples:
+  positive:
+    - 查询武汉大学公开资料
+    - ping example.com
+    - 检测 8.8.8.8 端口连通性

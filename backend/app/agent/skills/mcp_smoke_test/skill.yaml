@@ -6,3 +6,8 @@ tools:
 default: true
 visibility: public
 order: 90
+routing_examples:
+  positive:
+    - 测试 MCP 工具是否连通
+    - 做一次 MCP 冒烟测试
+    - 验证外部工具发现和调用

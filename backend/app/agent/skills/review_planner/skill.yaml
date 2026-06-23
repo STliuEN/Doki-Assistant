@@ -12,3 +12,8 @@ tools:
 default: true
 visibility: public
 order: 60
+routing_examples:
+  positive:
+    - 今天要复习什么
+    - 给我出一道复习题
+    - 标记这条记忆已复习

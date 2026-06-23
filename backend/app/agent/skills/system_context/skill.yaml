@@ -8,3 +8,8 @@ default: true
 visibility: public
 order: 10
 always_on: true
+routing_examples:
+  positive:
+    - 现在几点
+    - 今天几号
+    - 我是谁

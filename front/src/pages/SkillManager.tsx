@@ -11,6 +11,9 @@ const emptySkill: SkillDetail = {
   visibility: 'public',
   order: 100,
   instructions: '',
+  always_on: false,
+  routable: true,
+  routing_examples: {},
 }
 
 const errorMessage = (error: unknown, fallback: string) => (

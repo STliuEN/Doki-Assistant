@@ -7,3 +7,8 @@ tools:
 default: true
 visibility: public
 order: 40
+routing_examples:
+  positive:
+    - 把这段内容创建成新笔记
+    - 保存为一篇笔记
+    - 在对话中写一条笔记

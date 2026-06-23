@@ -12,3 +12,8 @@ tools:
 default: true
 visibility: public
 order: 50
+routing_examples:
+  positive:
+    - 帮我记一下明天开会
+    - 新建一个待办事项
+    - 把这个提醒延期到周五

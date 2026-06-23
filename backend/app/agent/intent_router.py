@@ -22,11 +22,18 @@ import math
 import re
 
 from app.agent.skill_registry import skill_registry
+from app.agent.routing_calibration import (
+    DEFAULT_SIM_FLOOR,
+    DEFAULT_SIM_GAP,
+    RoutingCalibration,
+    calibrate_thresholds,
+    calibration_signature,
+)
 from app.core.logger_handler import logger
 
-# —— 阈值（全局常量，不随 skill 数变；按本地 qwen3-embedding:0.6b 校准）——
-SIM_FLOOR = 0.35   # 语义相似度绝对下限，低于此不算命中
-SIM_GAP = 0.10     # top1 与 top2 的最小差距，够大才算"语义直选"
+# —— 默认阈值：校准不可用时的保守回退值。实际路由优先使用 embedding/skill 自适应校准值。——
+SIM_FLOOR = DEFAULT_SIM_FLOOR   # 语义相似度绝对下限，低于此不算命中
+SIM_GAP = DEFAULT_SIM_GAP       # top1 与 top2 的最小差距，够大才算"语义直选"
 MAX_SKILLS = 4     # 路由结果最多保留的 skill 数（不含 always_on）
 
 # —— 核心关键词规则：只覆盖语义纠缠的增删改查 + 复习推进 ——
@@ -47,9 +54,10 @@ _ROUTE_PROMPT = (
     "候选能力：\n{catalog}\n\n参考提示：{hints}\n\n用户输入：{query}\n\nJSON 数组："
 )
 
-# —— 语义索引缓存（模块级，随 skill 变更自愈）——
+# —— 语义索引缓存（模块级，随 skill/embedding 变更自愈）——
 _skill_vectors: dict[str, list[float]] = {}
 _index_signature: str | None = None
+_index_vector_dim: int | None = None
 
 
 def _embed_text(skill_id: str) -> str:
@@ -60,29 +68,22 @@ def _embed_text(skill_id: str) -> str:
     return f"{skill.label}。{skill.description}"
 
 
-def _registry_signature(skill_ids: list[str]) -> str:
-    """基于 id|label|description 的内容签名；任一变化即触发索引重建。"""
-    parts = []
-    for sid in sorted(skill_ids):
-        skill = skill_registry.get(sid)
-        if skill:
-            parts.append(f"{sid}|{skill.label}|{skill.description}")
-    return "\n".join(parts)
-
-
-async def _ensure_index(skill_ids: list[str]) -> bool:
+async def _ensure_index(skill_ids: list[str]) -> tuple[bool, object | None, int | None]:
     """惰性构建/重建语义索引；embed_model 未就绪返回 False（触发非语义回退）。"""
-    global _index_signature
+    global _index_signature, _index_vector_dim
     from app.core.background_init import init_manager
 
     model = init_manager.embed_model
     if model is None:
-        return False
+        return False, None, None
+    if not skill_ids:
+        return True, model, _index_vector_dim
 
-    signature = _registry_signature(skill_ids)
     missing = [sid for sid in skill_ids if sid not in _skill_vectors]
+    vector_dim = _index_vector_dim
+    signature = calibration_signature(skill_ids, model, vector_dim)
     if signature == _index_signature and not missing:
-        return True
+        return True, model, vector_dim
 
     # 签名变化（描述被改/skill 增减）→ 全量重建；否则只补缺失项。
     targets = skill_ids if signature != _index_signature else missing
@@ -91,14 +92,18 @@ async def _ensure_index(skill_ids: list[str]) -> bool:
         vectors = await asyncio.to_thread(model.embed_documents, texts)
     except Exception as exc:
         logger.error(f"【意图路由】skill 嵌入失败，回退非语义路径: {exc}")
-        return False
+        return False, model, vector_dim
 
     if signature != _index_signature:
         _skill_vectors.clear()
     for sid, vec in zip(targets, vectors):
         _skill_vectors[sid] = vec
+    if vectors:
+        vector_dim = len(vectors[0])
+    signature = calibration_signature(skill_ids, model, vector_dim)
     _index_signature = signature
-    return True
+    _index_vector_dim = vector_dim
+    return True, model, vector_dim
 
 
 async def _embed_query(query: str) -> list[float] | None:
@@ -139,6 +144,22 @@ def _semantic_score(query_vec: list[float], routable: list[str]) -> list[tuple[s
     ]
     scored.sort(key=lambda item: item[1], reverse=True)
     return scored
+
+
+def _above_floor(scored: list[tuple[str, float]], calibration: RoutingCalibration | None) -> list[tuple[str, float]]:
+    above: list[tuple[str, float]] = []
+    for sid, score in scored:
+        floor = calibration.floor_for(sid) if calibration else SIM_FLOOR
+        if score >= floor:
+            above.append((sid, score))
+    return above
+
+
+def _has_direct_gap(top_id: str, top_sc: float, second: float, calibration: RoutingCalibration | None) -> bool:
+    if calibration and top_id in calibration.unstable_skill_ids:
+        return False
+    gap = calibration.gap_for(top_id) if calibration else SIM_GAP
+    return top_sc - second >= gap
 
 
 async def _llm_route(query: str, candidates: list[str], hints: list[str]) -> list[str]:
@@ -207,15 +228,23 @@ async def route_skills(query: str, candidate_skill_ids: list[str]) -> list[str]:
     # 语义打分（embed 就绪时）。
     semantic_hit: list[str] = []
     ambiguous: list[str] = []
-    index_ready = await _ensure_index(routable)
+    index_ready, embed_model, vector_dim = await _ensure_index(routable)
     query_vec = await _embed_query(query) if index_ready else None
+    calibration: RoutingCalibration | None = None
+    if index_ready and embed_model is not None:
+        calibration = await calibrate_thresholds(
+            model=embed_model,
+            skill_ids=routable,
+            skill_vectors=_skill_vectors,
+            vector_dim=vector_dim,
+        )
     if query_vec is not None:
         scored = _semantic_score(query_vec, routable)
-        above = [(sid, sc) for sid, sc in scored if sc >= SIM_FLOOR]
+        above = _above_floor(scored, calibration)
         if above:
             top_id, top_sc = above[0]
             second = above[1][1] if len(above) > 1 else 0.0
-            if top_sc - second >= SIM_GAP:
+            if _has_direct_gap(top_id, top_sc, second, calibration):
                 # 与次高拉开足够差距 → 语义直选 top1，其余高分入模糊带。
                 semantic_hit = [top_id]
                 ambiguous = [sid for sid, _ in above[1:4]]
@@ -250,6 +279,4 @@ async def route_skills(query: str, candidate_skill_ids: list[str]) -> list[str]:
     # 完全无信号：安全回退原候选集，不静默丢能力。
     logger.info(f"【意图路由】无信号，回退全部已选 | query={query[:40]}")
     return candidates
-
-
 

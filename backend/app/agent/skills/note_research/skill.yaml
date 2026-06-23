@@ -8,3 +8,8 @@ tools:
 default: true
 visibility: public
 order: 30
+routing_examples:
+  positive:
+    - 搜索我以前写过的笔记
+    - 查找相关笔记
+    - 看看笔记统计

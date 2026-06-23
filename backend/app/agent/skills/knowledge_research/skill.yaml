@@ -6,3 +6,8 @@ tools:
 default: true
 visibility: public
 order: 20
+routing_examples:
+  positive:
+    - 根据上传文档总结要点
+    - 这份资料讲了什么
+    - 从知识库里查找相关内容

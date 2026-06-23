@@ -34,6 +34,9 @@ export interface ChatSkill {
   description: string
   tool_ids: string[]
   is_default: boolean
+  always_on?: boolean
+  routable?: boolean
+  routing_examples?: Record<string, string[]>
 }
 
 export interface ChatSkillCatalog {
@@ -52,6 +55,9 @@ export interface SkillDetail {
   visibility: string
   order: number
   instructions: string
+  always_on?: boolean
+  routable?: boolean
+  routing_examples?: Record<string, string[]>
 }
 
 export interface ToolDetail {

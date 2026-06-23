@@ -26,6 +26,9 @@ class SkillPayload(BaseModel):
     visibility: str = "public"
     order: int = 100
     instructions: str = Field(default="", max_length=20000)
+    always_on: bool = False
+    routable: bool = True
+    routing_examples: dict[str, list[str]] = Field(default_factory=dict)
 
 
 def _default_skill_instructions(payload: SkillPayload) -> str:
@@ -77,6 +80,9 @@ def _read_skill_detail(skill_id: str) -> dict:
         "default": bool(data.get("default", True)),
         "visibility": data.get("visibility", "public"),
         "order": int(data.get("order", 100)),
+        "always_on": bool(data.get("always_on", False)),
+        "routable": bool(data.get("routable", True)),
+        "routing_examples": data.get("routing_examples", {}) if isinstance(data.get("routing_examples", {}), dict) else {},
         "instructions": instructions_path.read_text(encoding="utf-8") if instructions_path.exists() else "",
     }
 
@@ -104,7 +110,16 @@ def _write_skill(payload: SkillPayload, existing_id: str | None = None) -> dict:
         "default": payload.default,
         "visibility": payload.visibility,
         "order": payload.order,
+        "always_on": payload.always_on,
+        "routable": payload.routable,
     }
+    routing_examples = {
+        key: [item.strip() for item in values if item.strip()]
+        for key, values in payload.routing_examples.items()
+        if key in {"positive", "negative"}
+    }
+    if routing_examples:
+        config["routing_examples"] = routing_examples
     (directory / "skill.yaml").write_text(
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
         encoding="utf-8",

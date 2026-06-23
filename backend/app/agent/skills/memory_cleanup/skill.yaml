@@ -10,3 +10,8 @@ tools:
 default: false
 visibility: public
 order: 52
+routing_examples:
+  positive:
+    - 删除昨天那条事项
+    - 归档已经不需要的提醒
+    - 清除这个待办

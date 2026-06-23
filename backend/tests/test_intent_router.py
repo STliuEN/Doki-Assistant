@@ -12,6 +12,7 @@ import asyncio
 import pytest
 
 from app.agent import intent_router
+from app.agent import routing_calibration
 from app.agent.intent_router import route_skills
 from app.core.background_init import init_manager
 
@@ -48,9 +49,15 @@ def _onehot(sid: str) -> list[float]:
 class FakeEmbed:
     """按 skill_id 文本里出现的 id 关键字返回对应正交向量。"""
 
-    def __init__(self, query_target: str | None = None, blend: dict[str, float] | None = None):
+    def __init__(
+        self,
+        query_target: str | None = None,
+        blend: dict[str, float] | None = None,
+        model_name: str = "fake-embed",
+    ):
         self.query_target = query_target
         self.blend = blend
+        self.model = model_name
 
     def embed_documents(self, texts):
         # 测试里 _embed_text 返回 "label。description"，这里改用 monkeypatch 让
@@ -68,14 +75,43 @@ class FakeEmbed:
         return [0.0] * _DIM
 
 
+class ScaledFakeEmbed(FakeEmbed):
+    def __init__(
+        self,
+        query_target: str,
+        scale: float,
+        model_name: str = "scaled-fake-embed",
+    ):
+        super().__init__(query_target=query_target, model_name=model_name)
+        self.scale = scale
+
+    def embed_documents(self, texts):
+        vectors = []
+        for text in texts:
+            if isinstance(text, str) and text.startswith("cal:"):
+                vectors.append(self._low_score_query_vec(text.removeprefix("cal:")))
+            else:
+                vectors.append(_onehot(text))
+        return vectors
+
+    def embed_query(self, text):
+        return self._low_score_query_vec(self.query_target)
+
+    def _low_score_query_vec(self, sid: str) -> list[float]:
+        vec = [0.0] * (_DIM + 1)
+        vec[_BASIS[sid]] = self.scale
+        vec[-1] = (1 - self.scale**2) ** 0.5
+        return vec
+
+
 @pytest.fixture(autouse=True)
 def _reset_index(monkeypatch):
     # 每个用例前清空模块级语义索引，并让 _embed_text 返回纯 skill_id
     intent_router._skill_vectors.clear()
     intent_router._index_signature = None
+    intent_router._index_vector_dim = None
+    routing_calibration.clear_calibration_cache()
     monkeypatch.setattr(intent_router, "_embed_text", lambda sid: sid)
-    # 让 _registry_signature 不依赖真实 registry 内容
-    monkeypatch.setattr(intent_router, "_registry_signature", lambda ids: ",".join(sorted(ids)))
     yield
     init_manager.embed_model = None
     init_manager.chat_model = None
@@ -195,3 +231,44 @@ def test_never_introduces_unselected(monkeypatch):
     result = _run(route_skills("处理一下", candidates))
     assert set(result).issubset(set(candidates))
 
+
+def test_embedding_switch_rebuilds_semantic_index(monkeypatch):
+    first = FakeEmbed(query_target="knowledge_research", model_name="fake-a")
+    second = FakeEmbed(query_target="note_writer", model_name="fake-b")
+
+    async def _boom(*a, **k):
+        raise AssertionError("clear semantic hit must not call LLM")
+
+    monkeypatch.setattr(intent_router, "_llm_route", _boom)
+    init_manager.embed_model = first
+    first_result = _run(route_skills("处理一下我那些东西", ALL))
+    first_signature = intent_router._index_signature
+
+    init_manager.embed_model = second
+    second_result = _run(route_skills("处理一下我那些东西", ALL))
+
+    assert "knowledge_research" in first_result
+    assert "note_writer" in second_result
+    assert intent_router._index_signature != first_signature
+
+
+def test_dynamic_calibration_allows_model_specific_low_scores(monkeypatch):
+    init_manager.embed_model = ScaledFakeEmbed(
+        query_target="knowledge_research",
+        scale=0.30,
+        model_name="low-score-embed",
+    )
+    monkeypatch.setattr(
+        routing_calibration,
+        "_positive_examples",
+        lambda skill: [f"cal:{skill.id}"],
+    )
+
+    async def _boom(*a, **k):
+        raise AssertionError("calibrated semantic hit must not call LLM")
+
+    monkeypatch.setattr(intent_router, "_llm_route", _boom)
+    result = _run(route_skills("这份资料讲了啥", ALL))
+
+    assert "knowledge_research" in result
+    assert intent_router.SIM_FLOOR > 0.30
