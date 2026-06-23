@@ -236,6 +236,23 @@ POST /api/mcp/servers/refresh
 GET  /api/mcp/tools
 ```
 
+stdio MCP server 会作为子进程启动。`mcp.yaml` 中的 `command: python` 依赖当前 PATH 和启动方式；如果子进程使用了没有安装 `mcp` 包的系统 Python，会导致发现失败。开发和验证时优先使用：
+
+```powershell
+cd backend
+uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print([t.to_public_dict() for t in asyncio.run(mcp_tool_registry.refresh())])"
+```
+
+如果必须直接用 venv Python 启动后端，请确认 stdio 子进程也能找到同一个环境，或在 `backend/app/config/mcp.yaml` 中把 `command` 改成明确的 venv Python 路径。
+
+当前默认 smoke test server 为：
+
+```text
+backend/mcp_servers/powershell_ls_server.py
+```
+
+它只暴露只读 `list_project_files`，用于验证 MCP 发现、注册和调用链路。
+
 ## 开发检查
 
 后端语法检查：

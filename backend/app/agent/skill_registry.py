@@ -33,7 +33,7 @@ class ToolDefinition:
     risk_level: str = "low"
     requires_confirmation: bool = False
     timeout_seconds: int = 600
-    max_output_chars: int = 4000
+    max_output_chars: int = 10000
     source: str = "local"
     provider_id: str | None = None
     external_name: str | None = None
@@ -235,7 +235,7 @@ class ToolRegistry:
                 risk_level=_risk_level(data, config_path),
                 requires_confirmation=_optional_bool(data, "requires_confirmation", False),
                 timeout_seconds=max(1, _optional_int(data, "timeout_seconds", 600)),
-                max_output_chars=max(256, _optional_int(data, "max_output_chars", 4000)),
+                max_output_chars=max(256, _optional_int(data, "max_output_chars", 10000)),
             )
         loaded.update(self._load_mcp_tools())
         return loaded

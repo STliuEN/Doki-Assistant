@@ -134,7 +134,7 @@ Tool 配置支持：
 risk_level: low | medium | high
 requires_confirmation: true | false
 timeout_seconds: 30
-max_output_chars: 4000
+max_output_chars: 10000
 ```
 
 已完成：

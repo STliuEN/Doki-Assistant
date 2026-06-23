@@ -273,6 +273,49 @@ HTTPException: 401 Unauthorized
 - 优化批次大小
 - 考虑使用更小的模型
 
+### 18. 聊天页只剩 MCP Skill 或其他 Skill 没被调用
+
+**问题**：明明项目里还有知识库、笔记、记忆、复习等 Skill，但本轮 Agent 看起来只会调用 MCP 连通性测试。
+
+**当前说明**：
+
+- 聊天页支持同时启用多个 Skill，但多个 Skill 会被合并为同一个 Agent 的工具集，不会并行启动多个 Agent。
+- 前端会把当前 Skill 选择保存到 `localStorage.ai_chat_skill_ids`。如果这里仅保存了 `["mcp_smoke_test"]`，后端本轮就只会收到 MCP Skill。
+- 后端 `intent_router.route_skills()` 会在已选 Skill 内做收窄。用户输入命中 `mcp`、连通测试、smoke test 等关键词时，可能只保留 `mcp_smoke_test`。
+- 请求体显式传入 `tool_ids` 时，会跳过 Skill 预路由，按工具精确控制。
+
+**排查方法**：
+
+- 打开聊天页 Skill 面板，确认是否只勾选了 MCP。
+- 在浏览器 DevTools 中检查 `localStorage.ai_chat_skill_ids`。
+- 如果要恢复默认选择，可以清理该 localStorage 项后刷新页面，或在 Skill 面板重新全选。
+- 如果 MCP smoke test 只用于调试，可以把 `backend/app/agent/skills/mcp_smoke_test/skill.yaml` 的 `default` 改为 `false`。
+- 检查后端日志中的 `【意图路由】`，确认本轮是否被规则路由收窄。
+
+### 19. MCP stdio server 子进程找不到 `mcp` 包
+
+**问题**：MCP refresh 返回空工具列表，日志中出现：
+
+```text
+ModuleNotFoundError: No module named 'mcp'
+Connection closed
+```
+
+**原因**：
+
+stdio MCP server 是单独子进程。`backend/app/config/mcp.yaml` 中 `command: python` 会按当前 PATH 找 Python；如果找到的是系统 Python，而不是后端虚拟环境或 `uv run` 环境，子进程就无法 import `mcp`。
+
+**排查方法**：
+
+- 优先使用 `uv run` 验证：
+  ```powershell
+  cd backend
+  uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print([t.to_public_dict() for t in asyncio.run(mcp_tool_registry.refresh())])"
+  ```
+- 确认后端启动方式也使用 `uv run uvicorn main:app ...`。
+- 如果仍失败，把 `mcp.yaml` 的 stdio `command` 改成明确的 venv Python 路径。
+- 确认 `backend/pyproject.toml`、`backend/uv.lock`、`backend/requirements.txt` 中包含 `mcp`，并重新执行 `uv sync`。
+
 ## 调试技巧
 
 ### 启用详细日志

@@ -27,7 +27,7 @@ class ToolPayload(BaseModel):
     risk_level: str = Field(default="low", pattern="^(low|medium|high)$")
     requires_confirmation: bool = False
     timeout_seconds: int = Field(default=600, ge=1, le=1800)
-    max_output_chars: int = Field(default=4000, ge=256, le=100000)
+    max_output_chars: int = Field(default=10000, ge=256, le=100000)
     instructions: str = Field(default="", max_length=20000)
 
 
@@ -79,7 +79,7 @@ def _read_tool_detail(tool_id: str) -> dict:
         "risk_level": data.get("risk_level", "low"),
         "requires_confirmation": bool(data.get("requires_confirmation", False)),
         "timeout_seconds": int(data.get("timeout_seconds", 600)),
-        "max_output_chars": int(data.get("max_output_chars", 4000)),
+        "max_output_chars": int(data.get("max_output_chars", 10000)),
         "instructions": instructions_path.read_text(encoding="utf-8") if instructions_path.exists() else "",
     }
 

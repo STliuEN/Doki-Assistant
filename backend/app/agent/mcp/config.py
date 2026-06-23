@@ -27,7 +27,7 @@ class McpServerConfig:
     default_risk_level: str = "medium"
     default_requires_confirmation: bool = True
     timeout_seconds: int = 30
-    max_output_chars: int = 4000
+    max_output_chars: int = 10000
     tool_overrides: dict[str, "McpToolOverride"] = field(default_factory=dict)
 
 
@@ -149,7 +149,7 @@ def load_mcp_servers(config_path: Path = CONFIG_PATH) -> list[McpServerConfig]:
             default_risk_level=risk_level,
             default_requires_confirmation=bool(item.get("default_requires_confirmation", True)),
             timeout_seconds=_int_value(item.get("timeout_seconds"), 30, 1),
-            max_output_chars=_int_value(item.get("max_output_chars"), 4000, 256),
+            max_output_chars=_int_value(item.get("max_output_chars"), 10000, 256),
             tool_overrides=_load_tool_overrides(item.get("tool_overrides")),
         ))
     return loaded

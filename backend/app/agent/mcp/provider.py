@@ -21,7 +21,7 @@ class McpToolSpec:
     risk_level: str = "medium"
     requires_confirmation: bool = True
     timeout_seconds: int = 30
-    max_output_chars: int = 4000
+    max_output_chars: int = 10000
     enabled: bool = True
     read_only: bool = False
     # 用户配置层的 enabled 之外，再记一层"运行可达性"：发现失败时保留上次已知的

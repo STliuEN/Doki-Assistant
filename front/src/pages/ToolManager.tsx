@@ -13,7 +13,7 @@ const emptyTool: ToolDetail = {
   risk_level: 'low',
   requires_confirmation: false,
   timeout_seconds: 600,
-  max_output_chars: 4000,
+  max_output_chars: 10000,
   instructions: '',
   source: 'local',
 }
@@ -596,7 +596,7 @@ export default function ToolManager() {
                     type="number"
                     min={256}
                     max={100000}
-                    value={toolForm.max_output_chars || 4000}
+                    value={toolForm.max_output_chars || 10000}
                     onChange={(e) => setToolForm((current) => ({ ...current, max_output_chars: Number(e.target.value) }))}
                     disabled={isReadOnlyMcp}
                     className="w-full h-10 px-3 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-sm text-[var(--color-text)] disabled:opacity-60"

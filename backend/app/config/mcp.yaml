@@ -14,4 +14,21 @@ servers:
     default_risk_level: low
     default_requires_confirmation: false
     timeout_seconds: 10
-    max_output_chars: 4000
+    max_output_chars: 10000
+  - id: public_info_lookup
+    label: Public Info Lookup
+    description: Read-only MCP server for Chinese university information and external ping checks.
+    enabled: true
+    transport: stdio
+    command: python
+    args:
+      - mcp_servers/public_info_server.py
+    env: {}
+    allow_tools:
+      - query_university_info
+      - ping_check
+    deny_tools: []
+    default_risk_level: medium
+    default_requires_confirmation: false
+    timeout_seconds: 20
+    max_output_chars: 10000

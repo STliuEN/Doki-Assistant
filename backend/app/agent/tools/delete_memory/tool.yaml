@@ -8,4 +8,4 @@ order: 67
 risk_level: high
 requires_confirmation: true
 timeout_seconds: 600
-max_output_chars: 4000
+max_output_chars: 10000

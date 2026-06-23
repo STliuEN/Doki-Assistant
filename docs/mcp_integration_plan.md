@@ -332,6 +332,70 @@ uv pip compile pyproject.toml -o requirements.txt
 uv run python -c "from importlib.metadata import version; import uvicorn; print('mcp', version('mcp')); print('uvicorn', uvicorn.__version__)"
 ```
 
+## Skill 启用与意图路由
+
+聊天页支持同时启用多个 Skill。多个 `skill_ids` 进入后端后，会先被解析成一组可用工具，再交给同一个 LangChain Agent 使用；当前实现不是为每个 Skill 启动独立 Agent，也不是并行执行多个 Skill。
+
+当前请求链路：
+
+```text
+front selectedSkillIds
+  -> /chat/agent/query/stream skill_ids
+  -> route_skills(query, candidate_skill_ids)
+  -> resolve_skills()
+  -> 合并 Skill 绑定的 tools
+  -> Agent 按需顺序调用工具
+```
+
+需要注意：
+
+- 前端会把聊天页 Skill 选择保存到 `localStorage.ai_chat_skill_ids`。如果上次只勾选了 `mcp_smoke_test`，后续请求也只会发送该 Skill，直到用户重新勾选或清理本地存储。
+- 后端 `intent_router.route_skills()` 会在已选 Skill 集合内做收窄。命中 `mcp`、连通测试、smoke test 等关键词时，本轮可能只保留 `mcp_smoke_test`。
+- 显式传入 `tool_ids` 时，后端视为精确工具控制，会跳过 Skill 预路由。
+- 如果日常对话不希望默认携带 MCP 连通性测试，可以把 `backend/app/agent/skills/mcp_smoke_test/skill.yaml` 中的 `default` 改为 `false`。
+
+排查“只能调用 MCP 一个 Skill”时，优先检查：
+
+1. 聊天页 Skill 面板是否只勾选了 MCP。
+2. 浏览器 `localStorage.ai_chat_skill_ids` 是否只保存了 `["mcp_smoke_test"]`。
+3. 用户输入是否命中了 MCP 连通性测试关键词。
+4. 请求体是否传了显式 `tool_ids`。
+
+## 当前 Smoke Test Server
+
+当前项目内置了一个只读 smoke test server：
+
+```text
+backend/mcp_servers/powershell_ls_server.py
+```
+
+默认配置位于：
+
+```text
+backend/app/config/mcp.yaml
+```
+
+它暴露 `list_project_files`，用于验证 MCP stdio server 能否被发现和调用。该工具只允许列出项目目录内文件，不接受任意 PowerShell 命令，不做写入、删除或项目外路径访问。
+
+推荐验证命令：
+
+```powershell
+cd backend
+uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print([t.to_public_dict() for t in asyncio.run(mcp_tool_registry.refresh())])"
+```
+
+stdio server 的 `command: python` 会启动一个新的子进程。这个子进程使用的 Python 环境必须能 import `mcp`。如果直接运行后端 venv 的 `python`，但子进程 PATH 指向系统 Python，就可能出现：
+
+```text
+ModuleNotFoundError: No module named 'mcp'
+```
+
+解决方式：
+
+- 优先通过 `uv run ...` 启动后端和验证命令，让子进程继承正确环境。
+- 或把 `mcp.yaml` 中 stdio server 的 `command` 改为明确的虚拟环境 Python 路径。
+- 或在 `env` 中补齐子进程所需环境变量。
+
 ## 后续计划
 
 优先级：

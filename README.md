@@ -128,7 +128,7 @@ AI 对话由 `LangChain AgentExecutor + Tools` 驱动。后端会根据前端传
 risk_level: low | medium | high
 requires_confirmation: true | false
 timeout_seconds: 30
-max_output_chars: 4000
+max_output_chars: 10000
 ```
 
 ### 本地 Tool 与 MCP Tool

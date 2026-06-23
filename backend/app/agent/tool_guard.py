@@ -47,7 +47,7 @@ class GuardedTool(BaseTool):
     risk_level: str = "low"
     requires_confirmation: bool = False
     timeout_seconds: int = 30
-    max_output_chars: int = 4000
+    max_output_chars: int = 10000
     source: str = "local"
     provider_id: str | None = None
     external_name: str | None = None
