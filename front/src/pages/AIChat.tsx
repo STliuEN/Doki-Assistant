@@ -24,6 +24,7 @@ interface Message {
 const CHAT_MODEL_STORAGE_KEY = 'ai_chat_selected_model_id'
 const CHAT_PROMPT_STORAGE_KEY = 'ai_chat_prompt_type'
 const CHAT_SKILLS_STORAGE_KEY = 'ai_chat_skill_ids'
+const CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY = 'ai_chat_default_skill_ids_seen'
 const CHAT_CONTEXT_STORAGE_KEY = 'ai_chat_context_settings'
 const CHAT_RAG_RETRIEVAL_STORAGE_KEY = 'ai_chat_rag_retrieval_settings'
 
@@ -111,8 +112,8 @@ const readSavedRagRetrievalSettings = (): RagRetrievalSettings => {
   }
 }
 
-const readSavedSkillIds = () => {
-  const saved = localStorage.getItem(CHAT_SKILLS_STORAGE_KEY)
+const readStringArrayStorage = (key: string) => {
+  const saved = localStorage.getItem(key)
   if (!saved) return []
   try {
     const parsed = JSON.parse(saved)
@@ -121,6 +122,9 @@ const readSavedSkillIds = () => {
     return []
   }
 }
+
+const readSavedSkillIds = () => readStringArrayStorage(CHAT_SKILLS_STORAGE_KEY)
+const readSeenDefaultSkillIds = () => readStringArrayStorage(CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY)
 
 const quickQuestions = [
   '帮我写一篇关于机器学习的笔记',
@@ -157,9 +161,6 @@ export default function AIChat() {
   const [toolsById, setToolsById] = useState<Record<string, ChatTool>>({})
   const [showToolPanel, setShowToolPanel] = useState(false)
   const [showContextPanel, setShowContextPanel] = useState(false)
-  const [skillSelectionTouched, setSkillSelectionTouched] = useState(() => (
-    localStorage.getItem(CHAT_SKILLS_STORAGE_KEY) !== null
-  ))
   const [skillCatalogLoaded, setSkillCatalogLoaded] = useState(false)
   const [skillCatalogError, setSkillCatalogError] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(() => localStorage.getItem(CHAT_MODEL_STORAGE_KEY) || '')
@@ -217,13 +218,20 @@ export default function AIChat() {
       const nextSkills = catalog.skills || []
       const defaultSkillIds = catalog.default_skill_ids || []
       const validSkillIds = new Set(nextSkills.map((skill) => skill.id))
+      const hadSavedSkillSelection = localStorage.getItem(CHAT_SKILLS_STORAGE_KEY) !== null
+      const seenDefaultSkillIds = readSeenDefaultSkillIds()
+      const newDefaultSkillIds = defaultSkillIds.filter((id) => !seenDefaultSkillIds.includes(id))
       setSkills(nextSkills)
       setTools(catalog.tools || [])
       setToolsById(Object.fromEntries((catalog.tools || []).map((tool) => [tool.id, tool])))
       setSelectedSkillIds((current) => {
         const validCurrent = current.filter((id) => validSkillIds.has(id))
+        if (hadSavedSkillSelection) {
+          return Array.from(new Set([...validCurrent, ...newDefaultSkillIds]))
+        }
         return validCurrent.length > 0 ? validCurrent : defaultSkillIds
       })
+      localStorage.setItem(CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY, JSON.stringify(defaultSkillIds))
       setSkillCatalogError('')
       setSkillCatalogLoaded(true)
     }).catch((error) => {
@@ -254,7 +262,6 @@ export default function AIChat() {
   }, [ragRetrievalSettings])
 
   const toggleSkill = useCallback((skillId: string) => {
-    setSkillSelectionTouched(true)
     setSelectedSkillIds((current) => (
       current.includes(skillId)
         ? current.filter((id) => id !== skillId)
@@ -319,7 +326,8 @@ export default function AIChat() {
         prompt_type: selectedPromptType,
         context: contextSettings,
         rag_retrieval: ragRetrievalSettings,
-        ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
+        skill_ids: selectedSkillIds,
+        tool_ids: [],
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
       {
@@ -376,7 +384,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, skillSelectionTouched, start, navigate, flushContent])
+  }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, start, navigate, flushContent])
 
   const handleConfirmAction = useCallback(async (confirmed: boolean) => {
     const pending = pendingConfirmation
@@ -442,7 +450,8 @@ export default function AIChat() {
         prompt_type: selectedPromptType,
         context: contextSettings,
         rag_retrieval: ragRetrievalSettings,
-        ...(skillSelectionTouched ? { skill_ids: selectedSkillIds, tool_ids: [] } : {}),
+        skill_ids: selectedSkillIds,
+        tool_ids: [],
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
       {
@@ -484,7 +493,7 @@ export default function AIChat() {
         },
       }
     )
-  }, [contextSettings, flushContent, loading, ragRetrievalSettings, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, skillSelectionTouched, start])
+  }, [contextSettings, flushContent, loading, ragRetrievalSettings, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, start])
 
   const handleDeleteMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || loading) return
@@ -756,10 +765,7 @@ export default function AIChat() {
                           <span>技能</span>
                           <button
                             type="button"
-                            onClick={() => {
-                              setSkillSelectionTouched(true)
-                              setSelectedSkillIds(skills.map((skill) => skill.id))
-                            }}
+                            onClick={() => setSelectedSkillIds(skills.map((skill) => skill.id))}
                             className="text-[var(--color-accent)] hover:underline"
                           >
                             全选

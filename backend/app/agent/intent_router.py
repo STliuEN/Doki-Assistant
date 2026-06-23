@@ -17,6 +17,7 @@ from app.core.logger_handler import logger
 
 # 关键词 → skill_id 规则。命中任意条即走快速路径；按 query 出现的信号叠加匹配。
 _RULES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"mcp|工具连通|连通测试|连通性测试|smoke\s*test|冒烟", re.IGNORECASE), "mcp_smoke_test"),
     (re.compile(r"删除|删掉|删了|移除|清除|清掉|归档|存档"), "memory_cleanup"),
     (re.compile(r"复习|背一下|背诵|自测|出题|考我|测一下|标记已复习|复盘|记忆曲线"), "review_planner"),
     (

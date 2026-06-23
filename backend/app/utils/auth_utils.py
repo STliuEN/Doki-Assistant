@@ -133,10 +133,21 @@ async def require_admin_user(
     Administrators are configured in app/config/security.yaml.
     ADMIN_USER_IDS and ADMIN_USERNAMES can add deployment-specific admins.
     """
+    if await is_admin_user(user_id, credentials):
+        return user_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Administrator permission required",
+    )
+
+
+async def is_admin_user(user_id: str, credentials: HTTPAuthorizationCredentials) -> bool:
+    """Return whether the current user is an administrator."""
     admin_user_ids, admin_usernames = _read_security_admins()
 
     if user_id in admin_user_ids:
-        return user_id
+        return True
 
     user_info = await get_user_info_from_redis(user_id, credentials)
     username = None
@@ -145,12 +156,9 @@ async def require_admin_user(
         username = data.get("username")
 
     if username in admin_usernames:
-        return user_id
+        return True
 
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Administrator permission required",
-    )
+    return False
 
 
 async def fetch_user_info_from_django_api(token: str, url: str) -> dict[str, Any] | None:

@@ -641,6 +641,7 @@ async def get_confirm_action_stream_response(
         message = f"已取消高风险操作（{tool_id}），未执行。"
     else:
         from app.agent.skill_registry import tool_registry
+        from app.agent.tool_guard import wrap_tool
         try:
             tool_def = tool_registry.get(tool_id)
         except KeyError:
@@ -652,14 +653,9 @@ async def get_confirm_action_stream_response(
             set_current_session_id(session_id)
             set_confirmed_action(True)
             set_thinking_callback(None)
-            inner = tool_def.tool
+            set_runtime_state({"tool_calls": 0, "max_tool_calls": 1})
             try:
-                if getattr(inner, "coroutine", None) is not None:
-                    result = await inner.coroutine(**args)
-                elif getattr(inner, "func", None) is not None:
-                    result = inner.func(**args)
-                else:
-                    result = await inner.ainvoke(args)
+                result = await wrap_tool(tool_def).ainvoke(args)
                 message = str(result)
             except Exception as exc:
                 logger.error(f"【确认执行】工具 {tool_id} 执行失败: {exc}", exc_info=True)

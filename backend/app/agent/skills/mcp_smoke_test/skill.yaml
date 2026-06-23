@@ -1,0 +1,8 @@
+id: mcp_smoke_test
+label: MCP 连通性测试
+description: 专门用于验证 MCP 外部工具发现、调用和返回是否正常。
+tools:
+  - mcp_powershell_ls_test_list_project_files
+default: true
+visibility: public
+order: 90

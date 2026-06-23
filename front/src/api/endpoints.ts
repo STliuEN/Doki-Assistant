@@ -30,8 +30,13 @@ export const endpoints = {
   toolDelete: (id: string) => `/api/tools/${id}`,
 
   mcpServers: '/api/mcp/servers',
+  mcpPermissions: '/api/mcp/permissions',
   mcpRefreshAll: '/api/mcp/servers/refresh',
+  mcpServerUpdate: (id: string) => `/api/mcp/servers/${id}`,
+  mcpServerDelete: (id: string) => `/api/mcp/servers/${id}`,
   mcpTools: '/api/mcp/tools',
+  mcpToolUpdate: (id: string) => `/api/mcp/tools/${id}`,
+  mcpToolDelete: (id: string) => `/api/mcp/tools/${id}`,
 
   // Model Config
   modelConfigList: '/model-config/list',

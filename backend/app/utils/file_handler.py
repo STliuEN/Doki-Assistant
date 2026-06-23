@@ -22,6 +22,9 @@ class FontBBoxStreamFilter:
     def __init__(self, stream):
         self.stream = stream
 
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
     def write(self, data):
         if 'FontBBox from font descriptor' not in data:
             self.stream.write(data)

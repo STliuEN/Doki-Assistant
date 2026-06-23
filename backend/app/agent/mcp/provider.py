@@ -24,6 +24,9 @@ class McpToolSpec:
     max_output_chars: int = 4000
     enabled: bool = True
     read_only: bool = False
+    # 用户配置层的 enabled 之外，再记一层"运行可达性"：发现失败时保留上次已知的
+    # spec 但标记 available=False，既保住 UI 可见性，也让装配阶段能明确跳过。
+    available: bool = True
 
     def to_public_dict(self, server_status: str = "enabled", last_error: str | None = None) -> dict[str, Any]:
         return {
@@ -42,6 +45,7 @@ class McpToolSpec:
             "provider_id": self.server_id,
             "external_name": self.name,
             "enabled": self.enabled,
+            "available": self.available,
             "read_only": self.read_only,
             "server_status": server_status,
             "last_error": last_error,
@@ -61,6 +65,15 @@ class McpToolProvider:
 
     def last_error(self, server_id: str) -> str | None:
         return self._last_errors.get(server_id)
+
+    def has_errors(self) -> bool:
+        """是否存在已记录的发现失败（用于惰性重发现的廉价预检）。"""
+        return bool(self._last_errors)
+
+    def error_server_ids(self) -> set[str]:
+        """最近一次发现失败的（已启用）server 集合。discover_tools 仅尝试启用的 server，
+        成功即清除，所以这里就是当前处于错误态的启用 server。"""
+        return set(self._last_errors)
 
     async def discover_tools(self) -> list[McpToolSpec]:
         tools: list[McpToolSpec] = []
@@ -93,20 +106,28 @@ class McpToolProvider:
             description = _get_tool_description(raw) or name
             input_schema = _get_tool_input_schema(raw)
             read_only = _get_tool_read_only(raw)
+            override = server.tool_overrides.get(name)
+            label = override.label if override and override.label else name
+            public_description = (
+                override.description if override and override.description else description
+            )
             # 只读工具无副作用，放宽二次确认要求。
             requires_confirmation = server.default_requires_confirmation and not read_only
+            if override and override.requires_confirmation is not None:
+                requires_confirmation = override.requires_confirmation and not read_only
             specs.append(McpToolSpec(
                 id=make_mcp_tool_id(server.id, name),
                 server_id=server.id,
                 server_label=server.label,
                 name=name,
-                label=name,
-                description=description,
+                label=label,
+                description=public_description,
                 input_schema=input_schema,
-                risk_level=server.default_risk_level,
+                risk_level=(override.risk_level if override and override.risk_level else server.default_risk_level),
                 requires_confirmation=requires_confirmation,
-                timeout_seconds=server.timeout_seconds,
-                max_output_chars=server.max_output_chars,
+                timeout_seconds=(override.timeout_seconds if override and override.timeout_seconds is not None else server.timeout_seconds),
+                max_output_chars=(override.max_output_chars if override and override.max_output_chars is not None else server.max_output_chars),
+                enabled=(override.enabled if override and override.enabled is not None else True),
                 read_only=read_only,
             ))
         return specs

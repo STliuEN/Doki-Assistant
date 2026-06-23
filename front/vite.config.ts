@@ -37,6 +37,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
       },
+      '/api/mcp': { target: BACKEND_TARGET, changeOrigin: true },
       '/knowledge/': { target: BACKEND_TARGET, changeOrigin: true },
       '/note/': { target: BACKEND_TARGET, changeOrigin: true },
       '/note-template/': { target: BACKEND_TARGET, changeOrigin: true },

@@ -11,6 +11,7 @@ from app.agent.agent import (
     get_confirm_action_stream_response,
 )
 from app.agent.intent_router import route_skills
+from app.agent.mcp.registry import mcp_tool_registry
 from app.agent.skill_registry import get_skill_catalog, resolve_skills, skill_registry
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
@@ -48,6 +49,7 @@ def build_chat_system_prompt(
     prompt_type: str,
     skill_prompts: list[str] | None = None,
     tool_names: list[str] | None = None,
+    notices: list[str] | None = None,
 ) -> str:
     parts = [load_prompt("main_prompt")]
 
@@ -62,6 +64,12 @@ def build_chat_system_prompt(
         parts.extend([
             "## 本次可用工具",
             f"你当前只能调用以下工具：{', '.join(tool_names)}。未列出的能力一律视为不可用，不要假装拥有或提及。",
+        ])
+
+    if notices:
+        parts.extend([
+            "## 运行提示",
+            "\n".join(f"- {item}" for item in notices),
         ])
 
     if prompt_type != "main_prompt":
@@ -116,13 +124,19 @@ async def query_stream(
     else:
         routed_skill_ids = await route_skills(request.query, candidate_skill_ids)
 
+    # MCP 处于错误态时在此惰性自愈（健康态零开销）；刷新后需 reload 让工具对 agent 可见。
+    if await mcp_tool_registry.ensure_fresh():
+        skill_registry.reload()
+
     try:
         skill_resolution = resolve_skills(routed_skill_ids, request.tool_ids)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     tool_names = [tool.name for tool in skill_resolution.tools]
-    system_prompt = build_chat_system_prompt(prompt_type, skill_resolution.skill_prompts, tool_names)
+    system_prompt = build_chat_system_prompt(
+        prompt_type, skill_resolution.skill_prompts, tool_names, skill_resolution.notices
+    )
 
     return StreamingResponse(
         get_agent_stream_response(
@@ -242,13 +256,18 @@ async def regenerate_session_message_stream(
     else:
         routed_skill_ids = await route_skills(payload["query"], candidate_skill_ids)
 
+    if await mcp_tool_registry.ensure_fresh():
+        skill_registry.reload()
+
     try:
         skill_resolution = resolve_skills(routed_skill_ids, request.tool_ids)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     tool_names = [tool.name for tool in skill_resolution.tools]
-    system_prompt = build_chat_system_prompt(prompt_type, skill_resolution.skill_prompts, tool_names)
+    system_prompt = build_chat_system_prompt(
+        prompt_type, skill_resolution.skill_prompts, tool_names, skill_resolution.notices
+    )
 
     return StreamingResponse(
         get_agent_regenerate_stream_response(

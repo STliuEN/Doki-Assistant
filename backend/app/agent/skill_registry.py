@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool
 
 from app.agent.mcp.adapter import make_langchain_tool
 from app.agent.mcp.registry import mcp_tool_registry
+from app.core.logger_handler import logger
 
 
 SKILLS_DIR = Path(__file__).parent / "skills"
@@ -37,6 +38,7 @@ class ToolDefinition:
     provider_id: str | None = None
     external_name: str | None = None
     enabled: bool = True
+    available: bool = True
     read_only: bool = False
 
     def to_public_dict(self) -> dict:
@@ -57,6 +59,7 @@ class ToolDefinition:
             "provider_id": self.provider_id,
             "external_name": self.external_name,
             "enabled": self.enabled,
+            "available": self.available,
             "read_only": self.read_only,
         }
 
@@ -90,6 +93,10 @@ class SkillResolution:
     tool_ids: list[str]
     tools: list[BaseTool]
     skill_prompts: list[str]
+    # 被请求但最终未进入工具集的 tool_id（未注册 / 不可用 / 被禁用）。
+    missing_tool_ids: list[str] = field(default_factory=list)
+    # 面向模型/用户的运行提示（注入 system prompt，避免静默降级）。
+    notices: list[str] = field(default_factory=list)
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -182,6 +189,7 @@ class ToolRegistry:
                 provider_id=spec.server_id,
                 external_name=spec.name,
                 enabled=spec.enabled,
+                available=spec.available,
                 read_only=spec.read_only,
             )
         return loaded
@@ -267,7 +275,14 @@ class SkillRegistry:
             data = _read_yaml(config_path)
             skill_id = _require_string(data, "id", config_path)
             tool_ids = _optional_string_list(data, "tools", config_path)
-            unknown_tool_ids = [tool_id for tool_id in tool_ids if tool_id not in self.tool_registry.ids()]
+            # MCP tools are discovered after startup. Allow skill definitions to
+            # reference them before the first refresh, then resolve them once
+            # mcp_tool_registry has populated the shared tool registry.
+            unknown_tool_ids = [
+                tool_id
+                for tool_id in tool_ids
+                if tool_id not in self.tool_registry.ids() and not tool_id.startswith("mcp_")
+            ]
             if unknown_tool_ids:
                 raise ValueError(f"{config_path} references unknown tools: {', '.join(unknown_tool_ids)}")
 
@@ -318,7 +333,23 @@ class SkillRegistry:
             raise ValueError(f"Unsupported {kind}: {', '.join(invalid_ids)}")
         return unique_ids
 
+    def _drop_reason(self, tool_id: str) -> str:
+        if tool_id not in self.tool_registry.ids():
+            return "未注册（MCP 尚未发现或工具已移除）"
+        tool = self.tool_registry.get(tool_id)
+        if not tool.available:
+            return "服务不可用（MCP server 离线或发现失败）"
+        if not tool.enabled:
+            return "已被禁用"
+        return "未选中"
+
     def resolve(self, skill_ids: list[str] | None = None, tool_ids: list[str] | None = None) -> SkillResolution:
+        # 区分"显式空"（调用方明确传 [] 表示本次不用任何能力）与"未指定"（None → 用默认）。
+        explicit_empty = (
+            (skill_ids is not None and len(skill_ids) == 0)
+            and (tool_ids is None or len(tool_ids) == 0)
+        )
+
         selected_skill_ids = skill_ids
         selected_tool_ids = tool_ids
         if selected_skill_ids is None and selected_tool_ids is None:
@@ -332,23 +363,75 @@ class SkillRegistry:
 
         collected_tool_ids: list[str] = []
         skill_prompts: list[str] = []
+        declared_by_skill: dict[str, str] = {}
         for skill_id in valid_skill_ids:
             skill = self._skills[skill_id]
+            for tid in skill.tool_ids:
+                declared_by_skill.setdefault(tid, skill_id)
             collected_tool_ids.extend(skill.tool_ids)
             if skill.instructions:
                 skill_prompts.append(f"## Skill: {skill.label}\n\n{skill.instructions}")
         collected_tool_ids.extend(valid_tool_ids)
 
         selected_tool_id_set = set(collected_tool_ids)
-        ordered_tool_ids = [tool.id for tool in self.tool_registry.all() if tool.id in selected_tool_id_set]
+        ordered_tool_ids = [
+            tool.id
+            for tool in self.tool_registry.all()
+            if tool.id in selected_tool_id_set and tool.enabled and tool.available
+        ]
+
+        # B1a：诊断被丢弃的工具——不再静默，给出 tool_id、来源 skill 与原因。
+        # 但 MCP 尚未首次发现时（如启动前的模块级默认装配），其工具属于"待发现"，
+        # 降级为 debug，避免每次启动刷一条误导性告警。
+        mcp_ready = mcp_tool_registry.has_refreshed
+        kept = set(ordered_tool_ids)
+        missing_tool_ids: list[str] = []
+        notices: list[str] = []
+        for tid in dict.fromkeys(collected_tool_ids):
+            if tid in kept:
+                continue
+            missing_tool_ids.append(tid)
+            source = declared_by_skill.get(tid)
+            origin = f"，来自 skill {source}" if source else ""
+            message = f"【工具装配】跳过工具 {tid}（{self._drop_reason(tid)}）{origin}"
+            if tid.startswith("mcp_") and not mcp_ready:
+                logger.debug(f"{message} [MCP 尚未发现，待刷新]")
+            else:
+                logger.warning(message)
+
         # 现包现用 GuardedTool，统一接管预算/确认/超时/截断；不修改 registry 单例。
         from app.agent.tool_guard import wrap_tool
         tools = [wrap_tool(self.tool_registry.get(tool_id)) for tool_id in ordered_tool_ids]
+
+        # B1b：被选中的 skill 解析后零工具——升级为 error 日志并注入可见提示。
+        # 若缺的全是"待发现"的 MCP 工具（尚未首次发现），则跳过——这只是启动期的暂态。
+        mcp_pending_only = (
+            not mcp_ready
+            and missing_tool_ids
+            and all(tid.startswith("mcp_") for tid in missing_tool_ids)
+        )
+        if valid_skill_ids and not tools and not mcp_pending_only:
+            logger.error(
+                f"【工具装配】skills {valid_skill_ids} 解析后无任何可用工具；missing={missing_tool_ids}"
+            )
+            notices.append(
+                "当前所选能力依赖的工具暂不可用（可能是 MCP 服务未连通）。"
+                "请如实告知用户该能力暂不可用并建议稍后重试，不要假装拥有或调用这些工具。"
+            )
+
+        # B2b：显式空 skill_ids 是合法的"纯对话"模式，但要让模型明确知道，避免静默。
+        if explicit_empty:
+            notices.append(
+                "本次未启用任何能力或工具，请仅进行普通对话，不要假装拥有工具。"
+            )
+
         return SkillResolution(
             skill_ids=valid_skill_ids,
             tool_ids=ordered_tool_ids,
             tools=tools,
             skill_prompts=skill_prompts,
+            missing_tool_ids=missing_tool_ids,
+            notices=notices,
         )
 
 

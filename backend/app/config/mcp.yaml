@@ -1,2 +1,17 @@
-﻿servers: []
-
+servers:
+  - id: powershell_ls_test
+    label: PowerShell LS Test
+    description: Read-only MCP smoke test server that exposes a bounded project file listing tool.
+    enabled: true
+    transport: stdio
+    command: python
+    args:
+      - mcp_servers/powershell_ls_server.py
+    env: {}
+    allow_tools:
+      - list_project_files
+    deny_tools: []
+    default_risk_level: low
+    default_requires_confirmation: false
+    timeout_seconds: 10
+    max_output_chars: 4000

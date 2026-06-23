@@ -81,6 +81,39 @@ export interface ToolCatalog {
   tools: ToolDetail[]
 }
 
+export interface McpServer {
+  id: string
+  label: string
+  description?: string
+  enabled: boolean
+  transport: string
+  url?: string | null
+  command?: string | null
+  allow_tools?: string[]
+  deny_tools?: string[]
+  default_risk_level?: 'low' | 'medium' | 'high'
+  default_requires_confirmation?: boolean
+  timeout_seconds?: number
+  max_output_chars?: number
+  status?: 'enabled' | 'disabled' | 'offline' | 'error'
+  last_error?: string | null
+}
+
+export interface McpServerCatalog {
+  servers: McpServer[]
+}
+
+export interface McpPermissions {
+  can_manage_mcp: boolean
+}
+
+export interface McpServerUpdatePayload {
+  enabled?: boolean
+  label?: string
+  description?: string
+  url?: string
+}
+
 const assertSkillCatalog = (catalog: unknown): ChatSkillCatalog => {
   if (
     !catalog ||
@@ -136,6 +169,39 @@ export const chatApi = {
   toolCatalog: async () => {
     const res = await client.get<ApiResponse<ToolCatalog>>(endpoints.toolCatalog)
     return { ...res.data, data: assertToolCatalog(res.data.data) }
+  },
+  mcpPermissions: async () => {
+    const res = await client.get<ApiResponse<McpPermissions>>(endpoints.mcpPermissions)
+    return res.data
+  },
+  mcpServers: async () => {
+    const res = await client.get<ApiResponse<McpServerCatalog>>(endpoints.mcpServers)
+    return res.data
+  },
+  updateMcpTool: async (id: string, payload: Partial<Pick<
+    ToolDetail,
+    | 'label'
+    | 'description'
+    | 'enabled'
+    | 'risk_level'
+    | 'requires_confirmation'
+    | 'timeout_seconds'
+    | 'max_output_chars'
+  >>) => {
+    const res = await client.patch<ApiResponse<{ tool?: ToolDetail }>>(endpoints.mcpToolUpdate(id), payload)
+    return res.data
+  },
+  updateMcpServer: async (id: string, payload: McpServerUpdatePayload) => {
+    const res = await client.patch<ApiResponse>(endpoints.mcpServerUpdate(id), payload)
+    return res.data
+  },
+  deleteMcpTool: async (id: string) => {
+    const res = await client.delete<ApiResponse>(endpoints.mcpToolDelete(id))
+    return res.data
+  },
+  deleteMcpServer: async (id: string) => {
+    const res = await client.delete<ApiResponse>(endpoints.mcpServerDelete(id))
+    return res.data
   },
   createTool: async (payload: ToolDetail) => {
     const res = await client.post<ApiResponse<ToolDetail>>(endpoints.toolCreate, payload)
