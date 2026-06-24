@@ -104,13 +104,85 @@ class ScaledFakeEmbed(FakeEmbed):
         return vec
 
 
+class NoiseAttractorFakeEmbed(FakeEmbed):
+    """Simulate a 4b-style chatter attractor: noise strongly raw-top1s knowledge."""
+
+    def __init__(self):
+        super().__init__(model_name="noise-attractor-embed")
+
+    def embed_documents(self, texts):
+        vectors = []
+        for text in texts:
+            if text == "noise":
+                vectors.append(self._noise_vec())
+            else:
+                vectors.append(_onehot(text))
+        return vectors
+
+    def embed_query(self, text):
+        if "闲聊" in text:
+            return self._noise_vec()
+        return [0.0] * _DIM
+
+    def _noise_vec(self) -> list[float]:
+        vec = [0.0] * (_DIM + 1)
+        vec[_BASIS["knowledge_research"]] = 0.56
+        vec[_BASIS["note_research"]] = 0.49
+        vec[-1] = (1 - 0.56**2 - 0.49**2) ** 0.5
+        return vec
+
+
+class ScatteredNoiseFakeEmbed(FakeEmbed):
+    """模拟 0.6b：闲聊四散，public 只偶发 top-1（占比 < 主导门槛），不该被锚定。
+
+    复现并锁住「噪声锚定误杀 public 真实 query」的回归：
+    - public 正例打分 0.60 → floor=0.60-0.27=0.33
+    - public 真实 query 打分 0.37（> floor 0.33，但 < public 噪声天花板 0.44）
+    - 噪声池 4 条只有 1 条 top-1 落 public（25% < 50% 门槛）→ 不锚定 → 真实 query 仍直选
+    """
+
+    # 噪声样本 → (落点 skill, 该噪声在落点上的相似度)
+    _NOISE_MAP = {
+        "n_public": ("public_info_lookup", 0.44),
+        "n_know": ("knowledge_research", 0.50),
+        "n_note": ("note_research", 0.48),
+        "n_mem": ("memory_read", 0.46),
+    }
+
+    def __init__(self):
+        super().__init__(model_name="scattered-noise-embed")
+
+    def _scaled(self, sid: str, scale: float) -> list[float]:
+        vec = [0.0] * (_DIM + 1)
+        vec[_BASIS[sid]] = scale
+        vec[-1] = (1 - scale**2) ** 0.5
+        return vec
+
+    def embed_documents(self, texts):
+        vectors = []
+        for text in texts:
+            if text.startswith("pos:"):
+                vectors.append(self._scaled(text.removeprefix("pos:"), 0.60))
+            elif text in self._NOISE_MAP:
+                sid, scale = self._NOISE_MAP[text]
+                vectors.append(self._scaled(sid, scale))
+            else:
+                vectors.append(_onehot(text))
+        return vectors
+
+    def embed_query(self, text):
+        # 真实 public query：分数低于 public 噪声天花板，但高于其 floor。
+        return self._scaled("public_info_lookup", 0.37)
+
+
 @pytest.fixture(autouse=True)
-def _reset_index(monkeypatch):
+def _reset_index(monkeypatch, tmp_path):
     # 每个用例前清空模块级语义索引，并让 _embed_text 返回纯 skill_id
     intent_router._skill_vectors.clear()
     intent_router._index_signature = None
     intent_router._index_vector_dim = None
     routing_calibration.clear_calibration_cache()
+    monkeypatch.setattr(routing_calibration, "_calibration_dir", lambda: str(tmp_path))
     monkeypatch.setattr(intent_router, "_embed_text", lambda sid: sid)
     yield
     init_manager.embed_model = None
@@ -271,4 +343,98 @@ def test_dynamic_calibration_allows_model_specific_low_scores(monkeypatch):
     result = _run(route_skills("这份资料讲了啥", ALL))
 
     assert "knowledge_research" in result
-    assert intent_router.SIM_FLOOR > 0.30
+    # 默认 floor=0.35 本会拒掉 0.30 的真实命中；能直选必然来自自适应校准。
+    # 直接断言校准产物：knowledge_research 的 per-skill floor 已被压到 0.30 之下。
+    routable = [
+        sid
+        for sid in ALL
+        if (skill := intent_router.skill_registry.get(sid))
+        and skill.routable
+        and not skill.always_on
+    ]
+    signature = routing_calibration.calibration_signature(
+        routable, init_manager.embed_model, intent_router._index_vector_dim
+    )
+    calibration = routing_calibration._calibration_cache[signature]
+    calibrated_floor = calibration.floor_for("knowledge_research")
+    assert calibrated_floor < 0.30
+    assert calibrated_floor < intent_router.SIM_FLOOR
+
+
+def test_noise_attractor_does_not_direct_hit_or_promote_runner_up(monkeypatch):
+    init_manager.embed_model = NoiseAttractorFakeEmbed()
+    monkeypatch.setattr(
+        routing_calibration,
+        "_positive_examples",
+        lambda skill: [skill.id],
+    )
+    monkeypatch.setattr(
+        routing_calibration,
+        "_noise_pool",
+        lambda skills: ["noise"],
+    )
+    captured = {}
+
+    async def _fake_llm(query, candidates, hints):
+        captured["hints"] = hints
+        return []
+
+    monkeypatch.setattr(intent_router, "_llm_route", _fake_llm)
+    result = _run(route_skills("闲聊一下", ALL))
+
+    assert "knowledge_research" not in result
+    assert "note_research" not in result
+    assert captured["hints"] == []
+    assert result == ["system_context"]
+
+
+def test_generic_lookup_phrase_does_not_force_memory_read(monkeypatch):
+    init_manager.embed_model = FakeEmbed(query_target="public_info_lookup")
+
+    async def _boom(*a, **k):
+        raise AssertionError("clear public lookup hit must not call LLM")
+
+    monkeypatch.setattr(intent_router, "_llm_route", _boom)
+    result = _run(route_skills("查一下武汉大学哪年建校", ALL))
+
+    assert "public_info_lookup" in result
+    assert "memory_read" not in result
+
+
+def test_scattered_noise_does_not_anchor_floor(monkeypatch):
+    # 回归锁：闲聊四散（public 仅 25% 噪声 top-1，未达 NOISE_DOMINANCE）时
+    # 不得锚定 public 的 floor，真实 public query 仍应语义直选——不被噪声天花板误杀。
+    init_manager.embed_model = ScatteredNoiseFakeEmbed()
+    monkeypatch.setattr(
+        routing_calibration,
+        "_positive_examples",
+        lambda skill: [f"pos:{skill.id}"],
+    )
+    monkeypatch.setattr(
+        routing_calibration,
+        "_noise_pool",
+        lambda skills: ["n_public", "n_know", "n_note", "n_mem"],
+    )
+
+    async def _boom(*a, **k):
+        raise AssertionError("recall-preserved hit must not call LLM")
+
+    monkeypatch.setattr(intent_router, "_llm_route", _boom)
+    result = _run(route_skills("这个问题的答案是什么", ALL))
+
+    routable = [
+        sid
+        for sid in ALL
+        if (skill := intent_router.skill_registry.get(sid))
+        and skill.routable
+        and not skill.always_on
+    ]
+    signature = routing_calibration.calibration_signature(
+        routable, init_manager.embed_model, intent_router._index_vector_dim
+    )
+    calibration = routing_calibration._calibration_cache[signature]
+    # public 噪声占比 25% < 50% → 不锚定：floor 应停在正例基线（~0.33），远低于噪声天花板 0.44。
+    assert calibration.floor_for("public_info_lookup") < 0.40
+    assert "public_info_lookup" not in calibration.noise_ceiling
+    assert "public_info_lookup" in result
+

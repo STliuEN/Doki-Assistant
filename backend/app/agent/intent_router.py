@@ -42,7 +42,8 @@ _KEYWORD_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"删除|删掉|删了|移除|清除|清掉|归档|存档"), "memory_cleanup"),
     (re.compile(r"记一下|记下|新建|创建|添加|加待办|加入待办|提醒我|备忘|"
                 r"完成|做完|搞定|改成|改名|修改|更新|编辑|延期|推迟|顺延|改期"), "memory_write"),
-    (re.compile(r"今天有什么|今日(事项|安排|待办)|待办|清单|列一下|查一下|到期"), "memory_read"),
+    (re.compile(r"今天有什么|今日(事项|安排|待办)|待办|提醒清单|待办清单|事项清单|"
+                r"列一下(待办|提醒|事项|清单)?|查一下(今天|今日)?(的)?(待办|提醒|事项|清单)|到期"), "memory_read"),
     (re.compile(r"复习|背一下|背诵|自测|出题|考我|测一下|标记已复习|复盘|记忆曲线"), "review_planner"),
 ]
 
@@ -58,6 +59,8 @@ _ROUTE_PROMPT = (
 _skill_vectors: dict[str, list[float]] = {}
 _index_signature: str | None = None
 _index_vector_dim: int | None = None
+# 串行化索引重建：避免并发请求重复 embed，或交替写 _skill_vectors 造成抖动。
+_index_lock = asyncio.Lock()
 
 
 def _embed_text(skill_id: str) -> str:
@@ -79,31 +82,47 @@ async def _ensure_index(skill_ids: list[str]) -> tuple[bool, object | None, int 
     if not skill_ids:
         return True, model, _index_vector_dim
 
-    missing = [sid for sid in skill_ids if sid not in _skill_vectors]
-    vector_dim = _index_vector_dim
-    signature = calibration_signature(skill_ids, model, vector_dim)
-    if signature == _index_signature and not missing:
+    # 锁内做"判定 + 重建"：并发请求只会有一个真正 embed，其余命中已就绪结果；
+    # _skill_vectors 的 clear+填充也只在锁内发生，读者拿到的快照不会半建。
+    async with _index_lock:
+        missing = [sid for sid in skill_ids if sid not in _skill_vectors]
+        vector_dim = _index_vector_dim
+        signature = calibration_signature(skill_ids, model, vector_dim)
+        if signature == _index_signature and not missing:
+            return True, model, vector_dim
+
+        # 签名变化（描述被改/skill 增减）→ 全量重建；否则只补缺失项。
+        targets = skill_ids if signature != _index_signature else missing
+        texts = [_embed_text(sid) for sid in targets]
+        try:
+            vectors = await asyncio.to_thread(model.embed_documents, texts)
+        except Exception as exc:
+            logger.error(f"【意图路由】skill 嵌入失败，回退非语义路径: {exc}")
+            return False, model, vector_dim
+
+        if signature != _index_signature:
+            _skill_vectors.clear()
+        for sid, vec in zip(targets, vectors):
+            _skill_vectors[sid] = vec
+        if vectors:
+            vector_dim = len(vectors[0])
+        signature = calibration_signature(skill_ids, model, vector_dim)
+        _index_signature = signature
+        _index_vector_dim = vector_dim
         return True, model, vector_dim
 
-    # 签名变化（描述被改/skill 增减）→ 全量重建；否则只补缺失项。
-    targets = skill_ids if signature != _index_signature else missing
-    texts = [_embed_text(sid) for sid in targets]
-    try:
-        vectors = await asyncio.to_thread(model.embed_documents, texts)
-    except Exception as exc:
-        logger.error(f"【意图路由】skill 嵌入失败，回退非语义路径: {exc}")
-        return False, model, vector_dim
 
-    if signature != _index_signature:
-        _skill_vectors.clear()
-    for sid, vec in zip(targets, vectors):
-        _skill_vectors[sid] = vec
-    if vectors:
-        vector_dim = len(vectors[0])
-    signature = calibration_signature(skill_ids, model, vector_dim)
-    _index_signature = signature
-    _index_vector_dim = vector_dim
-    return True, model, vector_dim
+async def _embed_skill_vectors(skill_ids: list[str], model: object) -> dict[str, list[float]]:
+    """为给定 skill 计算向量但不动模块级索引——供预热对"非当前索引集合"补算用。
+
+    复用已建好的 _skill_vectors，仅 embed 缺失项，避免预热反复 clear/重建全量索引。
+    """
+    vectors = {sid: _skill_vectors[sid] for sid in skill_ids if sid in _skill_vectors}
+    missing = [sid for sid in skill_ids if sid not in vectors]
+    if missing:
+        embedded = await asyncio.to_thread(model.embed_documents, [_embed_text(sid) for sid in missing])
+        vectors.update(zip(missing, embedded))
+    return vectors
 
 
 async def _embed_query(query: str) -> list[float] | None:
@@ -135,12 +154,17 @@ def _keyword_strong(query: str, candidate_set: set[str]) -> list[str]:
     return hits
 
 
-def _semantic_score(query_vec: list[float], routable: list[str]) -> list[tuple[str, float]]:
-    """对 routable 候选按相似度降序打分（仅含已建索引的项）。"""
+def _semantic_score(
+    query_vec: list[float], routable: list[str], vectors: dict[str, list[float]]
+) -> list[tuple[str, float]]:
+    """对 routable 候选按相似度降序打分（仅含已建索引的项）。
+
+    vectors 是调用方在 _ensure_index 之后取的快照，避免与并发重建争用模块级索引。
+    """
     scored = [
-        (sid, _cosine(query_vec, _skill_vectors[sid]))
+        (sid, _cosine(query_vec, vectors[sid]))
         for sid in routable
-        if sid in _skill_vectors
+        if sid in vectors
     ]
     scored.sort(key=lambda item: item[1], reverse=True)
     return scored
@@ -153,6 +177,51 @@ def _above_floor(scored: list[tuple[str, float]], calibration: RoutingCalibratio
         if score >= floor:
             above.append((sid, score))
     return above
+
+
+async def warmup_routing() -> None:
+    """启动预热：embed_model 就绪后预建语义索引并预加载/计算阈值。
+
+    切换 embedding 模型（改 .env 重启）时，若该模型曾校准过，启动即命中磁盘缓存、
+    在首个请求前就备好对应阈值；未校准过则现算一次并落盘，下次重启即命中。
+
+    实现：先用"默认集"建好模块级索引（运行时最常命中的就是它），其余集合所需的
+    向量用 _embed_skill_vectors 在不动模块索引的前提下补算，避免反复 clear/重建。
+    """
+    try:
+        full_routable = [s.id for s in skill_registry.all() if s.routable]
+        default_routable = [
+            sid
+            for sid in skill_registry.default_skill_ids()
+            if (skill := skill_registry.get(sid)) and skill.routable and not skill.always_on
+        ]
+        # 默认集放最后建模块索引：让运行时常见请求直接命中、无需重建。
+        skill_sets = [s for s in (full_routable, default_routable) if s]
+        if not skill_sets:
+            return
+
+        primary = skill_sets[-1]
+        index_ready, embed_model, vector_dim = await _ensure_index(primary)
+        if not index_ready or embed_model is None:
+            return
+
+        warmed: set[tuple[str, ...]] = set()
+        for routable in skill_sets:
+            key = tuple(sorted(routable))
+            if key in warmed:
+                continue
+            warmed.add(key)
+            # 复用已建索引，仅为该集合补算缺失向量（不触碰模块级 _skill_vectors）。
+            vectors = await _embed_skill_vectors(routable, embed_model)
+            await calibrate_thresholds(
+                model=embed_model,
+                skill_ids=routable,
+                skill_vectors=vectors,
+                vector_dim=vector_dim,
+            )
+        logger.info("✅ 意图路由预热完成（语义索引 + 阈值已就绪）")
+    except Exception as exc:
+        logger.warning(f"【意图路由】预热失败（将在首个请求时惰性构建）: {exc}")
 
 
 def _has_direct_gap(top_id: str, top_sc: float, second: float, calibration: RoutingCalibration | None) -> bool:
@@ -228,29 +297,46 @@ async def route_skills(query: str, candidate_skill_ids: list[str]) -> list[str]:
     # 语义打分（embed 就绪时）。
     semantic_hit: list[str] = []
     ambiguous: list[str] = []
+    noise_suppressed = False
     index_ready, embed_model, vector_dim = await _ensure_index(routable)
+    # 取一份索引快照，后续打分/校准都基于它——与并发重建解耦，杜绝读到半建状态。
+    vectors_snapshot = dict(_skill_vectors)
     query_vec = await _embed_query(query) if index_ready else None
     calibration: RoutingCalibration | None = None
     if index_ready and embed_model is not None:
         calibration = await calibrate_thresholds(
             model=embed_model,
             skill_ids=routable,
-            skill_vectors=_skill_vectors,
+            skill_vectors=vectors_snapshot,
             vector_dim=vector_dim,
         )
     if query_vec is not None:
-        scored = _semantic_score(query_vec, routable)
+        scored = _semantic_score(query_vec, routable, vectors_snapshot)
         above = _above_floor(scored, calibration)
         if above:
             top_id, top_sc = above[0]
-            second = above[1][1] if len(above) > 1 else 0.0
-            if _has_direct_gap(top_id, top_sc, second, calibration):
+            raw_top_id = scored[0][0] if scored else None
+            raw_second = scored[1][1] if len(scored) > 1 else 0.0
+            if top_id == raw_top_id and _has_direct_gap(top_id, top_sc, raw_second, calibration):
                 # 与次高拉开足够差距 → 语义直选 top1，其余高分入模糊带。
                 semantic_hit = [top_id]
                 ambiguous = [sid for sid, _ in above[1:4]]
             else:
-                # 高分挤作一团 → 全部入模糊带，交 LLM 仲裁。
+                # raw_top_id != top_id 已蕴含"原始 top1 被自身 floor 挡掉"
+                # （否则 above[0] 就会等于 scored[0]），无需再比一次分数。
+                # 仅当被挡掉的 top1 是噪声吸引子时标记噪声抑制。
+                noise_suppressed = (
+                    calibration is not None
+                    and raw_top_id is not None
+                    and raw_top_id != top_id
+                    and raw_top_id in calibration.noise_ceiling
+                )
+                # 高分挤作一团，或原始 top1 被 floor 挡掉后剩下的候选不再允许顺位直选。
                 ambiguous = [sid for sid, _ in above[:4]]
+        elif scored and calibration is not None:
+            # 没有任何候选过 floor：若 top1 是噪声吸引子，视为噪声抑制。
+            raw_top_id = scored[0][0]
+            noise_suppressed = raw_top_id in calibration.noise_ceiling
 
 
     union = list(dict.fromkeys(strong + semantic_hit + non_routable))
@@ -260,16 +346,23 @@ async def route_skills(query: str, candidate_skill_ids: list[str]) -> list[str]:
         return result
 
     # 无强信号、无语义直选：把模糊带作先验交 LLM 仲裁。
-    if ambiguous or (not index_ready and len(routable) > 1):
-        hints = ambiguous or routable
+    if ambiguous or noise_suppressed or (not index_ready and len(routable) > 1):
+        # 噪声抑制场景不传递顺位候选 hints，避免 knowledge 黑洞被挡下后又把闲聊偏向第二名。
+        hints = [] if noise_suppressed else (ambiguous or routable)
+        llm_completed = False
         try:
             routed = [s for s in await _llm_route(query, candidates, hints) if s in candidate_set]
+            llm_completed = True
             if routed:
                 result = _finalize(routed, always_on, candidates)
                 logger.info(f"【意图路由】LLM 仲裁 {result} | hints={hints} | query={query[:40]}")
                 return result
         except Exception as exc:
             logger.error(f"【意图路由】LLM 兜底失败: {exc}")
+        if noise_suppressed and llm_completed:
+            result = _finalize([], always_on, candidates)
+            logger.info(f"【意图路由】噪声抑制后 LLM 判空 {result} | hints={hints} | query={query[:40]}")
+            return result
         # LLM 无果：退到模糊带（相似度 topN），仍优于全集。
         if ambiguous:
             result = _finalize(ambiguous, always_on, candidates)
@@ -279,4 +372,3 @@ async def route_skills(query: str, candidate_skill_ids: list[str]) -> list[str]:
     # 完全无信号：安全回退原候选集，不静默丢能力。
     logger.info(f"【意图路由】无信号，回退全部已选 | query={query[:40]}")
     return candidates
-

@@ -167,6 +167,46 @@ system prompt
 - 用户手动选择 Skill 后，后端只在这些 Skill 内做预路由，不会自动引入未选择能力。
 - 如果请求显式传 `tool_ids`，会按精确工具控制跳过 skill 预路由。
 
+## Skill 预路由与校准
+
+预路由入口在 `backend/app/agent/intent_router.py`。后端只在本轮已选 Skill 内收窄能力，不会自动引入用户未选择的 Skill。当前流程：
+
+```text
+候选 Skill
+  -> always_on 常驻
+  -> 记忆/复习关键词强信号
+  -> routable Skill embedding 相似度排序
+  -> 过 per-skill floor 且相对原始 top2 gap 足够大时语义直选
+  -> 其余高分/不稳定情况交给 LLM 仲裁
+  -> 失败时按模糊带或原候选集合安全回退
+```
+
+阈值由 `backend/app/agent/routing_calibration.py` 自适应生成，持久化到 `backend/data/routing_calibration/*.json`。缓存签名包含校准版本、embedding identity、向量维度和 Skill 路由配置；切换 embedding 模型、修改 Skill 描述或升级 `CALIBRATION_VERSION` 后会自动换用新的阈值文件。
+
+当前默认 embedding 为 `qwen3-embedding:4b`，校准版本为 `CALIBRATION_VERSION = 3`。主要参数：
+
+| 参数 | 当前值 | 作用 |
+| --- | ---: | --- |
+| `FLOOR_MARGIN` | `0.27` | 从 skill 正例低分位扣除余量，保留真实短 query 召回 |
+| `MIN_SIM_FLOOR` / `MAX_SIM_FLOOR` | `0.18` / `0.42` | 普通 floor 的下限/上限 |
+| `GAP_FACTOR` | `0.60` | 用正例 gap 中位数折扣生成直选 gap |
+| `UNSTABLE_GAP` | `0.04` | gap 中位数低于该值的 skill 不允许语义直选 |
+| `NOISE_MARGIN` | `0.04` | 噪声天花板之上的额外安全边距 |
+| `NOISE_FLOOR_CAP` | `0.65` | 噪声锚定 floor 上限 |
+| `NOISE_DOMINANCE` | `0.50` | 噪声 top-1 占比达到 50% 才视为主导吸引子 |
+| `MAX_PERSISTED_CALIBRATIONS` | `12` | 最多保留的校准 JSON 文件数 |
+
+`qwen3-embedding:4b` 的退化点是 `knowledge_research` 会成为闲聊噪声吸引子。v3 校准只锚定主导吸引子：如果默认闲聊噪声有 50% 以上 top-1 落到同一个 Skill，就把该 Skill 的 floor 抬到噪声天花板之上；如果噪声在多个 Skill 间散射，则不锚定，避免误杀 `public_info_lookup` 这类低量纲真实 query。
+
+2026-06-24 本地用 `qwen3-embedding:4b` 预热后的结果：
+
+| 候选集合 | global floor | global gap | knowledge floor | knowledge noise ceiling | unstable |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 默认 routable Skill | `0.393041` | `0.047971` | `0.645064` | `0.605064` | `memory_write`, `review_planner` |
+| 全量 routable Skill | `0.333354` | `0.030000` | `0.645064` | `0.605064` | `memory_cleanup`, `memory_write`, `public_info_lookup`, `review_planner`, `system_context` |
+
+启动时 `background_init` 会调用 `warmup_routing()`。预热优先保留默认 Skill 集合的模块级索引，再为全量集合补算校准向量，避免反复清空运行时索引。相关回归测试位于 `backend/tests/test_intent_router.py`，重点覆盖 4b 噪声吸引子、0.6b 式散射噪声、以及 `查一下` 不应强制落到 `memory_read` 的场景。
+
 ## Agent 执行流程
 
 ```text

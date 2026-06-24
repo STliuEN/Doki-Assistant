@@ -70,6 +70,11 @@ class _BackgroundInitManager:
         )
         logger.info("✅ embed_model 初始化完成")
 
+        # 预热意图路由：预建语义索引 + 预加载/计算阈值，让首个请求前就备好。
+        # 切换 embedding 模型时随之换上对应的已调阈值（命中磁盘缓存）。
+        from app.agent.intent_router import warmup_routing
+        await warmup_routing()
+
         self.vision_model = await asyncio.to_thread(
             lambda: VisionModelFactory().generator()
         )

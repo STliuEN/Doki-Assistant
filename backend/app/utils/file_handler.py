@@ -10,9 +10,9 @@ from langchain_community.document_loaders import (
     UnstructuredMarkdownLoader,
     UnstructuredPDFLoader,
     UnstructuredPowerPointLoader,
-    UnstructuredWordDocumentLoader,
 )
 from langchain_core.documents import Document
+from docx import Document as DocxDocument
 
 from app.core.logger_handler import logger
 from app.utils.path_tool import get_abstract_path
@@ -33,6 +33,32 @@ class FontBBoxStreamFilter:
         self.stream.flush()
 
 sys.stderr = FontBBoxStreamFilter(sys.stderr)
+
+
+def _extract_docx_text(abs_file_path: str) -> str:
+    doc = DocxDocument(abs_file_path)
+    parts: list[str] = []
+
+    for paragraph in doc.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            parts.append(text)
+
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+            if cells:
+                parts.append("\t".join(cells))
+
+    return "\n".join(parts).strip()
+
+
+def _load_docx_local(abs_file_path: str) -> list[Document]:
+    text = _extract_docx_text(abs_file_path)
+    if not text:
+        return []
+    return [Document(page_content=text, metadata={"source": abs_file_path})]
+
 
 async def get_file_md5_hex(file_path: str) -> str:
     """获取文件的md5值"""
@@ -141,8 +167,7 @@ async def word_loader(file_path: str) -> list[Document]:
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
     try:
-        loader = UnstructuredWordDocumentLoader(abs_file_path, mode="single")
-        return await asyncio.to_thread(loader.load)
+        return await asyncio.to_thread(_load_docx_local, abs_file_path)
     except Exception as e:
         logger.error(f"【WORD文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
@@ -254,8 +279,7 @@ def word_loader_sync(file_path: str) -> list[Document]:
     """
     abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
     try:
-        loader = UnstructuredWordDocumentLoader(abs_file_path, mode="single")
-        return loader.load()
+        return _load_docx_local(abs_file_path)
     except Exception as e:
         logger.error(f"【WORD文件加载】加载文件 {abs_file_path} 时出错: {e}")
         return []
