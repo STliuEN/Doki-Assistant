@@ -9,7 +9,7 @@
 ```powershell
 cd backend
 uv sync
-uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn main:app --host 127.0.0.1 --port 18000 --reload
 ```
 
 ### 前端
@@ -17,7 +17,7 @@ uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```powershell
 cd front
 npm install
-npm run dev -- --host 0.0.0.0 --port 3000
+npm run dev -- --host 0.0.0.0 --port 18080
 ```
 
 ### 用户服务
@@ -26,20 +26,38 @@ npm run dev -- --host 0.0.0.0 --port 3000
 cd DjangoUserService
 uv sync
 uv run python manage.py migrate
-uv run python manage.py runserver 127.0.0.1:8001
+uv run python manage.py runserver 127.0.0.1:18001
 ```
 
 ### Windows 一键启动
+
+支持两种启动模式，可按需选择。
+
+模式①：单个 Windows Terminal 窗口、多 Tab（默认，最整洁）
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 ```
 
+模式①回退：每个服务一个独立 PowerShell 窗口（旧行为）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1 -Mode Window
+```
+
+> 选 `Terminal` 但机器上没有 Windows Terminal（`wt.exe`）时，脚本会自动降级为 `Window` 模式。两种模式都保留阶梯启动：按 Redis/Ollama → Django → FastAPI → 前端 顺序逐个等待端口就绪再启动下一个。
+
+模式②：VS Code 集成终端，零独立弹窗
+
+在 VS Code 里打开命令面板或菜单 `Terminal → Run Task`，选择 `doki: start all`。所有服务在编辑器内的终端分组里按相同顺序启动，关闭 VS Code 即全部停止。配置见 `.vscode/tasks.json`。
+
 访问地址：
 
-- 前端：<http://127.0.0.1:3000>
-- FastAPI 文档：<http://127.0.0.1:8000/docs>
-- Django 文档：<http://127.0.0.1:8001/docs/>
+- 前端：<http://127.0.0.1:18080>
+- FastAPI 文档：<http://127.0.0.1:18000/docs>
+- Django 文档：<http://127.0.0.1:18001/docs/>
+
+> 端口统一使用 18000（后端）、18001（用户服务）、18080（前端），均在 Windows 动态端口区（1024–15000）之外，避免重启后被系统保留段占用导致 `bind: ...forbidden by its access permissions`（错误码 10013）。一键启动脚本 `scripts/start-all.ps1` 会按 Redis/Ollama → Django → FastAPI → 前端 的顺序逐个等待就绪再启动下一个，避免服务未就绪时的交叉调用失败。
 
 ## 关键配置
 
@@ -102,7 +120,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
 
-DJANGO_API_URL=http://127.0.0.1:8001
+DJANGO_API_URL=http://127.0.0.1:18001
 
 SECRET_KEY=MY_JWT_SECRET_KEY
 ALGORITHM=HS256

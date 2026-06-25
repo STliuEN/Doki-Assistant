@@ -116,9 +116,28 @@ current PyTorch install supports sm_50 ... sm_90
 **问题**：`Address already in use`
 
 **解决方法**：
-- 查找占用端口的进程：`netstat -ano | findstr :8000`（Windows）或 `lsof -i :8000`（Linux）
+- 查找占用端口的进程：`netstat -ano | findstr :18000`（Windows）或 `lsof -i :18000`（Linux）
 - 终止占用端口的进程
 - 使用不同的端口启动服务
+
+### 9b. Windows 重启后端口无法绑定（错误码 10013）
+
+**问题**：`bind: An attempt was made to access a socket in a way forbidden by its access permissions`，端口此前能用、重启后突然不能用。
+
+**原因**：Windows 的动态端口区（Dynamic Port Range）和 WinNAT/Hyper-V 保留段会在重启后漂移。一旦保留段覆盖到服务端口，绑定就会被系统拒绝。Hyper-V / Docker Desktop / WSL2 常把动态区从默认的 `49152–65535` 改成从 `1024` 起的一大片。
+
+**排查（只读）**：
+```powershell
+netsh int ipv4 show dynamicport tcp                       # 查看动态端口区起点与长度
+netsh interface ipv4 show excludedportrange protocol=tcp  # 查看当前被保留的端口段
+```
+
+**解决方法**：
+- 首选：把服务端口放在动态区之外。本项目已统一为 18000/18001/18080，均高于常见动态区上限。
+- 如仍冲突，用管理员 PowerShell 显式保留端口：
+  `netsh int ipv4 add excludedportrange protocol=tcp startport=18000 numberofports=1`
+- 谨慎使用：恢复默认动态区（会影响 Docker/Hyper-V）：
+  `netsh int ipv4 set dynamicport tcp start=49152 num=16384`
 
 ### 10. 文件上传失败
 
@@ -322,7 +341,7 @@ stdio MCP server 是单独子进程。`backend/app/config/mcp.yaml` 中 `command
 在 `backend/app/core/logger_handler.py` 中设置日志级别为 `DEBUG`
 
 ### 测试 API 端点
-使用 FastAPI 自动生成的交互式文档：`http://localhost:8000/docs`
+使用 FastAPI 自动生成的交互式文档：`http://localhost:18000/docs`
 
 ### 检查环境变量
 ```bash

@@ -294,7 +294,7 @@
 
 ```bash
 # 使用 curl 上传文件
-curl -X POST http://127.0.0.1:8001/file/upload/ \
+curl -X POST http://127.0.0.1:18001/file/upload/ \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -F "img=@/path/to/image.jpg"
 ```
@@ -346,8 +346,8 @@ curl -X POST http://127.0.0.1:8001/file/upload/ \
 
 项目集成了 Swagger 文档，可通过以下地址访问：
 
-- Swagger UI: [http://127.0.0.1:8001/docs/](http://127.0.0.1:8001/docs/)
-- ReDoc: [http://127.0.0.1:8001/redoc/](http://127.0.0.1:8001/redoc/)
+- Swagger UI: [http://127.0.0.1:18001/docs/](http://127.0.0.1:18001/docs/)
+- ReDoc: [http://127.0.0.1:18001/redoc/](http://127.0.0.1:18001/redoc/)
 
 ## 5. 认证方式
 

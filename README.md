@@ -268,19 +268,29 @@ uv run python manage.py migrate
 
 ### 启动服务
 
-Windows 一键启动：
+Windows 一键启动（默认单个 Windows Terminal 窗口多 Tab）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 ```
 
+可选启动模式：
+
+- `-Mode Terminal`（默认）：所有服务进同一个 Windows Terminal 窗口的多个 Tab。
+- `-Mode Window`：每个服务一个独立 PowerShell 窗口（旧行为；无 `wt.exe` 时自动回退到此模式）。
+- VS Code 用户可改用 `Terminal → Run Task → doki: start all`，在集成终端内零弹窗启动（见 `.vscode/tasks.json`）。
+
+三种方式都按 Redis/Ollama → Django → FastAPI → 前端 的顺序逐个等待就绪再启动下一个。
+
 手动启动：
 
 | 服务 | 命令 | 端口 |
 |------|------|------|
-| FastAPI 后端 | `cd backend && uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload` | 8000 |
-| React 前端 | `cd front && npm run dev -- --host 127.0.0.1 --port 5173` | 5173 |
-| Django 用户服务 | `cd DjangoUserService && uv run python manage.py runserver 127.0.0.1:8001` | 8001 |
+| FastAPI 后端 | `cd backend && uv run uvicorn main:app --host 127.0.0.1 --port 18000 --reload` | 18000 |
+| React 前端 | `cd front && npm run dev -- --host 127.0.0.1 --port 18080` | 18080 |
+| Django 用户服务 | `cd DjangoUserService && uv run python manage.py runserver 127.0.0.1:18001` | 18001 |
+
+> 端口选在 Windows 动态端口区（默认 1024–15000，受 Hyper-V/Docker/WSL2 影响）之外，避免重启后被系统动态保留段征用而无法绑定。
 
 ## 技术栈
 

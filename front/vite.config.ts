@@ -2,8 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-const BACKEND_TARGET = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:8000'
-const USER_TARGET = process.env.VITE_USER_TARGET || 'http://127.0.0.1:8001'
+const BACKEND_TARGET = process.env.VITE_BACKEND_TARGET || 'http://127.0.0.1:18000'
+const USER_TARGET = process.env.VITE_USER_TARGET || 'http://127.0.0.1:18001'
 
 export default defineConfig({
   plugins: [react()],
@@ -13,7 +13,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    // 端口固定在 Windows 动态端口区（1024-15000）之外，避免重启后被系统保留段征用。
+    // strictPort: true 表示端口被占用时直接报错，而不是静默顺延到别的端口。
+    port: 18080,
+    strictPort: true,
     host: '0.0.0.0',
     proxy: {
       '/chat/agent/': { target: BACKEND_TARGET, changeOrigin: true, ws: true },
