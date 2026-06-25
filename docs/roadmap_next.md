@@ -1,271 +1,260 @@
 # 下一阶段开发计划
 
-本文记录当前 `master` 的真实状态，以及后续继续推进的优先级。项目已经从基础 RAG 服务演进为个人 Agent 平台：FastAPI 后端、React 前端、Django 用户服务、MySQL 会话与业务数据、Redis 缓存、Chroma 向量库、LangChain tool calling Agent、Skill/Tool 文件注册、MCP 外部工具接入骨架、知识库 RAG、笔记、记忆中心、实时翻译和用户模型配置已经接在一起。
+本文只记录接下来要做的工作，不维护历史状态清单。当前代码具备个人 Agent 工作台的主要功能：React 前端、Django 用户服务、FastAPI 业务后端、Agent 对话、Skill/Tool、MCP 接入、RAG、笔记、记忆中心、实时翻译和用户模型配置。后续重点从“继续加能力”转向“降低耦合、稳定边界、补齐治理和测试”。
 
-下一阶段重点不是继续堆页面，而是把 Agent 运行时、权限边界、高风险操作确认和长期上下文闭环做稳。
+## 路线原则
 
-## 当前已完成
+- 优先减少核心编排文件的职责混杂，再继续扩功能。
+- 保持现有 API 和用户工作流兼容，重构必须可渐进落地。
+- 后端先稳住 Agent/Chat/RAG/Tool 边界，前端再按功能域拆分页面。
+- 所有涉及删除、外部工具、文件系统、Shell、数据库写入的能力默认保守。
+- 新增平台级能力必须有最小测试或可诊断入口。
 
-### 平台底座
+## P0 架构解耦与可维护性
 
-- **登录鉴权**：前端 HTTP 与 SSE 都会携带 JWT，后端主链路通过 `get_current_user_id` 获取当前用户。
-- **用户数据隔离**：聊天、知识库、笔记、记忆中心、模型配置等主链路按 `user_id` 查询。
-- **Agent 对话**：`/chat/agent/query/stream` 使用 SSE；后端基于 LangChain `create_tool_calling_agent` + `AgentExecutor`。
-- **Prompt 拼接**：后端按 `main_prompt`、当前 AI 模式 prompt、已启用 Skill 指令、可用工具列表组合系统提示词。
-- **Skill/Tool 注册**：扫描 `backend/app/agent/skills/*` 和 `backend/app/agent/tools/*`，并合并已发现的 MCP tools，前端可以管理和勾选。
-- **MCP 外部工具**：已有 `mcp.yaml`、provider、adapter、registry 和 `/api/mcp/*` 管理接口，支持 stdio、SSE、streamable HTTP 的发现和调用。
-- **Skill 预路由**：后端会在用户已选 Skill 范围内，用规则和 LLM 兜底挑出本轮相关 Skill。
-- **RAG 检索策略**：前端提供 Auto/低/中/高/自定义；后端动态控制知识库召回数、笔记召回数和摘要文档数。
-- **消息级操作**：同一条 assistant 回答支持刷新覆盖，消息删除会同步后端删除。
-- **记忆中心**：已有 `review/todo/reminder/long_term/memo` 统一模型、页面、API 和 Agent tools。
-- **知识库**：支持 TXT/PDF/MD/PPTX/DOCX，源文件保存、切片、Embedding 切换、Reranker 切换。
-- **模型配置**：支持工程默认模型、用户 OpenAI-compatible 模型和 Ollama 本地模型。
+### P0.1 Agent 运行时拆分
 
-### P0.1 后端权限边界
+当前 `backend/app/agent/agent.py` 同时承担 Agent 工厂、模型创建、上下文组装、摘要、SSE 编排、工具事件、消息落库和 regenerate。下一步要把它拆成职责清晰的模块。
 
-已完成：
-
-- `skill_router.py`、`tool_router.py` 读取接口要求登录。
-- Skill/Tool 创建、更新、删除要求管理员权限。
-- 管理员名单维护在 `backend/app/config/security.yaml`。
-- `ADMIN_USER_IDS` / `ADMIN_USERNAMES` 可追加部署环境管理员。
-- `/chat/sessions` 只返回当前用户会话。
-- `/chat/sessions/{user_id}` 继续校验当前用户，禁止越权枚举。
-- `/chat/reorder` 增加登录鉴权并保留限流。
-- README 已说明当前不是完整多租户 RBAC。
-
-当前边界：
-
-- 已有“登录用户 / 管理员”的基础分层。
-- 尚未提供数据库角色、团队租户、细粒度操作权限和审计后台。
-
-### P0.2 Tool 风险元数据与删除阻断
-
-已完成：
-
-- `ToolDefinition` 支持：
-  - `risk_level`
-  - `requires_confirmation`
-  - `timeout_seconds`
-  - `max_output_chars`
-- Tool 管理接口和前端工具库页面支持查看、编辑这些字段。
-- `delete_memory` 已标记为：
-  - `risk_level: high`
-  - `requires_confirmation: true`
-- 高风险工具由 `GuardedTool` 在执行前拦截，保存 pending action 并推送 `waiting_confirmation`。
-- 用户经 `POST /chat/agent/confirm` 确认后执行原工具，拒绝则放弃。
-- pending action 持久化在 Redis，带 TTL（默认 600s）、`user_id` 隔离和单次取用。
-
-当前边界：
-
-- 拒绝后的替代方案说明仍较简单。
-- 确认文案尚未按工具/风险等级细化。
-
-### P0.3 执行过程事件化
-
-已完成：
-
-- Agent SSE thinking 事件带结构化 `details`。
-- 每轮运行生成 `run_id`。
-- 事件包含 `elapsed_ms`。
-- 工具调用通过 `astream_events(version="v2")` 产生执行器级别的真实 `tool_start / tool_end / tool_error` 事件。
-- 工具事件包含：
-  - `tool`
-  - `tool_call_index`
-  - `input_preview`
-  - `output_preview`
-- 前端 AIChat thinking 区兼容 `waiting_confirmation` 和结构化 details。
-
-当前边界：
-
-- 部分工具内部主动上报的事件仍需逐步统一字段。
-
-### P0.4 长任务预算、停止和收束
-
-已完成：
-
-- 新增 `backend/app/config/agent.yaml`：
-
-```yaml
-runtime:
-  max_iterations: 160
-  max_tool_calls: 120
-  max_runtime_seconds: 1200
-  max_output_chars_per_tool: 16000
-```
-
-- `AgentExecutor.max_iterations` 读取配置。
-- SSE 外层支持 wall-clock 超时取消。
-- `GuardedTool` 在工具执行前统计调用次数，超过 `max_tool_calls` 直接硬拦截并发 `stopped` 事件。
-- 停止回答会附带 `stop_reason`。
-- 前端已有 AbortController，可停止当前 SSE 请求。
-
-当前边界：
-
-- wall-clock 超时为外层取消，单个长工具内部仍依赖各自 timeout。
-
-### P1 上下文自动压缩
-
-已完成：
-
-- 复用 `ChatSession.metadata_` 保存摘要相关字段：
-  - `summary`
-  - `summary_message_id`
-  - `summary_updated_at`
-  - `estimated_tokens`
-- Auto 模式下，长会话会尝试压缩早期消息。
-- 保留最近 6 轮原文。
-- Prompt 结构变为：
+目标结构：
 
 ```text
-system prompt
-  -> conversation_summary
-  -> recent_messages
-  -> current_user_input
-  -> agent_scratchpad
+backend/app/agent/
+  factory.py          # AgentFactory、模型创建、默认工具装配
+  prompt_builder.py   # system prompt、Skill prompt、可用工具提示
+  context_builder.py  # 历史、摘要、上下文窗口、regenerate 上下文
+  runtime.py          # 运行预算、run state、thinking/tool event
+  streaming.py        # query/regenerate/confirm 的 SSE 编排
 ```
 
-- 摘要失败会回退到原有裁剪逻辑。
-- regenerate 流程会读取已有摘要并保留最近 6 轮。
+验收：
 
-当前边界：
+- `agent.py` 不再是主运行时大文件；保留兼容导出或迁移到小入口。
+- 普通聊天、工具调用、RAG 工具、消息刷新、高风险确认和停止请求行为保持兼容。
+- 运行预算、工具事件和上下文摘要有独立单元测试。
 
-- 摘要触发阈值仍是简单 token 粗估。
-- 已通过 `summary_message_id` / `summary_boundary_id` 记录摘要边界，但覆盖判定仍可更精确。
-- 摘要生成复用当前聊天模型，后续可拆成专门的轻量模型配置。
+### P0.2 Chat 路由瘦身
 
-### P0.5 MCP 外部工具基础接入
+当前 `backend/app/router/chat.py` 同时处理 HTTP 入参、模型配置、Skill 预路由、MCP refresh、prompt 拼接、Agent 调用和 SSE 返回。需要把业务编排移到服务层。
 
-已完成：
+目标结构：
 
-- 新增 `backend/app/config/mcp.yaml`，默认 `servers: []`，未配置时不影响主链路。
-- 新增 `backend/app/agent/mcp/config.py`、`provider.py`、`adapter.py`、`registry.py`。
-- 支持 MCP `stdio`、`sse`、`http` / `streamable_http` transport。
-- `McpToolProvider` 通过 `tools/list` 发现工具，通过 `tools/call` 调用工具。
-- `McpLangChainTool` 将 MCP tool 包装成 LangChain `BaseTool`。
-- `ToolRegistry` 合并本地工具和启用 server 发现到的 MCP tools。
-- MCP tool 标记 `source/provider_id/external_name/read_only/server_status/last_error`。
-- `/api/mcp/servers`、`/api/mcp/tools`、`POST /api/mcp/servers/refresh` 已接入。
-- 启动时尝试 refresh MCP tools，失败时仅降级到本地工具。
-- MCP tools 进入 Agent 后复用 `GuardedTool` 的调用次数、确认、超时和输出截断。
-
-当前边界：
-
-- MCP server 仍由配置文件管理，未做数据库化。
-- 当前是 server 级启用和 allow/deny 过滤，还没有持久化的 tool 级启用/禁用。
-- ToolManager 可以只读展示 MCP 来源信息，但 MCP refresh、test、启用/禁用和诊断 UI 仍待补齐。
-- 高风险确认后的直接执行路径仍需进一步统一超时与截断策略。
-
-## 当前主要剩余缺口
-
-> 高风险确认闭环与统一 Tool 执行 wrapper（`GuardedTool`）已落地，详见上方 P0.2 / P0.3 / P0.4。剩余缺口聚焦权限、摘要和事件字段统一。
-
-### 工具事件字段统一
-
-需要继续完成：
-
-- 将 RAG、笔记、记忆、复习题生成等工具内部主动上报的事件字段统一。
-- 结构化错误分类：参数错误、权限错误、外部服务错误、内部异常。
-
-### 权限模型升级
-
-需要继续完成：
-
-- 将当前配置文件管理员升级为数据库角色或权限表。
-- 支持用户状态、管理员、未来团队/租户角色。
-- 管理操作写审计日志。
-
-### 上下文摘要增强
-
-需要继续完成：
-
-- 更精确地判定摘要覆盖边界，避免遗漏或重复摘要同一段历史。
-- 摘要质量评估和回滚。
-- 为摘要使用独立模型或配置。
-
-## 后续路线
-
-### P2：记忆中心闭环
-
-目标：
-
-- 从对话、笔记、翻译结果中提炼待办/提醒/长期事项。
-- 提炼结果先让用户确认，不自动写入。
-- 增加到期提醒扫描，先做页面内提醒，再预留桌面通知。
-- 增加 memory 语义搜索和来源关联。
+```text
+backend/app/router/chat.py              # 薄路由
+backend/app/services/agent_chat_service.py
+backend/app/services/chat_settings_service.py
+```
 
 验收：
 
-- 用户完成一次对话后，可以看到可保存的事项建议。
-- 今日到期事项能主动显示。
-- 事项完成、延期、归档后状态正确。
+- `chat.py` 只保留参数接收、依赖注入、异常转换和响应返回。
+- 模型选择、Skill 路由、工具解析、prompt 构建由服务层完成。
+- regenerate 和 confirm 复用同一套编排逻辑，不再复制主查询流程。
 
-### P3：Skill/Tool 体系收敛
+### P0.3 前端 Chat 功能域拆分
 
-目标：
+当前 `front/src/pages/AIChat.tsx` 集中承担 SSE 消费、消息状态、模型和 prompt 设置、Skill catalog、上下文策略、工具面板、确认动作和渲染。需要拆成 feature 结构。
 
-- Skill 预路由结果可解释。
-- Tool 元数据可测试、可诊断、可限流。
-- 管理页不只编辑文本，还能看到风险、默认启用、绑定关系和测试结果。
+目标结构：
 
-验收：
-
-- 前端能显示“本轮为什么启用了这些 Skill”。
-- 新增 Tool 前可运行 smoke test。
-- Tool 返回结构化错误：参数错误、权限错误、外部服务错误、内部异常。
-
-### P4：MCP 外部工具治理与管理页
-
-MCP 基础接入已经落地。当前项目把 MCP 作为外部工具来源接入现有 Skill/Tool 注册层，而不是替代 Skill。本阶段重点转为管理、诊断、持久化和高风险外部能力治理。
-
-详细开发方案见 [MCP 外部工具接入开发方案](./mcp_integration_plan.md)。
-
-已完成基础链路：
-
-- MCP server 配置和 provider 层。
-- MCP tool 到内部 `ToolDefinition` 的适配。
-- 本地 Tool 与 MCP Tool catalog 合并。
-- Skill 可绑定 MCP tool，chat 请求可显式传 MCP `tool_ids`。
-- MCP tool 统一走 `GuardedTool`。
-- 工具库可展示来源、provider、外部工具名和错误信息。
-
-后续任务：
-
-1. ToolManager 增加 MCP refresh、test、last_error 和只读/高风险标签。
-2. MCP tool 级启用/禁用、风险等级、确认要求、超时和输出限制持久化。
-3. 高风险 MCP 工具确认后仍走统一 wrapper 或等价的超时/截断路径。
-4. 对文件系统、Shell、数据库写入、外部发送类 MCP server 做默认关闭和明确 allowlist。
-5. MCP 调用错误分类和审计记录。
+```text
+front/src/features/chat/
+  hooks/useChatStream.ts
+  hooks/useChatSettings.ts
+  hooks/useSkillCatalog.ts
+  components/ChatMessageList.tsx
+  components/ChatComposer.tsx
+  components/ChatToolPanel.tsx
+  components/PendingConfirmationBar.tsx
+  types.ts
+```
 
 验收：
 
-- 本地工具链路不受影响。
-- MCP 工具可选择、可禁用、可观察。
-- 文件系统、Shell、数据库类工具默认关闭。
-- 未配置 MCP 或 MCP server 离线时，FastAPI 主链路仍可正常启动和聊天。
-- 管理员可以在页面或 API 侧刷新、测试和诊断 MCP 工具。
+- `AIChat.tsx` 只做页面级组合。
+- SSE 消费、设置持久化、Skill catalog 加载和消息渲染可以分别测试。
+- 工具面板和上下文策略 UI 不再直接耦合消息流逻辑。
 
-### P5：实时翻译升级
+### P0.4 RAG 与知识库边界整理
+
+当前知识库相关逻辑分布在 `knowledge_router.py`、`knowledge_service.py`、`vector_store.py`、`rag_service.py` 和文档处理模块中，文件体量偏大。需要明确上传入库、向量索引、检索、重排、RAG 生成的边界。
 
 目标：
 
-- 从手动输入翻译升级到连续文本流/字幕流。
-- 翻译结束后生成笔记、摘要、术语表和待办建议。
+- `knowledge_service` 聚焦文档导入、源文件和任务状态。
+- `vector_store` 聚焦 Chroma 索引读写和 retriever 构造。
+- `rag_service` 聚焦查询时召回、重排和上下文生成。
+- 文档解析、多模态 PDF、图片抽取继续留在独立工具模块。
 
-优先顺序：
+验收：
 
-1. 剪贴板或文本流输入。
-2. OCR/字幕文本源调研。
-3. 系统字幕或会议字幕接入。
-4. 保存为笔记并提炼 memory。
+- 文档上传和对话 RAG 查询可以分别测试。
+- 更换 embedding/reranker 不需要改 Chat 或 Agent 主链路。
+- 知识库任务失败时能返回结构化错误和可诊断日志。
 
-### P6：桌面端验证
+## P1 权限、治理和安全边界
 
-短期继续 Web 架构。桌面端只做可行性验证：
+### P1.1 数据库角色权限
 
-- 一键启动后端、前端、用户服务和依赖。
-- 本地 Ollama、Chroma、MySQL/Redis 是否能简化。
-- 系统通知、本地文件、字幕文本源是否可行。
+当前管理员主要来自配置文件和环境变量。下一步要升级到数据库角色或权限表。
+
+目标：
+
+- 用户具有 `user/admin` 基础角色。
+- 管理操作通过数据库角色判断。
+- 保留配置文件管理员作为本地开发和紧急兜底。
+- Skill/Tool/MCP 管理操作写审计日志。
+
+验收：
+
+- 前端可以区分普通用户和管理员能力。
+- 管理员变更不需要重启服务。
+- 审计日志能记录操作者、操作对象、动作、时间和结果。
+
+### P1.2 Tool 和 MCP 风险治理
+
+当前本地 Tool 已有风险元数据，MCP 工具也能进入统一工具库。后续重点是管理、测试、持久化和审计。
+
+目标：
+
+- MCP server 和 MCP tool 的启用状态、风险等级、确认要求、超时、输出限制可持久化。
+- ToolManager 支持 refresh、test、last_error、只读标签和高风险标签。
+- 文件系统、Shell、数据库写入、外部发送类 MCP server 默认关闭。
+- 高风险确认后的直接执行路径仍走统一超时、截断和审计。
+
+验收：
+
+- 管理员能在页面或 API 侧刷新、测试、禁用 MCP 工具。
+- MCP server 离线不影响普通聊天。
+- 高风险 MCP 工具不会被静默执行。
+
+### P1.3 结构化错误和事件字段统一
+
+当前 SSE thinking 已经有结构化 `details`，但工具内部事件和错误分类仍不统一。
+
+目标：
+
+- 定义统一事件字段：`run_id`、`stage`、`tool`、`duration_ms`、`input_preview`、`output_preview`、`error_type`。
+- 工具错误至少区分：参数错误、权限错误、外部服务错误、内部异常、超时、用户取消。
+- RAG、笔记、记忆、MCP 工具统一使用同一套事件协议。
+
+验收：
+
+- 前端 thinking 区可以稳定展示不同工具的事件。
+- 日志和 SSE 中的错误分类一致。
+- 关键工具有错误分类测试。
+
+## P2 上下文和记忆闭环
+
+### P2.1 上下文摘要增强
+
+当前 Auto 上下文已经支持摘要加最近窗口，但摘要边界和质量控制还需要加强。
+
+目标：
+
+- 精确记录摘要覆盖的消息边界，避免重复摘要或遗漏。
+- 摘要失败、摘要质量过低时可回滚到裁剪上下文。
+- 摘要模型可以独立配置，避免占用主聊天模型。
+- regenerate 使用相同的上下文策略，不产生边界偏移。
+
+验收：
+
+- 长会话连续多轮后不会重复摘要同一段历史。
+- 删除或刷新消息后摘要边界仍可解释。
+- 摘要策略有单元测试覆盖。
+
+### P2.2 主动记忆提炼
+
+记忆中心已经支持事项管理，下一步要从对话、笔记和翻译结果中提炼候选事项，但必须由用户确认。
+
+目标：
+
+- 对话结束后生成待办、提醒、长期事项或复习建议。
+- 候选事项先展示给用户确认，不自动写入。
+- 保存事项时记录来源会话、消息或笔记。
+- 今日到期事项在页面内主动提示。
+
+验收：
+
+- 用户完成一次对话后能看到可保存的事项建议。
+- 保存、忽略、延期、完成后的状态正确。
+- Agent 查询记忆时能看到来源和状态。
+
+### P2.3 Memory 语义搜索
+
+目标：
+
+- 记忆中心支持关键词和语义混合搜索。
+- Agent 工具可按类型、状态、到期时间和语义 query 查询。
+- 与笔记、知识库的召回结果保持来源区分。
+
+验收：
+
+- `review/todo/reminder/long_term/memo` 都可被准确过滤。
+- 语义搜索不会跨用户泄露。
+- 搜索结果包含来源、状态和更新时间。
+
+## P3 Skill/Tool 开发体验
+
+### P3.1 Skill 预路由可解释
+
+目标：
+
+- 前端展示本轮启用 Skill 的原因：用户选择、always_on、关键词、语义命中或 LLM 仲裁。
+- 后端返回可诊断的路由摘要。
+- 路由失败时明确降级原因。
+
+验收：
+
+- 用户能看到“为什么这轮用了这些 Skill”。
+- 新增 Skill 后可以用样例验证路由效果。
+- 预路由测试覆盖正例、负例和噪声 query。
+
+### P3.2 Tool smoke test
+
+目标：
+
+- 本地 Tool 新增或编辑后可以运行 smoke test。
+- MCP Tool 可以测试连接、schema 和一次只读调用。
+- 测试结果进入管理页和日志。
+
+验收：
+
+- 管理页能显示最近一次测试状态。
+- 失败结果包含错误类型和建议检查项。
+- 高风险工具测试默认不执行真实写操作。
+
+## P4 翻译、桌面端和外部输入
+
+### P4.1 实时翻译升级
+
+目标：
+
+- 从手动输入扩展到连续文本流或字幕流。
+- 翻译结束后可生成笔记、摘要、术语表和候选记忆事项。
+- 支持对翻译结果做后续 Agent 问答。
+
+验收：
+
+- 连续文本流不会阻塞 UI。
+- 翻译记录可保存为笔记。
+- 术语表和事项提炼需要用户确认。
+
+### P4.2 桌面端可行性验证
+
+短期继续 Web 架构，桌面端只做验证。
+
+目标：
+
+- 一键启动前端、FastAPI、Django 和依赖。
+- 验证本地 Ollama、Chroma、MySQL/Redis 的简化方案。
+- 验证系统通知、本地文件和字幕文本源。
+
+验收：
+
+- Windows 本地能稳定一键启动。
+- 依赖缺失时有明确诊断。
+- 不默认开放高风险本地能力。
 
 ## 暂不优先
 
@@ -273,14 +262,19 @@ MCP 基础接入已经落地。当前项目把 MCP 作为外部工具来源接�
 - 完整迁移 LangGraph。
 - 复杂工作流编排器。
 - 默认开放 Shell、浏览器、文件系统等高风险外部工具。
+- 大规模重写 UI 视觉体系。
 
 ## 推荐实施顺序
 
-1. 权限模型从配置文件升级到数据库角色。
-2. 上下文摘要 message 边界和重复摘要控制。
-3. 工具内部事件字段统一与结构化错误分类。
-4. 记忆中心主动提醒和事项提炼。
-5. Tool 元数据、测试和诊断。
-6. MCP 管理页、测试调用和高风险治理。
-7. 字幕/会议翻译。
-8. 桌面端验证。
+1. Agent 运行时拆分。
+2. Chat 路由瘦身。
+3. 前端 Chat 功能域拆分。
+4. RAG 与知识库边界整理。
+5. 数据库角色权限和审计。
+6. MCP/Tool 风险治理与测试。
+7. 事件字段统一和结构化错误。
+8. 上下文摘要增强。
+9. 主动记忆提炼和 Memory 语义搜索。
+10. Skill 路由解释和 Tool smoke test。
+11. 实时翻译升级。
+12. 桌面端验证。
