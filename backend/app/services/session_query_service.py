@@ -1,31 +1,18 @@
-import uuid
 from typing import Any
 
 from fastapi import HTTPException
 
-from app.agent.agent import get_agent_response
 from app.core.logger_handler import logger
 from app.rag.rag_service import RagService
 from app.rag.reorder_service import reorder_service
 from app.services import session_manager as sm
 
 
-class ChatService:
-    """路由服务层，处理业务逻辑"""
+class SessionQueryService:
+    """非 Agent 编排的查询类服务：RAG 检索、会话读写、文档重排。
 
-    async def handle_agent_query(self, query: str, session_id: str | None, user_id: str) -> tuple[str, dict, str]:
-        """处理智能代理查询逻辑"""
-        session_id = session_id or str(uuid.uuid4())
-
-        history = await sm.session_manager.get_history(session_id, user_id)
-
-        result = await get_agent_response(query, history)
-        response = result.get("response")
-        steps = result.get("steps", [])
-
-        await sm.session_manager.add_message(session_id, user_id, query, response)
-
-        return session_id, response, steps
+    Agent 流式编排见 app.services.agent_run_service。
+    """
 
     async def handle_rag_query(self, query: str, user_id: str) -> str:
         """处理 RAG 查询逻辑"""
@@ -78,6 +65,6 @@ class ChatService:
             raise HTTPException(status_code=500, detail=f"重排序过程中出错: {str(e)}")
 
 
-def get_router_service() -> ChatService:
-    """获取路由服务实例（用于依赖注入）"""
-    return ChatService()
+def get_session_query_service() -> SessionQueryService:
+    """获取查询服务实例（用于依赖注入）"""
+    return SessionQueryService()

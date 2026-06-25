@@ -5,148 +5,43 @@ import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench, 
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeRaw from 'rehype-raw'
-import { useSSE } from '../hooks/useSSE'
 import { chatApi, type ChatPromptMode, type ChatSkill, type ChatTool } from '../api/chat'
 import { modelConfigApi } from '../api/modelConfig'
 import { sessionsApi } from '../api/sessions'
 import { useThemeStore } from '../stores/useThemeStore'
 import type { ModelConfig } from '../types/api'
 import { endpoints } from '../api/endpoints'
-
-interface Message {
-  id?: number
-  role: 'user' | 'assistant'
-  content: string
-  thinking?: string
-  steps?: string[]
-}
-
-const CHAT_MODEL_STORAGE_KEY = 'ai_chat_selected_model_id'
-const CHAT_PROMPT_STORAGE_KEY = 'ai_chat_prompt_type'
-const CHAT_SKILLS_STORAGE_KEY = 'ai_chat_skill_ids'
-const CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY = 'ai_chat_default_skill_ids_seen'
-const CHAT_CONTEXT_STORAGE_KEY = 'ai_chat_context_settings'
-const CHAT_RAG_RETRIEVAL_STORAGE_KEY = 'ai_chat_rag_retrieval_settings'
-
-type ContextMode = 'auto' | 'low' | 'medium' | 'high' | 'custom' | 'current_only'
-type RagRetrievalMode = 'auto' | 'low' | 'medium' | 'high' | 'custom'
-
-interface ContextSettings {
-  mode: ContextMode
-  max_tokens: number
-  recent_turns: number
-}
-
-interface RagRetrievalSettings {
-  mode: RagRetrievalMode
-  knowledge_k: number
-  note_k: number
-  summary_k: number
-}
-
-const defaultContextSettings: ContextSettings = {
-  mode: 'auto',
-  max_tokens: 4000,
-  recent_turns: 6,
-}
-
-const defaultRagRetrievalSettings: RagRetrievalSettings = {
-  mode: 'auto',
-  knowledge_k: 6,
-  note_k: 3,
-  summary_k: 3,
-}
-
-const formatThinkingDetail = (stage: string, content = '', details?: Record<string, unknown>) => {
-  const parts = [`${stage || 'thinking'}: ${content}`]
-  if (details?.tool) parts.push(`工具=${String(details.tool)}`)
-  if (details?.duration_ms) parts.push(`耗时=${String(details.duration_ms)}ms`)
-  if (details?.elapsed_ms) parts.push(`已用=${String(details.elapsed_ms)}ms`)
-  if (details?.risk_level) parts.push(`风险=${String(details.risk_level)}`)
-  if (details?.stop_reason) parts.push(`停止=${String(details.stop_reason)}`)
-  return parts.join(' | ')
-}
-
-const readSavedContextSettings = (): ContextSettings => {
-  const saved = localStorage.getItem(CHAT_CONTEXT_STORAGE_KEY)
-  if (!saved) return defaultContextSettings
-  try {
-    const parsed = JSON.parse(saved) as Partial<ContextSettings>
-    return {
-      mode: ['auto', 'low', 'medium', 'high', 'custom', 'current_only'].includes(parsed.mode || '')
-        ? parsed.mode as ContextMode
-        : defaultContextSettings.mode,
-      max_tokens: typeof parsed.max_tokens === 'number' && parsed.max_tokens > 0
-        ? parsed.max_tokens
-        : defaultContextSettings.max_tokens,
-      recent_turns: typeof parsed.recent_turns === 'number' && parsed.recent_turns > 0
-        ? parsed.recent_turns
-        : defaultContextSettings.recent_turns,
-    }
-  } catch {
-    return defaultContextSettings
-  }
-}
-
-const readSavedRagRetrievalSettings = (): RagRetrievalSettings => {
-  const saved = localStorage.getItem(CHAT_RAG_RETRIEVAL_STORAGE_KEY)
-  if (!saved) return defaultRagRetrievalSettings
-  try {
-    const parsed = JSON.parse(saved) as Partial<RagRetrievalSettings>
-    return {
-      mode: ['auto', 'low', 'medium', 'high', 'custom'].includes(parsed.mode || '')
-        ? parsed.mode as RagRetrievalMode
-        : defaultRagRetrievalSettings.mode,
-      knowledge_k: typeof parsed.knowledge_k === 'number' && parsed.knowledge_k > 0
-        ? parsed.knowledge_k
-        : defaultRagRetrievalSettings.knowledge_k,
-      note_k: typeof parsed.note_k === 'number' && parsed.note_k > 0
-        ? parsed.note_k
-        : defaultRagRetrievalSettings.note_k,
-      summary_k: typeof parsed.summary_k === 'number' && parsed.summary_k > 0
-        ? parsed.summary_k
-        : defaultRagRetrievalSettings.summary_k,
-    }
-  } catch {
-    return defaultRagRetrievalSettings
-  }
-}
-
-const readStringArrayStorage = (key: string) => {
-  const saved = localStorage.getItem(key)
-  if (!saved) return []
-  try {
-    const parsed = JSON.parse(saved)
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-const readSavedSkillIds = () => readStringArrayStorage(CHAT_SKILLS_STORAGE_KEY)
-const readSeenDefaultSkillIds = () => readStringArrayStorage(CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY)
-
-const quickQuestions = [
-  '帮我写一篇关于机器学习的笔记',
-  '总结一下今天要复习的内容',
-  'RAG 是什么？',
-]
-
-type PendingConfirmation = {
-  pendingActionId: string
-  tool?: string
-  content?: string
-  inputPreview?: string
-}
+import { useChatStream } from '../features/chat/hooks/useChatStream'
+import {
+  CHAT_MODEL_STORAGE_KEY,
+  CHAT_PROMPT_STORAGE_KEY,
+  CHAT_SKILLS_STORAGE_KEY,
+  CHAT_CONTEXT_STORAGE_KEY,
+  CHAT_RAG_RETRIEVAL_STORAGE_KEY,
+  CHAT_DEFAULT_SKILLS_SEEN_STORAGE_KEY,
+  readSavedContextSettings,
+  readSavedRagRetrievalSettings,
+  readSavedSkillIds,
+  readSeenDefaultSkillIds,
+} from '../features/chat/storage'
+import {
+  quickQuestions,
+  type ContextMode,
+  type ContextSettings,
+  type Message,
+  type PendingConfirmation,
+  type RagRetrievalMode,
+  type RagRetrievalSettings,
+} from '../features/chat/types'
 
 export default function AIChat() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const theme = useThemeStore((s) => s.theme)
-  const { start, loading } = useSSE()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
+  const { runStream, loading, formatThinkingDetail } = useChatStream(setMessages)
   const [currentThinking, setCurrentThinking] = useState('')
   const [currentSteps, setCurrentSteps] = useState<string[]>([])
   const [currentStepDetails, setCurrentStepDetails] = useState<string[]>([])
@@ -170,38 +65,6 @@ export default function AIChat() {
   const [ragRetrievalSettings, setRagRetrievalSettings] = useState<RagRetrievalSettings>(readSavedRagRetrievalSettings)
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef('')
-  const regeneratingMessageIdRef = useRef<number | null>(null)
-  const rafRef = useRef<number | null>(null)
-
-  const flushContent = useCallback(() => {
-    setMessages((prev) => {
-      if (regeneratingMessageIdRef.current !== null) {
-        return prev.map((message) => (
-          message.id === regeneratingMessageIdRef.current
-            ? { ...message, content: contentRef.current }
-            : message
-        ))
-      }
-      const newMsgs = [...prev]
-      const last = newMsgs[newMsgs.length - 1]
-      if (last?.role === 'assistant') {
-        newMsgs[newMsgs.length - 1] = { ...last, content: contentRef.current }
-      } else {
-        newMsgs.push({ role: 'assistant', content: contentRef.current })
-      }
-      return newMsgs
-    })
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-        rafRef.current = null
-      }
-    }
-  }, [])
 
   useEffect(() => {
     modelConfigApi.list().then((res) => {
@@ -313,14 +176,11 @@ export default function AIChat() {
     setShowThinking(true)
     setPendingConfirmation(null)
 
-    contentRef.current = ''
-    regeneratingMessageIdRef.current = null
     const steps: string[] = []
-    let hasResponseStarted = false
 
-    await start(
-      '/chat/agent/query/stream',
-      {
+    await runStream({
+      url: '/chat/agent/query/stream',
+      body: {
         query,
         session_id: sessionId,
         prompt_type: selectedPromptType,
@@ -330,7 +190,7 @@ export default function AIChat() {
         tool_ids: [],
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
-      {
+      handlers: {
         onThinking: (stage, content, details) => {
           if (!steps.includes(stage)) steps.push(stage)
           setCurrentSteps([...steps])
@@ -348,28 +208,9 @@ export default function AIChat() {
             })
           }
         },
-        onResponse: (content, sessionId) => {
-          if (!hasResponseStarted) {
-            hasResponseStarted = true
-            setShowThinking(false)
-          }
-          if (sessionId) {
-            sessionStorage.setItem('lastSessionId', sessionId)
-          }
-          contentRef.current += content
-          if (rafRef.current === null) {
-            rafRef.current = requestAnimationFrame(() => {
-              rafRef.current = null
-              flushContent()
-            })
-          }
-        },
+        onFirstResponse: () => setShowThinking(false),
+        onSessionId: (sid) => sessionStorage.setItem('lastSessionId', sid),
         onDone: (newSessionId) => {
-          if (rafRef.current !== null) {
-            cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-          }
-          flushContent()
           if (newSessionId) {
             sessionStorage.setItem('lastSessionId', newSessionId)
           }
@@ -382,9 +223,9 @@ export default function AIChat() {
         onError: (error) => {
           setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error}` }])
         },
-      }
-    )
-  }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, start, navigate, flushContent])
+      },
+    })
+  }, [contextSettings, loadSessionMessages, loading, ragRetrievalSettings, sessionId, selectedModelId, selectedPromptType, selectedSkillIds, runStream, navigate, formatThinkingDetail])
 
   const handleConfirmAction = useCallback(async (confirmed: boolean) => {
     const pending = pendingConfirmation
@@ -393,40 +234,24 @@ export default function AIChat() {
 
     // 推入一条占位 assistant 消息，确认结果按 token 流式写入其中。
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
-    contentRef.current = ''
-    regeneratingMessageIdRef.current = null
 
-    await start(
-      '/chat/agent/confirm',
-      {
+    await runStream({
+      url: '/chat/agent/confirm',
+      body: {
         pending_action_id: pending.pendingActionId,
         session_id: sessionId,
         confirmed,
       },
-      {
-        onResponse: (content) => {
-          contentRef.current += content
-          if (rafRef.current === null) {
-            rafRef.current = requestAnimationFrame(() => {
-              rafRef.current = null
-              flushContent()
-            })
-          }
-        },
+      handlers: {
         onDone: () => {
-          if (rafRef.current !== null) {
-            cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-          }
-          flushContent()
           if (sessionId) void loadSessionMessages(sessionId)
         },
         onError: (error) => {
           setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error}` }])
         },
-      }
-    )
-  }, [pendingConfirmation, loading, sessionId, start, flushContent, loadSessionMessages])
+      },
+    })
+  }, [pendingConfirmation, loading, sessionId, runStream, loadSessionMessages])
 
   const handleRegenerateMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || message.role !== 'assistant' || loading) return
@@ -435,18 +260,17 @@ export default function AIChat() {
     setCurrentSteps([])
     setCurrentStepDetails(['正在请求重新生成...'])
     setShowThinking(true)
-    contentRef.current = ''
-    regeneratingMessageIdRef.current = message.id
     setMessages((prev) => prev.map((item) => (
       item.id === message.id ? { ...item, content: '' } : item
     )))
 
     const steps: string[] = []
-    let hasResponseStarted = false
+    const targetId = message.id
 
-    await start(
-      endpoints.regenerateSessionMessage(sessionId, message.id),
-      {
+    await runStream({
+      url: endpoints.regenerateSessionMessage(sessionId, targetId),
+      regenerateMessageId: targetId,
+      body: {
         prompt_type: selectedPromptType,
         context: contextSettings,
         rag_retrieval: ragRetrievalSettings,
@@ -454,7 +278,7 @@ export default function AIChat() {
         tool_ids: [],
         ...(selectedModelId ? { model_config_id: selectedModelId } : {}),
       },
-      {
+      handlers: {
         onThinking: (stage, content, details) => {
           if (!steps.includes(stage)) steps.push(stage)
           setCurrentSteps([...steps])
@@ -464,36 +288,15 @@ export default function AIChat() {
             formatThinkingDetail(stage, content, details),
           ])
         },
-        onResponse: (content) => {
-          if (!hasResponseStarted) {
-            hasResponseStarted = true
-            setShowThinking(false)
-          }
-          contentRef.current += content
-          if (rafRef.current === null) {
-            rafRef.current = requestAnimationFrame(() => {
-              rafRef.current = null
-              flushContent()
-            })
-          }
-        },
-        onDone: () => {
-          if (rafRef.current !== null) {
-            cancelAnimationFrame(rafRef.current)
-            rafRef.current = null
-          }
-          flushContent()
-          regeneratingMessageIdRef.current = null
-        },
+        onFirstResponse: () => setShowThinking(false),
         onError: (error) => {
           setMessages((prev) => prev.map((item) => (
-            item.id === message.id ? { ...item, content: `Error: ${error}` } : item
+            item.id === targetId ? { ...item, content: `Error: ${error}` } : item
           )))
-          regeneratingMessageIdRef.current = null
         },
-      }
-    )
-  }, [contextSettings, flushContent, loading, ragRetrievalSettings, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, start])
+      },
+    })
+  }, [contextSettings, runStream, loading, ragRetrievalSettings, selectedModelId, selectedPromptType, selectedSkillIds, sessionId, formatThinkingDetail])
 
   const handleDeleteMessage = useCallback(async (message: Message) => {
     if (!sessionId || !message.id || loading) return
