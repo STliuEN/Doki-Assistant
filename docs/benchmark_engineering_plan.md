@@ -1,17 +1,23 @@
 # Benchmark 开发者指南
 
-日期：2026-06-30  
-状态：已接入第一版离线 smoke benchmark，本文作为后续 benchmark 重构的开发入口。
+日期：2026-06-30（重构计划更新：2026-07-02）  
+状态：B1–B5（离线 smoke benchmark 第一版）已接入 `ai_document_assistant` 分支。本文既是开发入口（参考部分），也是后续重构的计划入口（见「改进计划 Backlog」）。
+
+阅读导航：
+
+- 只想跑起来 / 查语义 → 「运行命令」「执行链路」「Scorer 语义」「SSE 契约」。
+- 想知道接下来改什么、按什么优先级改 → 直接跳「进度」和「改进计划 Backlog」。
 
 ## 定位
 
-benchmark 用来验证 Agent 运行链路在重构后没有退步。它不是替代单元测试，而是把“准备运行计划、Skill/Tool 选择、SSE 流、工具安全、落库收尾、前端消费契约”串起来跑一遍。
+benchmark 用来验证 Agent 运行链路在重构后没有退步。它不是替代单元测试，而是把“准备运行计划、Skill/Tool 选择、SSE 流、工具安全、落库收尾编排入口、前端消费契约”串起来跑一遍。
 
 当前第一层是 `smoke`：
 
 - 离线执行，不调用真实 LLM。
 - 使用脚本化 fake executor，不依赖外部模型、MySQL、embedding 服务或 MCP discovery。
 - 复用生产链路：`prepare_agent_run`、`get_agent_stream_response`、`drive_sse_stream`、`stream_agent_events`。
+- 落库收尾只验证 `on_success` / `session_manager` 编排入口，smoke 不验证真实持久化写入。
 - 输出结构化 result、trace JSONL、summary JSON/Markdown。
 
 后续 `full` 层可以接真实模型和真实 RAG fixture，但不作为日常提交 gate。
@@ -119,6 +125,7 @@ smoke benchmark 必须是本地可重复、零副作用的。
 - `route_skills` 可以被 case 的 `input.routed_skill_ids` 固定，避免本地 embedding 波动。
 - `mcp_tool_registry.ensure_fresh()` 固定为 no-op，避免连接 MCP server。
 - `save_pending_action` 使用内存桩，避免写 Redis 或数据库。
+- 普通工具若直接导入 `AsyncSessionLocal` 或真实 RAG/vector store，必须先接入 fixture/桩；否则不得加入 smoke。
 - 运行产物写入 `benchmarks/results/`，只提交 `.gitkeep`。
 
 如果未来需要覆盖真实持久化层，应新建 full/integration 层，不要改 smoke 的零依赖假设。注意 `database_session_manager.py` 直接导入 `AsyncSessionLocal`，只 patch `app.db.db_config.AsyncSessionLocal` 不会影响已绑定的使用方符号。
@@ -213,15 +220,79 @@ cases:
 
 当前已补后端测试锁定错误路径和异常路径的 `done.session_id`。
 
-## 已知重构边界
+## 进度
 
-这几处是后续需要继续收紧的点：
+已完成（B1–B5，第一版离线 smoke benchmark）：
 
-- 默认 `--offline` 会包含负向 fixture，不能作为 gate。可考虑新增 `--include-negative` 或默认排除 `negative` tag。
-- `forbidden_execute` 目前基于工具集合判断，后续应按 `tool_call_index` 或事件顺序判定，避免同名工具“先 blocked 后 executed”被漏判。
-- `require_response_before_done` 当前会被起手空 response 满足，后续应增加 `require_non_empty_response_before_done`。
-- `skill_routing` 离线 case 只能测显式 `tool_ids` 或确定性关键词路径；真实 embedding 语义路由应放进 online/full。
-- 真实 RAG benchmark 必须使用固定 fixture，不得读取真实用户知识库。
+- B1 目录骨架与 case/schema/baseline 布局。
+- B2 离线注入接缝：`FakeAgentFactory` 经 `get_agent_stream_response(..., factory=)` 注入，复用真实 `drive_sse_stream` / `stream_agent_events` / `GuardedTool` 链路。
+- B3 Scorer：`must_include` / `must_not_include` / `event_contract` / `tool_policy` / `stop_reason` 五类指标 + 硬否决。
+- B4 批量运行与报告：`run_benchmarks.py` + `report_results.py` 输出 trace JSONL、`summary.json` / `summary.md`。
+- B5 Baseline 回归对比：`baselines/smoke.baseline.json` + summary 中的 `score_delta`。
+
+验证基线（重构后应保持不劣化）：`backend` 下 `uv run pytest tests\test_benchmark_*.py tests\test_chat_stream_contract.py` 全绿；`--suite smoke --offline --fail-under 0.9` 4/4 通过、退出 0；前端 `npm run test` 4/4 通过。
+
+## 改进计划 Backlog
+
+下面是 B5 之后的重构项。每项给出：问题（含代码锚点）→ 改动 → 影响文件 → 完成标准（DoD，含测试）。优先级 P1 = 会导致漏判/误判的正确性问题，P2 = 可维护性/配置化，P3 = 需要新层级或较大投入。
+
+### B6 — gate 默认排除 negative fixture（P1）
+
+- 问题：`select_cases`（`harness.py:152`）只按 `--suite` / `--case-id` / `--offline` 过滤，不识别 `negative` tag；裸 `--offline` 会把 `agent_basic.must_not_include_001` 这类预期失败的 scorer 验证 fixture 也选进来，无法直接当 gate。
+- 改动：在 `select_cases` 增加默认排除 `negative` tag 的行为，并加 `--include-negative` 显式开关。
+- 影响文件：`benchmarks/runners/harness.py`、`benchmarks/runners/run_benchmarks.py`（新增参数）、`benchmarks/README.md` 与本文运行命令说明。
+- DoD：`--offline` 默认不再选中 `negative` case；`--include-negative --offline` 恢复旧行为；`test_benchmark_runner.py` 覆盖两条路径。
+
+### B6a — 普通工具 / DB / RAG fixture 隔离（P1）
+
+- 问题：smoke 文档承诺不依赖 MySQL，但普通工具实现会直接导入 `AsyncSessionLocal`，例如 `list_memories_tool`。当前 smoke case 没触发普通读写工具，所以风险未暴露；后续一旦加入真实工具调用 fixture，可能误连真实数据库或真实 RAG/vector store。
+- 改动：为 smoke 工具执行增加明确隔离层。可选方案包括：为普通工具提供 fixture-backed fake tool、在 benchmark harness 中 patch 对应工具依赖、或把涉及真实 DB/RAG 的 case 放入 full/integration 层。
+- 影响文件：`benchmarks/runners/harness.py`、相关工具 fixture、`benchmarks/cases/*.yaml`、必要时 `backend/app/agent/tools/*` 的可注入接缝。
+- DoD：新增一个会调用普通读工具的离线 case，运行时不访问真实 MySQL/RAG；测试中能断言真实 `AsyncSessionLocal` 未被调用；文档明确 smoke 只允许 fixture-backed 工具副作用。
+
+### B7 — `forbidden_execute` 按事件顺序判定（P1）
+
+- 问题：`_score_tool_policy`（`score_cases.py:162`）用集合差集 `executed = ended - blocked` 判断执行，`_executed_tool_ids`（`score_cases.py:218`）也是集合运算。同名工具若“先 blocked、后又真正 executed”，会因集合去重被误判为安全。
+- 改动：改为按 `tool_call_index` 或事件顺序逐次配对 `tool_start` / `waiting_confirmation` / `tool_end`，任一次真实执行即命中 `forbidden_execute`。
+- 影响文件：`benchmarks/runners/score_cases.py`。
+- DoD：新增 fixture「同名工具先拦后放」被正确判失败；`test_benchmark_scoring.py` 锁定该顺序语义。
+- 备注：该项是安全误判风险，实际排期应与 B6a 并列最高优先，优先于 B6 的 CLI 便利性修正。
+
+### B8 — 新增 `require_non_empty_response_before_done`（P2）
+
+- 问题：`drive_sse_stream` 起手固定发空 `response` 帧，`require_response_before_done`（`score_cases.py:116`）因此恒被满足，无法证明模型产出了用户可见内容。
+- 改动：在 `_score_event_contract` 增加 `require_non_empty_response_before_done`，仅统计非空 `response`（与 `first_non_empty_response_ms` 口径一致）。
+- 影响文件：`benchmarks/runners/score_cases.py`、`benchmarks/schemas/case.schema.json`（`event_contract` 若收紧 schema）。
+- DoD：只发空 response 的 case 该项判失败；至少一条 smoke case 采用新契约并通过。
+
+### B9 — Scorer 权重移入 case/suite 配置（P2）
+
+- 问题：权重硬编码在 `score_cases.py:44-60`（`chat_stream` / `tool_safety` / `skill_routing` 一组，其余一组），与「case/suite 决定评分权重」的设计不符，改权重必须改代码。
+- 改动：把权重下沉到 suite 级配置（或 case `expect.weights` 覆盖），代码只读配置并保留缺省。
+- 影响文件：`benchmarks/runners/score_cases.py`、`benchmarks/cases/*.yaml`、`benchmarks/schemas/case.schema.json`。
+- DoD：删除代码内硬编码权重表；缺省行为与现状一致（baseline 分数不变）；`test_benchmark_scoring.py` 覆盖配置覆盖路径。
+- 备注：顺带确认 `skill_routing` 归入哪组权重（当前落在工程契约组，原计划未分类），在配置里显式写清。
+
+### B10 — schema 接入 `load_cases` 校验 + `tool_policy` 字段收紧（P2；含 P1 安全子项）
+
+- 问题一（孤儿 schema）：`benchmarks/schemas/{case,result}.schema.json` 目前是孤儿——没有任何代码 import/校验（在 `benchmarks/*.py` 全量 grep `schema`/`jsonschema` 零命中）；`load_cases`（`harness.py:123`）用手写的 `validate_case`（`harness.py:137`）。两者会各自漂移。
+- 问题二（拼错字段静默失效，安全隐患，P1）：`case.schema.json` 里 `tool_policy` 仅为 `{"type": "object"}`，且顶层与各层普遍 `additionalProperties: true`；而 `score_case` 只读白名单键 `allowed / forbidden_call / forbidden_execute / expect_blocked`（`score_cases.py:141-178`）。因此拼错或杜撰的键（例如把安全红线写成 `forbidden` 而非 `forbidden_execute`）会被 schema 与 scorer 双双静默忽略，case 仍判通过——安全断言形同虚设却毫无报错。新手指南第四节此前示例即用了错误的 `forbidden` 字段，已同步修正。
+- 改动：二选一并写清——(a) 在 `load_cases` 用 `jsonschema` 对 `case.schema.json` 校验，`validate_case` 退化为快速必填检查或删除；或 (b) 明确将 schema 标注为「仅参考」，并在 CI/测试里加一致性检查防漂移。无论选哪个，都要把 `tool_policy` 的合法键收紧为白名单并置 `additionalProperties: false`（`expect` 内 `tool_policy` / `event_contract` 同理），让未知键校验期即报错。
+- 影响文件：`benchmarks/runners/harness.py`、`benchmarks/schemas/*.json`、`backend` 依赖（若引入 `jsonschema`）。
+- DoD：schema 与实际校验逻辑单一事实来源；所有现有 YAML case 通过 schema 校验；`tool_policy` 出现未知键（如 `forbidden`）时校验失败并给出可定位报错；新增测试锁定「未知 tool_policy 键 → 报错」与「schema 与加载校验不脱节」两条路径。
+- 备注：问题二是安全断言静默失效风险，实际排期应与 B7 / B6a 并列最高优先；问题一（jsonschema 接线）可随后跟进。
+
+### B11 — `.gitignore` EOL 收敛（P3）
+
+- 问题：`.gitignore` 之前的改动混入 LF→CRLF 行尾翻转（约 7 行无关行），真正意图只是新增 `benchmarks/results/*` 与 `!.gitkeep` 两行。
+- 改动：把无关的 EOL 翻转回退，只保留两行实质新增。
+- 影响文件：`.gitignore`。
+- DoD：`git diff` 仅显示 2 行实质变更，无行尾噪声。
+
+### 更远层级（暂不排期）
+
+- `skill_routing` 离线 case 只能覆盖显式 `tool_ids` 或确定性关键词路径；真实 embedding 语义路由属于 online/full 层，不进 smoke。
+- 真实 RAG benchmark 必须使用固定 fixture，严禁读取真实用户知识库；需要时新建 full/integration 层，不改 smoke 的零依赖假设。
 
 ## 新增 Case 流程
 

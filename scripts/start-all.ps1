@@ -8,6 +8,7 @@
     [int]$FrontendPort = 18080,
     [int]$BackendPort = 18000,
     [int]$UserPort = 18001,
+    [int]$RedisPort = 18020,
     [int]$WaitTimeoutSeconds = 90,
     # 启动模式：
     #   Terminal = 所有服务进同一个 Windows Terminal 窗口的多个 Tab（默认，更整洁）
@@ -177,14 +178,14 @@ if (Test-PortOpen "127.0.0.1" 3306) {
 }
 
 if (-not $SkipRedis) {
-    if (Test-PortOpen "127.0.0.1" 6379) {
-        Write-Ok "Redis already running on 127.0.0.1:6379"
+    if (Test-PortOpen "127.0.0.1" $RedisPort) {
+        Write-Ok "Redis already running on 127.0.0.1:$RedisPort"
     } else {
         $redisServer = Find-CommandPath "redis-server"
         if ($redisServer) {
-            Write-Info "Starting Redis..."
-            Start-Service "RAG Redis" $Root "redis-server"
-            Wait-PortOpen "Redis" "127.0.0.1" 6379 $WaitTimeoutSeconds | Out-Null
+            Write-Info "Starting Redis on port $RedisPort..."
+            Start-Service "RAG Redis" $Root "redis-server --port $RedisPort"
+            Wait-PortOpen "Redis" "127.0.0.1" $RedisPort $WaitTimeoutSeconds | Out-Null
         } else {
             Write-Warn "redis-server was not found. Start Redis manually, or rerun with -SkipRedis."
         }
@@ -263,4 +264,3 @@ Write-Host "  - Ports 18000/18001/18080 are chosen outside the Windows dynamic p
 Write-Host "  - Restart this script after changing front/vite.config.ts."
 Write-Host "  - Adjust readiness wait with -WaitTimeoutSeconds (default 90)."
 Write-Host "  - If Redis/Ollama/MySQL are installed as services, starting them manually as services is also fine."
-

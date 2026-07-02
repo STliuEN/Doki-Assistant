@@ -7,7 +7,7 @@ import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PORT = int(os.getenv("REDIS_PORT", "18020"))
 REDIS_DB = int(os.getenv("REDIS_DB", "3"))
 
 # 全局连接池

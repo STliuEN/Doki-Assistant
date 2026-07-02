@@ -508,7 +508,7 @@ benchmarks/
 设计原则：
 
 - smoke 层离线运行，不依赖真实模型、MySQL、embedding 服务或 MCP discovery。
-- 只替换模型输出，生产链路仍走 `prepare_agent_run`、`get_agent_stream_response`、`drive_sse_stream` 和 `stream_agent_events`。
+- 只替换模型输出，生产链路仍走 `prepare_agent_run`、`get_agent_stream_response`、`drive_sse_stream` 和 `stream_agent_events`；落库收尾只验证编排入口，真实持久化由非 smoke 层覆盖。
 - 工具安全 case 通过真实 `GuardedTool` 验证高风险确认、阻断和 `waiting_confirmation` 事件。
 - 前端用 Vitest 锁住 `useChatStream` 的 SSE 消费契约。
 

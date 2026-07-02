@@ -117,7 +117,7 @@ MYSQL_PORT=3306
 MYSQL_DATABASE=chat_history
 
 REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_PORT=18020
 REDIS_DB=0
 
 DJANGO_API_URL=http://127.0.0.1:18001
@@ -144,10 +144,10 @@ DB_USER=root
 DB_PASSWORD=root
 DB_HOST=localhost
 
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:18020/0
+CELERY_RESULT_BACKEND=redis://localhost:18020/0
 
-REDIS_CACHE_URL=redis://localhost:6379/1
+REDIS_CACHE_URL=redis://localhost:18020/1
 ```
 
 FastAPI 和 Django 的 JWT 密钥、算法需要保持一致。
@@ -290,7 +290,7 @@ npm run build
 
 ## Benchmark 验证
 
-Benchmark 用来验证 Agent 重构后的整条运行链路：运行计划准备、Skill/Tool 选择、SSE 流、工具安全、落库收尾和前端流式消费契约。开发者文档见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)，新手解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。
+Benchmark 用来验证 Agent 重构后的整条运行链路：运行计划准备、Skill/Tool 选择、SSE 流、工具安全、落库收尾编排入口和前端流式消费契约。开发者文档见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)，新手解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。
 
 ### 后端 benchmark 相关测试
 
