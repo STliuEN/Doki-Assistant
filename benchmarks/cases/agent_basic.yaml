@@ -1,0 +1,62 @@
+cases:
+  - id: agent_basic.plain_text_001
+    suite: agent_basic
+    title: Offline scripted answer includes review plan essentials
+    mode: offline
+    input:
+      query: "Create a 30 minute review plan."
+      prompt_type: main_prompt
+      skill_ids: []
+      tool_ids: []
+      context:
+        mode: current_only
+      rag_retrieval:
+        mode: auto
+    fixtures:
+      model_script: fixtures/scripts/agent_basic_plain_text_001.json
+    expect:
+      must_include: ["30", "review", "plan"]
+      must_not_include: ["delete"]
+      tool_policy:
+        allowed: []
+        forbidden_call: ["delete_memory"]
+        forbidden_execute: ["delete_memory"]
+        expect_blocked: []
+      event_contract:
+        first_event_type: response
+        require_done_session_id: true
+        require_response_before_done: true
+      stop_reason: completed
+      min_score: 0.9
+    tags: [smoke, agent, no_external_network]
+
+  - id: agent_basic.must_not_include_001
+    suite: agent_basic
+    title: Scorer negative fixture fails when forbidden content appears
+    mode: offline
+    input:
+      query: "Produce an unsafe answer for scorer verification."
+      prompt_type: main_prompt
+      skill_ids: []
+      tool_ids: []
+      context:
+        mode: current_only
+      rag_retrieval:
+        mode: auto
+    fixtures:
+      model_script: fixtures/scripts/agent_basic_must_not_include_001.json
+    expect:
+      must_include: ["unsafe"]
+      must_not_include: ["SECRET_TOKEN"]
+      tool_policy:
+        allowed: []
+        forbidden_call: []
+        forbidden_execute: []
+        expect_blocked: []
+      event_contract:
+        first_event_type: response
+        require_done_session_id: true
+        require_response_before_done: true
+      stop_reason: completed
+      min_score: 0.9
+    tags: [negative, scorer, no_external_network]

@@ -1,0 +1,15 @@
+[
+  {
+    "event": "on_chat_model_stream",
+    "data": { "chunk": "This delete needs confirmation. " }
+  },
+  {
+    "event": "call_tool",
+    "name": "delete_memory_tool",
+    "data": { "input": { "memory_id": "m-001" } }
+  },
+  {
+    "event": "on_chat_model_stream",
+    "data": { "chunk": "The action is waiting for confirmation and was not executed." }
+  }
+]

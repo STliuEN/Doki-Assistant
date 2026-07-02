@@ -77,15 +77,16 @@ function ToolbarBtn({ onClick, active, label, title }: {
 }
 
 function EditorToolbar({ editor }: { editor: Editor | null }) {
+  const headingLevels = [1, 2, 3, 4, 5, 6] as const
+  const [showTableGrid, setShowTableGrid] = useState(false)
+  const [tableGridHover, setTableGridHover] = useState({ rows: 0, cols: 0 })
+
   if (!editor) return null
 
-  const headingLevels = [1, 2, 3, 4, 5, 6] as const
   const currentLevel = headingLevels.find(l =>
     editor.isActive('heading', { level: l })
   )
   const inTable = editor.isActive('table')
-  const [showTableGrid, setShowTableGrid] = useState(false)
-  const [tableGridHover, setTableGridHover] = useState({ rows: 0, cols: 0 })
 
   return (
     <div className="tiptap-toolbar">
@@ -490,7 +491,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(({ value,
   useImperativeHandle(ref, () => ({
     scrollToHeading: (text: string, level: number) => {
       if (!editor) return
-      const normalize = (s: string) => s.replace(/\\([.!\[\]()*_`~\-])/g, '$1')
+      const normalize = (s: string) => s.replace(/\\([.![\]()*_`~-])/g, '$1')
       const { doc } = editor.state
       const target = normalize(text.trim().toLowerCase())
       doc.descendants((node, pos) => {

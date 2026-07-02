@@ -1,0 +1,6 @@
+[
+  {
+    "event": "on_chat_model_stream",
+    "data": { "chunk": "This unsafe fixture intentionally exposes SECRET_TOKEN for scorer verification." }
+  }
+]

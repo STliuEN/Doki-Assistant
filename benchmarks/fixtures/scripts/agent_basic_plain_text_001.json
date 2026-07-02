@@ -1,0 +1,6 @@
+[
+  {
+    "event": "on_chat_model_stream",
+    "data": { "chunk": "Here is a 30 minute review plan: 10 minutes recall, 15 minutes practice, 5 minutes recap." }
+  }
+]

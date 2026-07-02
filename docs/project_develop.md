@@ -491,3 +491,33 @@ backend/app/config/prompt.yaml     # Prompt 文件映射
 7. 工具事件和错误分类仍需统一。
 
 这些事项已经转入 [下一阶段开发计划](./roadmap_next.md)，其中架构解耦为 P0。
+
+## Benchmark 体系
+
+当前项目已经接入第一版本地 benchmark，用来保护 Agent 重构后的行为契约。它位于：
+
+```text
+benchmarks/
+  cases/       # YAML case
+  fixtures/    # 离线模型脚本和后续 fixture
+  runners/     # CLI、harness、fake factory、scorer、report
+  baselines/   # smoke baseline
+  results/     # 运行产物，只提交 .gitkeep
+```
+
+设计原则：
+
+- smoke 层离线运行，不依赖真实模型、MySQL、embedding 服务或 MCP discovery。
+- 只替换模型输出，生产链路仍走 `prepare_agent_run`、`get_agent_stream_response`、`drive_sse_stream` 和 `stream_agent_events`。
+- 工具安全 case 通过真实 `GuardedTool` 验证高风险确认、阻断和 `waiting_confirmation` 事件。
+- 前端用 Vitest 锁住 `useChatStream` 的 SSE 消费契约。
+
+日常开发 gate：
+
+```powershell
+cd backend
+uv run pytest tests\test_benchmark_runner.py tests\test_benchmark_scoring.py tests\test_chat_stream_contract.py
+uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
+```
+
+开发者细节见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)。非工程背景解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。

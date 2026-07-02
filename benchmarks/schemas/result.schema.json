@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doki Benchmark Result",
+  "type": "object",
+  "required": [
+    "run_id",
+    "case_id",
+    "suite",
+    "status",
+    "score",
+    "latency_ms",
+    "first_non_empty_response_ms",
+    "tool_calls",
+    "stop_reason",
+    "errors",
+    "trace_path"
+  ],
+  "properties": {
+    "run_id": { "type": "string" },
+    "case_id": { "type": "string" },
+    "suite": { "type": "string" },
+    "status": { "enum": ["passed", "failed", "skipped", "error"] },
+    "score": { "type": "number" },
+    "latency_ms": { "type": "integer" },
+    "first_non_empty_response_ms": { "type": ["integer", "null"] },
+    "tool_calls": { "type": "integer" },
+    "model": { "type": ["string", "null"] },
+    "prompt_type": { "type": ["string", "null"] },
+    "skill_ids": { "type": "array", "items": { "type": "string" } },
+    "tool_ids": { "type": "array", "items": { "type": "string" } },
+    "stop_reason": { "type": "string" },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "trace_path": { "type": "string" }
+  },
+  "additionalProperties": true
+}

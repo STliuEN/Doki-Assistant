@@ -97,6 +97,7 @@ export function useChatStream(setMessages: React.Dispatch<React.SetStateAction<M
       },
       onError: (error) => {
         cancelRaf()
+        if (contentRef.current) flushContent()
         regeneratingMessageIdRef.current = null
         handlers.onError?.(error)
       },

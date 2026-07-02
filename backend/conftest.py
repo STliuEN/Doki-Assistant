@@ -3,4 +3,8 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+BACKEND_ROOT = Path(__file__).parent
+REPO_ROOT = BACKEND_ROOT.parent
+
+sys.path.insert(0, str(BACKEND_ROOT))
+sys.path.insert(0, str(REPO_ROOT))

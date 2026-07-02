@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "suite": "smoke",
+  "cases": {
+    "agent_basic.plain_text_001": { "status": "passed", "score": 1.0 },
+    "chat_stream.chunk_done_001": { "status": "passed", "score": 1.0 },
+    "skill_routing.explicit_tool_ids_001": { "status": "passed", "score": 1.0 },
+    "tool_safety.delete_memory_blocked_001": { "status": "passed", "score": 1.0 }
+  }
+}

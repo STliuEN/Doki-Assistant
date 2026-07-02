@@ -96,7 +96,7 @@ async def drive_sse_stream(
         if agent_result_holder["error"]:
             error_message = f"错误: {agent_result_holder['error']}"
             yield _sse({"type": "error", "content": error_message, "session_id": session_id})
-            yield _sse({"type": "done"})
+            yield _sse({"type": "done", "session_id": session_id})
             return
 
         # 回答内容已按 token 流式发出，这里只负责落库与收尾。
@@ -114,7 +114,7 @@ async def drive_sse_stream(
             pass
         error_message = f"错误: {str(e)}"
         yield _sse({"type": "error", "content": error_message, "session_id": session_id})
-        yield _sse({"type": "done"})
+        yield _sse({"type": "done", "session_id": session_id})
 
 
 def new_run_id() -> str:

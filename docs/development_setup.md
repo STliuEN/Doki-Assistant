@@ -287,3 +287,43 @@ npm run build
 ```
 
 已知情况：前端构建可能提示 `tailwind.config.cjs` 的 ESM warning，但构建可以完成。
+
+## Benchmark 验证
+
+Benchmark 用来验证 Agent 重构后的整条运行链路：运行计划准备、Skill/Tool 选择、SSE 流、工具安全、落库收尾和前端流式消费契约。开发者文档见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)，新手解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。
+
+### 后端 benchmark 相关测试
+
+```powershell
+cd backend
+uv run pytest tests\test_benchmark_runner.py tests\test_benchmark_scoring.py tests\test_chat_stream_contract.py
+```
+
+这些测试覆盖 runner 能否跑 case、scorer 边界，以及错误路径/异常路径的 SSE `done.session_id` 合同。
+
+### Smoke benchmark
+
+```powershell
+cd backend
+uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
+```
+
+`smoke` 是日常开发 gate：离线、脚本化、无真实模型、无 MySQL、无 embedding 服务、无 MCP discovery。不要把裸 `--offline` 当 gate，因为它会包含用于验证 scorer 失败路径的 `negative` fixtures。
+
+开发单条 case 时使用：
+
+```powershell
+cd backend
+uv run python ..\benchmarks\runners\run_benchmarks.py --case-id agent_basic.plain_text_001 --offline
+```
+
+运行产物写入 `benchmarks/results/`，该目录只提交 `.gitkeep`。
+
+### 前端流式测试
+
+```powershell
+cd front
+npm run test
+```
+
+当前前端测试使用 Vitest，重点覆盖 `useChatStream` 的 SSE 分包、thinking/error 前 flush、regenerate 覆盖和 `done.session_id` 传递。

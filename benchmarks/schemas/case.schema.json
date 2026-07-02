@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doki Benchmark Case",
+  "type": "object",
+  "required": ["id", "suite", "title", "mode", "input", "fixtures", "expect", "tags"],
+  "properties": {
+    "id": { "type": "string" },
+    "suite": { "type": "string" },
+    "title": { "type": "string" },
+    "mode": { "enum": ["offline", "online"] },
+    "input": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": { "type": "string" },
+        "prompt_type": { "type": ["string", "null"] },
+        "skill_ids": { "type": ["array", "null"], "items": { "type": "string" } },
+        "tool_ids": { "type": ["array", "null"], "items": { "type": "string" } },
+        "routed_skill_ids": { "type": ["array", "null"], "items": { "type": "string" } },
+        "context": { "type": ["object", "null"] },
+        "rag_retrieval": { "type": ["object", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "fixtures": {
+      "type": "object",
+      "required": ["model_script"],
+      "properties": {
+        "model_script": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "expect": {
+      "type": "object",
+      "properties": {
+        "must_include": { "type": "array", "items": { "type": "string" } },
+        "must_not_include": { "type": "array", "items": { "type": "string" } },
+        "tool_policy": { "type": "object" },
+        "event_contract": { "type": "object" },
+        "stop_reason": { "type": "string" },
+        "min_score": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

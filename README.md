@@ -344,6 +344,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 │       ├── stores/              # Zustand 状态
 │       └── types/               # 类型定义
 ├── DjangoUserService/           # Django 用户服务
+├── benchmarks/                  # Agent benchmark cases、fixtures、runner 和报告
 ├── docs/                        # 项目文档
 ├── scripts/                     # 启动和维护脚本
 └── images/                      # 截图资源
@@ -353,6 +354,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 
 - [开发与运行说明](./docs/development_setup.md)
 - [项目发展与当前架构](./docs/project_develop.md)
+- [Benchmark 开发者指南](./docs/benchmark_engineering_plan.md)
+- [Benchmark 新手指南](./docs/benchmark_starter_guide.md)
 - [下一阶段开发计划](./docs/roadmap_next.md)
 - [Agent 运行时现状](./docs/agent_runtime_improvements.md)
 - [MCP 外部工具接入方案](./docs/mcp_integration_plan.md)

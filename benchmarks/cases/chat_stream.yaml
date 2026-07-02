@@ -1,0 +1,31 @@
+cases:
+  - id: chat_stream.chunk_done_001
+    suite: chat_stream
+    title: Offline SSE emits response chunks before done with session id
+    mode: offline
+    input:
+      query: "Stream a compact answer."
+      prompt_type: main_prompt
+      skill_ids: []
+      tool_ids: []
+      context:
+        mode: current_only
+      rag_retrieval:
+        mode: auto
+    fixtures:
+      model_script: fixtures/scripts/chat_stream_chunk_done_001.json
+    expect:
+      must_include: ["chunk", "done"]
+      must_not_include: []
+      tool_policy:
+        allowed: []
+        forbidden_call: []
+        forbidden_execute: []
+        expect_blocked: []
+      event_contract:
+        first_event_type: response
+        require_done_session_id: true
+        require_response_before_done: true
+      stop_reason: completed
+      min_score: 0.9
+    tags: [smoke, chat_stream, no_external_network]
