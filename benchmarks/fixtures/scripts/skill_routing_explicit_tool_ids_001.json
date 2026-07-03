@@ -1,6 +1,11 @@
 [
   {
+    "event": "call_tool",
+    "name": "list_memories_tool",
+    "data": { "input": { "scope": "today" } }
+  },
+  {
     "event": "on_chat_model_stream",
-    "data": { "chunk": "memory listed with explicit tool selection." }
+    "data": { "chunk": "memory listed from fixture with explicit tool selection." }
   }
 ]

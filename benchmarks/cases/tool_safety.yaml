@@ -27,6 +27,7 @@ cases:
         first_event_type: response
         require_done_session_id: true
         require_response_before_done: true
+        require_non_empty_response_before_done: true
       stop_reason: completed
       min_score: 0.9
     tags: [smoke, tool_safety, no_external_network]

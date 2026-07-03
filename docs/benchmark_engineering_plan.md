@@ -1,7 +1,7 @@
 # Benchmark 开发者指南
 
 日期：2026-06-30（重构计划更新：2026-07-02）  
-状态：B1–B5（离线 smoke benchmark 第一版）已接入 `ai_document_assistant` 分支。本文既是开发入口（参考部分），也是后续重构的计划入口（见「改进计划 Backlog」）。
+状态：B1–B10（离线 smoke benchmark 与关键 scorer/schema 安全修正）已接入 `ai_document_assistant` 分支。本文既是开发入口（参考部分），也是后续重构的计划入口（见「改进计划 Backlog」）。
 
 阅读导航：
 
@@ -47,6 +47,7 @@ benchmarks/
   schemas/
     case.schema.json
     result.schema.json
+  suites.yaml
   results/
     .gitkeep
 ```
@@ -78,7 +79,11 @@ uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --
 uv run python ..\benchmarks\runners\run_benchmarks.py --case-id agent_basic.plain_text_001 --offline
 ```
 
-不要把裸 `--offline` 当成通过/失败 gate。它会选中所有离线 case，包括用于验证 scorer 的负向 fixture，例如 `agent_basic.must_not_include_001`，该 case 预期失败。日常 gate 使用 `--suite smoke`。
+裸 `--offline` 默认会排除 `negative` fixture，但仍不建议把它当成日常通过/失败 gate；日常 gate 使用 `--suite smoke`。如果要显式运行 scorer 负向 fixture，例如 `agent_basic.must_not_include_001`，使用：
+
+```powershell
+uv run python ..\benchmarks\runners\run_benchmarks.py --offline --include-negative
+```
 
 前端流式测试：
 
@@ -176,8 +181,9 @@ cases:
 - `mode: offline` 代表必须可在 smoke 中无外部依赖运行。
 - `fixtures.model_script` 相对 `benchmarks/`。
 - `tags: [smoke]` 表示该 case 必须通过 smoke gate。
-- `tags: [negative]` 表示该 case 用来验证 scorer 失败路径，不进入 smoke gate。
+- `tags: [negative]` 表示该 case 用来验证 scorer 失败路径，默认不会被 `select_cases` 选中；需要 `--include-negative` 显式开启。
 - `input.tool_ids` 是显式工具选择，会跳过语义路由，但当前仍会合并所选 skill 自带工具；case 断言应针对 `prepared_tool_ids` 的实际语义。
+- case 会在 `load_cases` 阶段通过 `benchmarks/schemas/case.schema.json` 校验；`expect.tool_policy` 和 `expect.event_contract` 的未知键会直接报错。
 
 ## Scorer 语义
 
@@ -218,17 +224,23 @@ cases:
 - 如果 case 要证明模型产生了用户可见内容，应检查非空 response，而不是只检查 `require_response_before_done`。
 - 所有 `done` 事件应携带 `session_id`，错误路径也要保持一致。
 
-当前已补后端测试锁定错误路径和异常路径的 `done.session_id`。
+当前已补后端测试锁定错误路径和异常路径的 `done.session_id`，并新增 `require_non_empty_response_before_done` 用于验证用户可见内容确实在 `done` 前产出。
 
 ## 进度
 
-已完成（B1–B5，第一版离线 smoke benchmark）：
+已完成（B1–B10）：
 
 - B1 目录骨架与 case/schema/baseline 布局。
 - B2 离线注入接缝：`FakeAgentFactory` 经 `get_agent_stream_response(..., factory=)` 注入，复用真实 `drive_sse_stream` / `stream_agent_events` / `GuardedTool` 链路。
 - B3 Scorer：`must_include` / `must_not_include` / `event_contract` / `tool_policy` / `stop_reason` 五类指标 + 硬否决。
 - B4 批量运行与报告：`run_benchmarks.py` + `report_results.py` 输出 trace JSONL、`summary.json` / `summary.md`。
 - B5 Baseline 回归对比：`baselines/smoke.baseline.json` + summary 中的 `score_delta`。
+- B6 negative fixture 默认排除：`--include-negative` 显式开启负向 scorer fixture。
+- B6a 普通读工具 fixture 隔离：`skill_routing.explicit_tool_ids_001` 会真实调用 `list_memories_tool`，但只使用 `fixtures.tool_data.memories`，不访问真实 MySQL/RAG。
+- B7 `forbidden_execute` 按事件顺序判定：同名工具“先 blocked、后 executed”会正确判失败。
+- B8 非空响应契约：`require_non_empty_response_before_done` 已接入 scorer/schema，并用于 smoke case。
+- B9 Scorer 权重配置化：默认权重写入 `benchmarks/suites.yaml`，case 可用 `expect.weights` 覆盖。
+- B10 case schema 接入加载校验：`tool_policy` / `event_contract` 未知键会在加载期失败。
 
 验证基线（重构后应保持不劣化）：`backend` 下 `uv run pytest tests\test_benchmark_*.py tests\test_chat_stream_contract.py` 全绿；`--suite smoke --offline --fail-under 0.9` 4/4 通过、退出 0；前端 `npm run test` 4/4 通过。
 
@@ -236,21 +248,21 @@ cases:
 
 下面是 B5 之后的重构项。每项给出：问题（含代码锚点）→ 改动 → 影响文件 → 完成标准（DoD，含测试）。优先级 P1 = 会导致漏判/误判的正确性问题，P2 = 可维护性/配置化，P3 = 需要新层级或较大投入。
 
-### B6 — gate 默认排除 negative fixture（P1）
+### B6 — gate 默认排除 negative fixture（P1，已完成）
 
 - 问题：`select_cases`（`harness.py:152`）只按 `--suite` / `--case-id` / `--offline` 过滤，不识别 `negative` tag；裸 `--offline` 会把 `agent_basic.must_not_include_001` 这类预期失败的 scorer 验证 fixture 也选进来，无法直接当 gate。
 - 改动：在 `select_cases` 增加默认排除 `negative` tag 的行为，并加 `--include-negative` 显式开关。
 - 影响文件：`benchmarks/runners/harness.py`、`benchmarks/runners/run_benchmarks.py`（新增参数）、`benchmarks/README.md` 与本文运行命令说明。
 - DoD：`--offline` 默认不再选中 `negative` case；`--include-negative --offline` 恢复旧行为；`test_benchmark_runner.py` 覆盖两条路径。
 
-### B6a — 普通工具 / DB / RAG fixture 隔离（P1）
+### B6a — 普通工具 / DB / RAG fixture 隔离（P1，已完成首个普通读工具）
 
 - 问题：smoke 文档承诺不依赖 MySQL，但普通工具实现会直接导入 `AsyncSessionLocal`，例如 `list_memories_tool`。当前 smoke case 没触发普通读写工具，所以风险未暴露；后续一旦加入真实工具调用 fixture，可能误连真实数据库或真实 RAG/vector store。
 - 改动：为 smoke 工具执行增加明确隔离层。可选方案包括：为普通工具提供 fixture-backed fake tool、在 benchmark harness 中 patch 对应工具依赖、或把涉及真实 DB/RAG 的 case 放入 full/integration 层。
 - 影响文件：`benchmarks/runners/harness.py`、相关工具 fixture、`benchmarks/cases/*.yaml`、必要时 `backend/app/agent/tools/*` 的可注入接缝。
 - DoD：新增一个会调用普通读工具的离线 case，运行时不访问真实 MySQL/RAG；测试中能断言真实 `AsyncSessionLocal` 未被调用；文档明确 smoke 只允许 fixture-backed 工具副作用。
 
-### B7 — `forbidden_execute` 按事件顺序判定（P1）
+### B7 — `forbidden_execute` 按事件顺序判定（P1，已完成）
 
 - 问题：`_score_tool_policy`（`score_cases.py:162`）用集合差集 `executed = ended - blocked` 判断执行，`_executed_tool_ids`（`score_cases.py:218`）也是集合运算。同名工具若“先 blocked、后又真正 executed”，会因集合去重被误判为安全。
 - 改动：改为按 `tool_call_index` 或事件顺序逐次配对 `tool_start` / `waiting_confirmation` / `tool_end`，任一次真实执行即命中 `forbidden_execute`。
@@ -258,14 +270,14 @@ cases:
 - DoD：新增 fixture「同名工具先拦后放」被正确判失败；`test_benchmark_scoring.py` 锁定该顺序语义。
 - 备注：该项是安全误判风险，实际排期应与 B6a 并列最高优先，优先于 B6 的 CLI 便利性修正。
 
-### B8 — 新增 `require_non_empty_response_before_done`（P2）
+### B8 — 新增 `require_non_empty_response_before_done`（P2，已完成）
 
 - 问题：`drive_sse_stream` 起手固定发空 `response` 帧，`require_response_before_done`（`score_cases.py:116`）因此恒被满足，无法证明模型产出了用户可见内容。
 - 改动：在 `_score_event_contract` 增加 `require_non_empty_response_before_done`，仅统计非空 `response`（与 `first_non_empty_response_ms` 口径一致）。
 - 影响文件：`benchmarks/runners/score_cases.py`、`benchmarks/schemas/case.schema.json`（`event_contract` 若收紧 schema）。
 - DoD：只发空 response 的 case 该项判失败；至少一条 smoke case 采用新契约并通过。
 
-### B9 — Scorer 权重移入 case/suite 配置（P2）
+### B9 — Scorer 权重移入 case/suite 配置（P2，已完成）
 
 - 问题：权重硬编码在 `score_cases.py:44-60`（`chat_stream` / `tool_safety` / `skill_routing` 一组，其余一组），与「case/suite 决定评分权重」的设计不符，改权重必须改代码。
 - 改动：把权重下沉到 suite 级配置（或 case `expect.weights` 覆盖），代码只读配置并保留缺省。
@@ -273,7 +285,7 @@ cases:
 - DoD：删除代码内硬编码权重表；缺省行为与现状一致（baseline 分数不变）；`test_benchmark_scoring.py` 覆盖配置覆盖路径。
 - 备注：顺带确认 `skill_routing` 归入哪组权重（当前落在工程契约组，原计划未分类），在配置里显式写清。
 
-### B10 — schema 接入 `load_cases` 校验 + `tool_policy` 字段收紧（P2；含 P1 安全子项）
+### B10 — schema 接入 `load_cases` 校验 + `tool_policy` 字段收紧（P2；含 P1 安全子项，已完成）
 
 - 问题一（孤儿 schema）：`benchmarks/schemas/{case,result}.schema.json` 目前是孤儿——没有任何代码 import/校验（在 `benchmarks/*.py` 全量 grep `schema`/`jsonschema` 零命中）；`load_cases`（`harness.py:123`）用手写的 `validate_case`（`harness.py:137`）。两者会各自漂移。
 - 问题二（拼错字段静默失效，安全隐患，P1）：`case.schema.json` 里 `tool_policy` 仅为 `{"type": "object"}`，且顶层与各层普遍 `additionalProperties: true`；而 `score_case` 只读白名单键 `allowed / forbidden_call / forbidden_execute / expect_blocked`（`score_cases.py:141-178`）。因此拼错或杜撰的键（例如把安全红线写成 `forbidden` 而非 `forbidden_execute`）会被 schema 与 scorer 双双静默忽略，case 仍判通过——安全断言形同虚设却毫无报错。新手指南第四节此前示例即用了错误的 `forbidden` 字段，已同步修正。

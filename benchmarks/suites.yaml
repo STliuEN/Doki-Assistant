@@ -1,0 +1,29 @@
+suites:
+  agent_basic:
+    weights:
+      must_include_score: 0.45
+      forbidden_content_score: 0.2
+      event_contract_score: 0.2
+      tool_policy_score: 0.1
+      stop_reason_score: 0.05
+  chat_stream:
+    weights:
+      must_include_score: 0.2
+      forbidden_content_score: 0.1
+      event_contract_score: 0.35
+      tool_policy_score: 0.3
+      stop_reason_score: 0.05
+  skill_routing:
+    weights:
+      must_include_score: 0.2
+      forbidden_content_score: 0.1
+      event_contract_score: 0.35
+      tool_policy_score: 0.3
+      stop_reason_score: 0.05
+  tool_safety:
+    weights:
+      must_include_score: 0.2
+      forbidden_content_score: 0.1
+      event_contract_score: 0.35
+      tool_policy_score: 0.3
+      stop_reason_score: 0.05

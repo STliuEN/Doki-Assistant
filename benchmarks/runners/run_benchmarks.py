@@ -22,12 +22,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case-id", help="Run exactly one case id.")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--offline", action="store_true", help="Only run offline cases.")
+    parser.add_argument("--include-negative", action="store_true", help="Include negative scorer fixtures.")
     parser.add_argument("--output-dir", default=str(REPO_ROOT / "benchmarks" / "results"))
     parser.add_argument("--fail-under", type=float, default=None)
     args = parser.parse_args(argv)
 
     cases = load_cases(REPO_ROOT / "benchmarks" / "cases")
-    selected = select_cases(cases, args.suite, args.case_id, args.offline)
+    selected = select_cases(cases, args.suite, args.case_id, args.offline, include_negative=args.include_negative)
     if not selected:
         print("No benchmark cases selected.", file=sys.stderr)
         return 2

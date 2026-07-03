@@ -15,8 +15,18 @@ cases:
         mode: auto
     fixtures:
       model_script: fixtures/scripts/skill_routing_explicit_tool_ids_001.json
+      tool_data:
+        memories:
+          - id: mem-fixture-001
+            title: Fixture review item
+            type: review
+            status: active
+            priority: medium
+            content: Memory listed from benchmark fixture.
+            due_at: "2026-07-02 09:00"
+            remind_at: "2026-07-02 08:30"
     expect:
-      must_include: ["memory", "listed"]
+      must_include: ["memory", "listed", "fixture"]
       must_not_include: []
       tool_policy:
         allowed: ["list_memories"]
@@ -27,6 +37,7 @@ cases:
         first_event_type: response
         require_done_session_id: true
         require_response_before_done: true
+        require_non_empty_response_before_done: true
       stop_reason: completed
       min_score: 0.9
     tags: [smoke, skill_routing, no_external_network]

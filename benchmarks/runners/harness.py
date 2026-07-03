@@ -11,9 +11,12 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
+from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = REPO_ROOT / "backend"
+CASE_SCHEMA_PATH = REPO_ROOT / "benchmarks" / "schemas" / "case.schema.json"
+SUITE_CONFIG_PATH = REPO_ROOT / "benchmarks" / "suites.yaml"
 for path in (str(REPO_ROOT), str(BACKEND_ROOT)):
     if path not in sys.path:
         sys.path.insert(0, path)
@@ -24,6 +27,9 @@ from app.services import agent_run_service
 
 from benchmarks.runners.fake_factory import FakeAgentFactory
 from benchmarks.runners.score_cases import score_case
+
+_CASE_SCHEMA_VALIDATOR: Draft202012Validator | None = None
+_SUITE_WEIGHTS: dict[str, dict[str, float]] | None = None
 
 
 class InMemorySessionManager:
@@ -80,15 +86,61 @@ class InMemorySessionManager:
         return payload
 
 
+class FixtureAsyncSessionLocal:
+    def __init__(self, counter: dict[str, int]):
+        self.counter = counter
+
+    def __call__(self):
+        self.counter["sessions"] = self.counter.get("sessions", 0) + 1
+        return self
+
+    async def __aenter__(self):
+        return SimpleNamespace()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class FixtureMemoryService:
+    def __init__(self, memories: list[dict]):
+        self.memories = list(memories)
+
+    async def get_today_memories(self, db, user_id: str) -> list[dict]:
+        return [item for item in self.memories if item.get("status", "active") == "active"]
+
+    async def list_memories(
+        self,
+        db,
+        user_id: str,
+        type: str | None = None,
+        status: str | None = None,
+    ) -> list[dict]:
+        items = self.memories
+        if type:
+            items = [item for item in items if item.get("type") == type]
+        if status:
+            items = [item for item in items if item.get("status") == status]
+        return list(items)
+
+    async def get_memory_dict(self, db, user_id: str, memory_id: str) -> dict | None:
+        return next((item for item in self.memories if item.get("id") == memory_id), None)
+
+
 @contextlib.contextmanager
 def offline_patches(case: dict):
     import app.agent.tool_guard as tool_guard
+    import app.agent.tools.get_memory.tool as get_memory_tool_mod
+    import app.agent.tools.list_memories.tool as list_memories_tool_mod
     import app.services as services_mod
 
     original_route_skills = agent_run_service.route_skills
     original_mcp_registry = agent_run_service.mcp_tool_registry
     original_session_manager = services_mod.database_session_manager
     original_save_pending_action = tool_guard.save_pending_action
+    original_list_memories_session = list_memories_tool_mod.AsyncSessionLocal
+    original_list_memories_service = list_memories_tool_mod.memory_service
+    original_get_memory_session = get_memory_tool_mod.AsyncSessionLocal
+    original_get_memory_service = get_memory_tool_mod.memory_service
 
     async def fake_route_skills(query: str, candidates: list[str]) -> list[str]:
         explicit = (case.get("input") or {}).get("routed_skill_ids")
@@ -106,10 +158,19 @@ def offline_patches(case: dict):
         pending_counter["value"] += 1
         return f"bench-pending-{pending_counter['value']}"
 
+    tool_data = (case.get("fixtures") or {}).get("tool_data") or {}
+    memory_service = FixtureMemoryService(tool_data.get("memories") or [])
+    session_counter: dict[str, int] = {}
+    fixture_session_factory = FixtureAsyncSessionLocal(session_counter)
+
     agent_run_service.route_skills = fake_route_skills
     agent_run_service.mcp_tool_registry = FakeMcpRegistry()
     services_mod.database_session_manager = InMemorySessionManager()
     tool_guard.save_pending_action = fake_save_pending_action
+    list_memories_tool_mod.AsyncSessionLocal = fixture_session_factory
+    list_memories_tool_mod.memory_service = memory_service
+    get_memory_tool_mod.AsyncSessionLocal = fixture_session_factory
+    get_memory_tool_mod.memory_service = memory_service
 
     try:
         yield
@@ -118,10 +179,15 @@ def offline_patches(case: dict):
         agent_run_service.mcp_tool_registry = original_mcp_registry
         services_mod.database_session_manager = original_session_manager
         tool_guard.save_pending_action = original_save_pending_action
+        list_memories_tool_mod.AsyncSessionLocal = original_list_memories_session
+        list_memories_tool_mod.memory_service = original_list_memories_service
+        get_memory_tool_mod.AsyncSessionLocal = original_get_memory_session
+        get_memory_tool_mod.memory_service = original_get_memory_service
 
 
 def load_cases(cases_dir: Path) -> list[dict]:
     cases: list[dict] = []
+    suite_weights = _load_suite_weights()
     for path in sorted(cases_dir.glob("*.yaml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         raw_cases = data.get("cases", [])
@@ -129,30 +195,95 @@ def load_cases(cases_dir: Path) -> list[dict]:
             raise ValueError(f"{path} field 'cases' must be a list")
         for case in raw_cases:
             validate_case(case, path)
+            if case.get("suite") in suite_weights:
+                case["_suite_weights"] = suite_weights[case["suite"]]
             case["_case_file"] = str(path)
             cases.append(case)
     return cases
 
 
-def validate_case(case: dict, path: Path | str = "<memory>") -> None:
-    required = ["id", "suite", "title", "mode", "input", "fixtures", "expect", "tags"]
-    missing = [field for field in required if field not in case]
+def _load_suite_weights() -> dict[str, dict[str, float]]:
+    global _SUITE_WEIGHTS
+    if _SUITE_WEIGHTS is not None:
+        return _SUITE_WEIGHTS
+    if not SUITE_CONFIG_PATH.exists():
+        _SUITE_WEIGHTS = {}
+        return _SUITE_WEIGHTS
+
+    data = yaml.safe_load(SUITE_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    suites = data.get("suites", {})
+    if not isinstance(suites, dict):
+        raise ValueError(f"{SUITE_CONFIG_PATH} field 'suites' must be an object")
+
+    suite_weights: dict[str, dict[str, float]] = {}
+    for suite, config in suites.items():
+        if not isinstance(config, dict) or not isinstance(config.get("weights"), dict):
+            raise ValueError(f"{SUITE_CONFIG_PATH} suite {suite} requires weights object")
+        suite_weights[str(suite)] = _validate_weight_map(config["weights"], f"{SUITE_CONFIG_PATH} suite {suite}.weights")
+    _SUITE_WEIGHTS = suite_weights
+    return suite_weights
+
+
+def _validate_weight_map(weights: dict, label: str) -> dict[str, float]:
+    expected = {
+        "must_include_score",
+        "forbidden_content_score",
+        "event_contract_score",
+        "tool_policy_score",
+        "stop_reason_score",
+    }
+    unknown = sorted(set(weights) - expected)
+    missing = sorted(expected - set(weights))
+    if unknown:
+        raise ValueError(f"{label} has unknown weight keys: {', '.join(unknown)}")
     if missing:
-        raise ValueError(f"{path} case missing required fields: {', '.join(missing)}")
-    if case["mode"] not in {"offline", "online"}:
-        raise ValueError(f"{path} case {case['id']} has unsupported mode: {case['mode']}")
-    if not isinstance(case["input"], dict) or not case["input"].get("query"):
-        raise ValueError(f"{path} case {case['id']} requires input.query")
-    if not isinstance(case["fixtures"], dict) or not case["fixtures"].get("model_script"):
-        raise ValueError(f"{path} case {case['id']} requires fixtures.model_script")
-    if not isinstance(case["tags"], list):
-        raise ValueError(f"{path} case {case['id']} requires tags list")
+        raise ValueError(f"{label} missing weight keys: {', '.join(missing)}")
+
+    normalized: dict[str, float] = {}
+    for key, value in weights.items():
+        if not isinstance(value, int | float) or value < 0:
+            raise ValueError(f"{label}.{key} must be a non-negative number")
+        normalized[key] = float(value)
+    if sum(normalized.values()) <= 0:
+        raise ValueError(f"{label} must contain at least one positive weight")
+    return normalized
 
 
-def select_cases(cases: list[dict], suite: str | None, case_id: str | None, offline_only: bool) -> list[dict]:
+def _case_schema_validator() -> Draft202012Validator:
+    global _CASE_SCHEMA_VALIDATOR
+    if _CASE_SCHEMA_VALIDATOR is not None:
+        return _CASE_SCHEMA_VALIDATOR
+    schema = json.loads(CASE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    _CASE_SCHEMA_VALIDATOR = Draft202012Validator(schema)
+    return _CASE_SCHEMA_VALIDATOR
+
+
+def validate_case(case: dict, path: Path | str = "<memory>") -> None:
+    if not isinstance(case, dict):
+        raise ValueError(f"{path} case must be an object")
+
+    public_case = {key: value for key, value in case.items() if not key.startswith("_")}
+    errors = sorted(_case_schema_validator().iter_errors(public_case), key=lambda error: list(error.absolute_path))
+    if errors:
+        error = errors[0]
+        location = ".".join(str(part) for part in error.absolute_path) or "<case>"
+        case_id = public_case.get("id", "<unknown>")
+        raise ValueError(f"{path} case {case_id} invalid at {location}: {error.message}")
+
+
+def select_cases(
+    cases: list[dict],
+    suite: str | None,
+    case_id: str | None,
+    offline_only: bool,
+    include_negative: bool = False,
+) -> list[dict]:
     selected = []
     for case in cases:
         if case_id and case["id"] != case_id:
+            continue
+        if not include_negative and "negative" in case.get("tags", []):
             continue
         if suite:
             if suite == "smoke":
@@ -308,7 +439,7 @@ def _write_trace(output_dir: Path, run_id: str, trace_events: list[dict]) -> Pat
 
 def _first_non_empty_response_ms(trace_events: list[dict]) -> int | None:
     for event in trace_events:
-        if event["event_type"] == "response" and event.get("content"):
+        if event["event_type"] == "response" and _has_visible_content(event.get("content")):
             return int(event["elapsed_ms"])
     return None
 
@@ -340,3 +471,7 @@ def _normalize_tool_id(value: Any) -> str:
         return ""
     text = str(value)
     return text[:-5] if text.endswith("_tool") else text
+
+
+def _has_visible_content(content: Any) -> bool:
+    return bool(str(content or "").strip())
