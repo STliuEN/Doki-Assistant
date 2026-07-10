@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Database, RotateCcw, Download, SlidersHorizontal } from 'lucide-react'
@@ -58,8 +58,9 @@ export default function KnowledgeBase() {
   const [loadingRerankerModels, setLoadingRerankerModels] = useState(false)
   const [switchingReranker, setSwitchingReranker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const rerankerModelPathRef = useRef('')
 
-  const loadDocs = async () => {
+  const loadDocs = useCallback(async () => {
     setLoading(true)
     try {
       const res = await knowledgeApi.list()
@@ -70,9 +71,9 @@ export default function KnowledgeBase() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const loadEmbedding = async () => {
+  const loadEmbedding = useCallback(async () => {
     try {
       const res = await knowledgeApi.currentEmbedding()
       if (res.data) {
@@ -83,18 +84,39 @@ export default function KnowledgeBase() {
     } catch {
       toast.error('加载嵌入模型配置失败')
     }
-  }
+  }, [])
 
-  const applyRerankerConfig = (config: RerankerConfig) => {
+  const applyRerankerConfig = useCallback((config: RerankerConfig) => {
     setReranker(config)
+    rerankerModelPathRef.current = config.model_path
     setRerankerModelPath(config.model_path)
     setRerankerModelName(config.model_name)
     setRerankerMaxLength(config.max_length || 8192)
     setRerankerBatchSize(config.batch_size || 1)
     setRerankerDtype(config.torch_dtype || 'auto')
-  }
+  }, [])
 
-  const loadReranker = async () => {
+  const loadRerankerModels = useCallback(async (showMessage = true, selectedPath?: string) => {
+    setLoadingRerankerModels(true)
+    try {
+      const res = await knowledgeApi.listLocalRerankerModels()
+      const models = res.data?.models || []
+      setRerankerModels(models)
+      const activePath = selectedPath ?? rerankerModelPathRef.current
+      if (!activePath && models.length > 0) {
+        rerankerModelPathRef.current = models[0].model_path
+        setRerankerModelPath(models[0].model_path)
+        setRerankerModelName(models[0].model_name)
+      }
+      if (showMessage) toast.success(`已读取 ${models.length} 个本地重排序模型`)
+    } catch {
+      toast.error('读取本地重排序模型失败')
+    } finally {
+      setLoadingRerankerModels(false)
+    }
+  }, [])
+
+  const loadReranker = useCallback(async () => {
     try {
       const res = await knowledgeApi.currentReranker()
       if (res.data) {
@@ -104,13 +126,13 @@ export default function KnowledgeBase() {
     } catch {
       toast.error('加载重排序模型配置失败')
     }
-  }
+  }, [applyRerankerConfig, loadRerankerModels])
 
   useEffect(() => {
     loadDocs()
     loadEmbedding()
     loadReranker()
-  }, [])
+  }, [loadDocs, loadEmbedding, loadReranker])
 
   const updateUploadFile = (data: KnowledgeSSEMessage, patch: Partial<UploadFile>) => {
     setUploadFiles((prev) =>
@@ -212,25 +234,8 @@ export default function KnowledgeBase() {
     }
   }
 
-  const loadRerankerModels = async (showMessage = true, selectedPath = rerankerModelPath) => {
-    setLoadingRerankerModels(true)
-    try {
-      const res = await knowledgeApi.listLocalRerankerModels()
-      const models = res.data?.models || []
-      setRerankerModels(models)
-      if (!selectedPath && models.length > 0) {
-        setRerankerModelPath(models[0].model_path)
-        setRerankerModelName(models[0].model_name)
-      }
-      if (showMessage) toast.success(`已读取 ${models.length} 个本地重排序模型`)
-    } catch {
-      toast.error('读取本地重排序模型失败')
-    } finally {
-      setLoadingRerankerModels(false)
-    }
-  }
-
   const handleRerankerPathChange = (path: string) => {
+    rerankerModelPathRef.current = path
     setRerankerModelPath(path)
     const selected = rerankerModels.find((model) => model.model_path === path)
     if (selected) setRerankerModelName(selected.model_name)

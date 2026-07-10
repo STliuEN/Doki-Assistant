@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from contextvars import ContextVar
 
-
 current_user_id_var: ContextVar[str | None] = ContextVar("current_user_id", default=None)
 thinking_callback_var: ContextVar[Callable | None] = ContextVar("thinking_callback", default=None)
 rag_retrieval_settings_var: ContextVar[object | None] = ContextVar("rag_retrieval_settings", default=None)

@@ -10,9 +10,8 @@ dist/
 
 # Virtual Environment
 .venv/
-backend/.uv-cache/
+.uv-cache/
 backend/models/
-DjangoUserService/.uv-cache/
 env/
 venv/
 ENV/
@@ -34,6 +33,8 @@ venv.bak/
 .env.development.local
 .env.test.local
 .env.production.local
+backend/app/config/mcp.local.yaml
+backend/app/config/security.local.yaml
 
 # OS
 Thumbs.db
@@ -59,9 +60,12 @@ dist/
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
+.ruff_cache/
 test/
 benchmarks/results/*
 !benchmarks/results/.gitkeep
+front/dist-build-check/
 
 # Misc
 *.pem

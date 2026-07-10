@@ -1,9 +1,9 @@
 import os
 
+from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_community.chat_models import ChatTongyi
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
-from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 
 from app.agent.agent_middleware import get_middleware
 from app.agent.runtime.budget import get_runtime_budget

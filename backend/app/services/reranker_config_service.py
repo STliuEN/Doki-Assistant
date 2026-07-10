@@ -5,7 +5,6 @@ from pathlib import Path
 
 from app.core.logger_handler import logger, project_path
 
-
 DEFAULT_RERANKER_CONFIG = {
     "provider": "local",
     "model_name": "Qwen/Qwen3-Reranker-4B",

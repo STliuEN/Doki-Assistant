@@ -21,7 +21,6 @@ import json
 import math
 import re
 
-from app.agent.skill_registry import skill_registry
 from app.agent.routing_calibration import (
     DEFAULT_SIM_FLOOR,
     DEFAULT_SIM_GAP,
@@ -29,6 +28,7 @@ from app.agent.routing_calibration import (
     calibrate_thresholds,
     calibration_signature,
 )
+from app.agent.skill_registry import skill_registry
 from app.core.logger_handler import logger
 
 # —— 默认阈值：校准不可用时的保守回退值。实际路由优先使用 embedding/skill 自适应校准值。——

@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextvars
 
 import pytest
-
 from benchmarks.runners.harness import (
     REPO_ROOT,
     _first_non_empty_response_ms,

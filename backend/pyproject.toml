@@ -92,12 +92,14 @@ select = ["E", "F", "I", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"app/cache/redis_decorator.py" = ["W292"]
+"app/utils/file_handler.py" = ["I001"]
 
 [tool.ruff.format]
 quote-style = "double"
 
 [[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+url = "https://pypi.org/simple"
 default = true
 
 [[tool.uv.index]]
@@ -110,7 +112,6 @@ torch = { index = "pytorch-cu132" }
 
 [tool.uv]
 environments = ["sys_platform == 'win32'"]
-index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-cache-dir = ".uv-cache"
+cache-dir = "../.uv-cache"
 python-downloads = "never"
 python-preference = "only-system"

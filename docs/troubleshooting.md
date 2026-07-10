@@ -407,9 +407,9 @@ POST /api/mcp/servers/refresh
 
 refresh 证明 `tools/list` 成功，不代表每个工具调用都成功。当前没有独立 test endpoint。
 
-### 修改 MCP 后 Git 出现配置差异
+### 修改 MCP 后找不到配置差异
 
-这是当前设计：ToolManager 的修改会写回 `backend/app/config/mcp.yaml`。提交前审查 diff，移除本机 URL、命令和 secret。
+这是当前设计：ToolManager 的修改写回 Git 忽略的 `backend/app/config/mcp.local.yaml`。仓库只跟踪默认禁用的 `mcp.example.yaml`。需要共享配置时，人工审查并更新示例文件，不要提交本机 URL、命令或 secret。
 
 ## Agent SSE
 

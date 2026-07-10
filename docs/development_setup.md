@@ -62,9 +62,12 @@ CREATE DATABASE user_service CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```powershell
 Copy-Item backend\.env.example backend\.env
 Copy-Item DjangoUserService\.env.example DjangoUserService\.env
+.\scripts\migrate-local-config.ps1
 ```
 
-不要提交 `.env`。仓库的 `.gitignore` 已忽略这些文件。
+迁移脚本会创建 Git 忽略的 `security.local.yaml` 和 `mcp.local.yaml`。已有 `.env` 若尚未声明 `MODEL_CONFIG_ENCRYPTION_KEY`，脚本会先复制当前 `SECRET_KEY` 的值，以保证已有模型 API key 密文仍可解密。
+
+不要提交 `.env` 或 `*.local.yaml`。仓库的 `.gitignore` 已忽略这些文件。
 
 ### 3. 配置 FastAPI
 
@@ -100,8 +103,13 @@ REDIS_DB=0
 # Django 与 JWT
 DJANGO_API_URL=http://127.0.0.1:18001
 SECRET_KEY=replace_with_a_shared_secret
+MODEL_CONFIG_ENCRYPTION_KEY=replace_with_a_model_config_secret
 ALGORITHM=HS256
 ```
+
+新安装可以直接使用独立的模型配置加密密钥。已有密文需要分离密钥时，先设置 `MODEL_CONFIG_ENCRYPTION_KEY_PREVIOUS`，执行 `uv run python scripts\rotate_model_config_keys.py` dry-run，确认数量后再加 `--apply`；迁移完成后删除 previous key。
+
+当 `ENV` 不是开发或测试环境时，FastAPI 会在启动阶段拒绝空值、示例值、少于 32 字符或彼此相同的 `SECRET_KEY` 和 `MODEL_CONFIG_ENCRYPTION_KEY`。
 
 代码同时兼容旧变量 `ALIYUN_MODEL_NAME`，但新配置应统一使用模板中的 `CHAT_MODEL_NAME`。
 
@@ -233,12 +241,14 @@ npm run dev
 |------|----------|
 | `backend/app/config/agent.yaml` | Agent 最大迭代、工具调用、运行时间和输出预算 |
 | `backend/app/config/chroma.yaml` | Chroma collection、持久化目录、切片和文件类型 |
-| `backend/app/config/mcp.yaml` | MCP server、allow/deny 和 tool override |
+| `backend/app/config/mcp.example.yaml` | 受版本控制的 MCP 示例；所有 server 默认禁用 |
+| `backend/app/config/mcp.local.yaml` | 本机 MCP server、allow/deny 和 tool override；Git 忽略 |
 | `backend/app/config/prompt.yaml` | Prompt 名称到文件的映射 |
-| `backend/app/config/security.yaml` | 本地管理员兜底名单 |
+| `backend/app/config/security.example.yaml` | 受版本控制的管理员配置模板，不含个人身份 |
+| `backend/app/config/security.local.yaml` | 本机管理员兜底名单；Git 忽略 |
 | `backend/app/config/rag.yaml` | 仅保留迁移说明，不再生效 |
 
-通过 ToolManager 修改 MCP server/tool 会直接写回跟踪中的 `mcp.yaml`。提交前应检查配置差异，避免把本机专用 URL、命令或凭据提交进仓库。
+通过 ToolManager 修改 MCP server/tool 会写回 `mcp.local.yaml`。首次修改时，后端会从 `mcp.example.yaml` 创建本机副本；本机 URL、命令和凭据不会进入 Git。
 
 ## 依赖维护
 
@@ -250,7 +260,8 @@ npm run dev
 cd backend
 uv lock
 uv sync --extra dev
-uv pip compile pyproject.toml -o requirements.txt
+cd ..
+.\scripts\export-requirements.ps1
 ```
 
 更新 Django 依赖：
@@ -259,8 +270,11 @@ uv pip compile pyproject.toml -o requirements.txt
 cd DjangoUserService
 uv lock
 uv sync
-uv pip compile pyproject.toml -o requirements.txt
+cd ..
+.\scripts\export-requirements.ps1
 ```
+
+`requirements.txt` 是生成文件，禁止手工编辑。只读漂移检查使用 `.\scripts\export-requirements.ps1 -Check`。
 
 更新前端依赖后必须提交 `package.json` 和 `package-lock.json`，干净环境使用 `npm ci` 验证。
 
@@ -270,8 +284,9 @@ uv pip compile pyproject.toml -o requirements.txt
 
 ```powershell
 cd backend
-uv run pytest
-uv run python -m compileall app
+uv run pytest -p no:cacheprovider
+uv run ruff check main.py app tests scripts
+uv run python scripts\export_openapi.py --check
 ```
 
 当前测试覆盖 Agent 运行准备、运行时预算、意图路由、Benchmark runner/scorer 和 SSE 合同。

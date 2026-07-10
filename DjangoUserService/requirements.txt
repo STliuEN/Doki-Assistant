@@ -1,20 +1,167 @@
-django==5.2.6
-PyMySQL==1.1.0
-cryptography>=42.0.0
-djangorestframework==3.15.2
-djangorestframework-simplejwt==5.3.1
-django-cors-headers~=4.3.0
+# Generated from pyproject.toml and uv.lock by scripts/export-requirements.ps1.
+# Do not edit manually.
+amqp==5.3.1
+    # via kombu
+asgiref==3.11.1
+    # via
+    #   django
+    #   django-cors-headers
+    #   djangouserservice
+async-timeout==5.0.1 ; python_full_version <= '3.11.2'
+    # via redis
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
+billiard==4.2.4
+    # via celery
 celery==5.4.0
-redis==5.0.1
+    # via djangouserservice
+cffi==2.0.0 ; platform_python_implementation != 'PyPy'
+    # via
+    #   cryptography
+    #   gevent
+click==8.3.1
+    # via
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
+    #   uvicorn
+click-didyoumean==0.3.1
+    # via celery
+click-plugins==1.1.1.2
+    # via celery
+click-repl==0.3.0
+    # via celery
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via click
+cryptography==49.0.0
+    # via djangouserservice
+django==5.2.6
+    # via
+    #   django-cors-headers
+    #   django-redis
+    #   django-shortuuidfield
+    #   djangorestframework
+    #   djangorestframework-simplejwt
+    #   djangouserservice
+    #   drf-spectacular
+    #   drf-yasg
+django-cors-headers==4.3.1
+    # via djangouserservice
 django-redis==5.4.0
+    # via djangouserservice
+django-shortuuidfield==0.1.3
+    # via djangouserservice
+djangorestframework==3.15.2
+    # via
+    #   djangorestframework-simplejwt
+    #   djangouserservice
+    #   drf-spectacular
+    #   drf-yasg
+djangorestframework-simplejwt==5.3.1
+    # via djangouserservice
+drf-spectacular==0.29.0
+    # via djangouserservice
+drf-yasg==1.21.15
+    # via djangouserservice
+gevent==26.5.0
+    # via djangouserservice
+greenlet==3.5.1 ; platform_python_implementation == 'CPython'
+    # via gevent
+h11==0.16.0
+    # via uvicorn
+inflection==0.5.1
+    # via
+    #   drf-spectacular
+    #   drf-yasg
+jsonschema==4.26.0
+    # via drf-spectacular
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+kombu==5.6.2
+    # via celery
+mysql-connector-python==9.6.0
+    # via djangouserservice
+mysqlclient==2.2.8
+    # via djangouserservice
+packaging==26.0
+    # via
+    #   drf-yasg
+    #   kombu
+pillow==12.1.1
+    # via djangouserservice
+prompt-toolkit==3.0.52
+    # via click-repl
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+    # via cffi
+pyjwt==2.12.1
+    # via djangorestframework-simplejwt
+pymysql==1.1.0
+    # via djangouserservice
+python-dateutil==2.9.0.post0
+    # via celery
 python-dotenv==1.0.0
-uvicorn>=0.40
-asgiref>=3.11
-setuptools<60
-drf-yasg>=1.21.15
-drf-spectacular>=0.28.0
-django-shortuuidfield>=0.1.3
-pillow>=12.1.1
-mysqlclient>=2.2.8
-mysql-connector-python>=9.6.0
-gevent>=24.11.0
+    # via djangouserservice
+pytz==2026.1.post1
+    # via drf-yasg
+pyyaml==6.0.3
+    # via
+    #   drf-spectacular
+    #   drf-yasg
+redis==5.0.1
+    # via
+    #   django-redis
+    #   djangouserservice
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+rpds-py==0.30.0 ; python_full_version < '3.11'
+    # via
+    #   jsonschema
+    #   referencing
+rpds-py==2026.5.1 ; python_full_version >= '3.11'
+    # via
+    #   jsonschema
+    #   referencing
+setuptools==59.8.0
+    # via djangouserservice
+shortuuid==1.0.13
+    # via django-shortuuidfield
+six==1.17.0
+    # via
+    #   django-shortuuidfield
+    #   python-dateutil
+sqlparse==0.5.5
+    # via django
+typing-extensions==4.15.0 ; python_full_version < '3.13'
+    # via
+    #   asgiref
+    #   cryptography
+    #   pyjwt
+    #   referencing
+    #   uvicorn
+tzdata==2025.3
+    # via
+    #   celery
+    #   django
+    #   kombu
+uritemplate==4.2.0
+    # via
+    #   drf-spectacular
+    #   drf-yasg
+uvicorn==0.42.0
+    # via djangouserservice
+vine==5.1.0
+    # via
+    #   amqp
+    #   celery
+    #   kombu
+wcwidth==0.6.0
+    # via prompt-toolkit
+zope-event==6.2
+    # via gevent
+zope-interface==8.5
+    # via gevent

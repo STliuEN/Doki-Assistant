@@ -137,11 +137,11 @@ export default function NoteList() {
   useEffect(() => {
     setPage(1)
     loadNotes(1, true)
-  }, [category, searchQuery])
+  }, [category, loadNotes, searchQuery])
 
   useEffect(() => {
     refreshCategories(extraCategories)
-  }, [extraCategories])
+  }, [extraCategories, refreshCategories])
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -156,7 +156,7 @@ export default function NoteList() {
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loading, page])
+  }, [hasMore, loadNotes, loading, page])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

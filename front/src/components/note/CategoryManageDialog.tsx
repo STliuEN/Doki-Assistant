@@ -59,7 +59,7 @@ export default function CategoryManageDialog({
 
   useEffect(() => {
     setItems([...categories])
-  }, [open])
+  }, [categories, open])
 
   if (!open) return null
 

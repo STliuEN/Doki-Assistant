@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check documentation
+        shell: pwsh
+        run: ./scripts/check-docs.ps1
+
+  backend:
+    runs-on: windows-latest
+    env:
+      LANGCHAIN_TRACING_V2: "false"
+      SECRET_KEY: ci-jwt-secret
+      MODEL_CONFIG_ENCRYPTION_KEY: ci-model-config-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Verify lock files and generated requirements
+        shell: pwsh
+        run: |
+          uv lock --directory backend --check
+          uv lock --directory DjangoUserService --check
+          ./scripts/export-requirements.ps1 -Check
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen --extra dev
+      - name: Check Python code
+        working-directory: backend
+        run: uv run --frozen ruff check main.py app tests scripts
+      - name: Test backend
+        working-directory: backend
+        run: uv run --frozen pytest -p no:cacheprovider
+      - name: Check OpenAPI
+        working-directory: backend
+        run: uv run --frozen python scripts/export_openapi.py --check
+      - name: Run offline smoke benchmark
+        working-directory: backend
+        run: uv run --frozen python ../benchmarks/runners/run_benchmarks.py --suite smoke --offline --fail-under 0.9
+
+  django:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Django dependencies
+        working-directory: DjangoUserService
+        run: uv sync --frozen
+      - name: Check Django
+        working-directory: DjangoUserService
+        run: uv run --frozen python manage.py check
+
+  frontend:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: front
+        run: npm ci
+      - name: Lint frontend
+        working-directory: front
+        run: npm run lint -- --max-warnings 0
+      - name: Test frontend
+        working-directory: front
+        run: npm run test
+      - name: Build frontend
+        working-directory: front
+        run: npm run build

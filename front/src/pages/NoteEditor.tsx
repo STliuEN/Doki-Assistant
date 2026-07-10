@@ -107,6 +107,22 @@ export default function NoteEditor() {
   const editorRef = useRef<TiptapEditorHandle>(null)
   const isNew = !id || id === 'new'
 
+  const refreshTemplates = useCallback(() => {
+    noteTemplatesApi.list().then((res) => {
+      const list = (res.data as NoteTemplate[]) || []
+      setTemplates(list)
+      const order = loadTemplateOrder()
+      if (order) {
+        const map = new Map(list.map((template) => [template.id, template]))
+        const ordered = order.map((templateId) => map.get(templateId)).filter(Boolean) as NoteTemplate[]
+        const rest = list.filter((template) => !order.includes(template.id))
+        setTemplateItems([...ordered, ...rest])
+      } else {
+        setTemplateItems(list)
+      }
+    }).catch(() => {})
+  }, [])
+
   useEffect(() => {
     if (isNew || !id) return
     setLoading(true)
@@ -140,9 +156,9 @@ export default function NoteEditor() {
   useEffect(() => {
     if (!isNew) return
     refreshTemplates()
-  }, [isNew])
+  }, [isNew, refreshTemplates])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!title.trim() && !content.trim()) return
     setSaving(true)
     try {
@@ -159,7 +175,7 @@ export default function NoteEditor() {
     } finally {
       setSaving(false)
     }
-  }
+  }, [category, content, id, isNew, navigate, tags, title])
 
   const handleDelete = async () => {
     if (!id) return
@@ -212,22 +228,6 @@ export default function NoteEditor() {
     } catch {
       toast.error('保存模板失败')
     }
-  }
-
-  const refreshTemplates = () => {
-    noteTemplatesApi.list().then((res) => {
-      const list = (res.data as NoteTemplate[]) || []
-      setTemplates(list)
-      const order = loadTemplateOrder()
-      if (order) {
-        const map = new Map(list.map((t) => [t.id, t]))
-        const ordered = order.map((id) => map.get(id)).filter(Boolean) as NoteTemplate[]
-        const rest = list.filter((t) => !order.includes(t.id))
-        setTemplateItems([...ordered, ...rest])
-      } else {
-        setTemplateItems(list)
-      }
-    }).catch(() => {})
   }
 
   const startEditTemplate = (tpl: NoteTemplate) => {
@@ -317,7 +317,10 @@ export default function NoteEditor() {
   }
 
   const handleSaveRef = useRef(handleSave)
-  handleSaveRef.current = handleSave
+
+  useEffect(() => {
+    handleSaveRef.current = handleSave
+  }, [handleSave])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

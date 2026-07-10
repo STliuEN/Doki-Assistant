@@ -13,7 +13,6 @@ from app.agent.mcp.adapter import make_langchain_tool
 from app.agent.mcp.registry import mcp_tool_registry
 from app.core.logger_handler import logger
 
-
 SKILLS_DIR = Path(__file__).parent / "skills"
 TOOLS_DIR = Path(__file__).parent / "tools"
 

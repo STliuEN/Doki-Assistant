@@ -1,14 +1,37 @@
 from __future__ import annotations
 
+import os
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-
-CONFIG_PATH = Path(__file__).parents[2] / "config" / "mcp.yaml"
+CONFIG_DIR = Path(__file__).parents[2] / "config"
+MCP_EXAMPLE_CONFIG_PATH = CONFIG_DIR / "mcp.example.yaml"
+MCP_LOCAL_CONFIG_PATH = CONFIG_DIR / "mcp.local.yaml"
 VALID_RISK_LEVELS = {"low", "medium", "high"}
+
+
+def get_mcp_config_path(*, for_write: bool = False) -> Path:
+    configured = os.getenv("MCP_CONFIG_PATH", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+
+    if for_write:
+        if not MCP_LOCAL_CONFIG_PATH.exists() and MCP_EXAMPLE_CONFIG_PATH.exists():
+            MCP_LOCAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(MCP_EXAMPLE_CONFIG_PATH, MCP_LOCAL_CONFIG_PATH)
+        return MCP_LOCAL_CONFIG_PATH
+
+    if MCP_LOCAL_CONFIG_PATH.exists():
+        return MCP_LOCAL_CONFIG_PATH
+    return MCP_EXAMPLE_CONFIG_PATH
+
+
+def _resolve_config_path(config_path: Path | None, *, for_write: bool = False) -> Path:
+    return config_path if config_path is not None else get_mcp_config_path(for_write=for_write)
 
 
 @dataclass(frozen=True)
@@ -114,7 +137,8 @@ def make_mcp_tool_id(server_id: str, tool_name: str) -> str:
     return compact[:64] or "mcp_tool"
 
 
-def load_mcp_servers(config_path: Path = CONFIG_PATH) -> list[McpServerConfig]:
+def load_mcp_servers(config_path: Path | None = None) -> list[McpServerConfig]:
+    config_path = _resolve_config_path(config_path)
     if not config_path.exists():
         return []
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
@@ -159,8 +183,9 @@ def update_mcp_tool_override(
     server_id: str,
     tool_name: str,
     patch: dict[str, Any],
-    config_path: Path = CONFIG_PATH,
+    config_path: Path | None = None,
 ) -> None:
+    config_path = _resolve_config_path(config_path, for_write=True)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if not isinstance(data, dict):
         data = {}
@@ -206,6 +231,7 @@ def update_mcp_tool_override(
         if key in allowed_keys:
             current[key] = value
 
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
@@ -215,8 +241,9 @@ def update_mcp_tool_override(
 def update_mcp_server_config(
     server_id: str,
     patch: dict[str, Any],
-    config_path: Path = CONFIG_PATH,
+    config_path: Path | None = None,
 ) -> None:
+    config_path = _resolve_config_path(config_path, for_write=True)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if not isinstance(data, dict):
         data = {}
@@ -252,6 +279,7 @@ def update_mcp_server_config(
                 raise ValueError("MCP server url must start with http:// or https://")
             target[key] = text[:2000]
 
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
@@ -261,8 +289,9 @@ def update_mcp_server_config(
 def delete_mcp_tool_config(
     server_id: str,
     tool_name: str,
-    config_path: Path = CONFIG_PATH,
+    config_path: Path | None = None,
 ) -> None:
+    config_path = _resolve_config_path(config_path, for_write=True)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if not isinstance(data, dict):
         data = {}
@@ -289,6 +318,7 @@ def delete_mcp_tool_config(
         if not overrides:
             target.pop("tool_overrides", None)
 
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
@@ -297,8 +327,9 @@ def delete_mcp_tool_config(
 
 def delete_mcp_server_config(
     server_id: str,
-    config_path: Path = CONFIG_PATH,
+    config_path: Path | None = None,
 ) -> None:
+    config_path = _resolve_config_path(config_path, for_write=True)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if not isinstance(data, dict):
         data = {}
@@ -315,6 +346,7 @@ def delete_mcp_server_config(
         raise KeyError(f"MCP server not found: {server_id}")
     data["servers"] = kept
 
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
         encoding="utf-8",

@@ -10,7 +10,6 @@ from app.services.model_config_service import get_model_config_service
 from app.services.translate_service import stream_dialogue_translation
 from app.utils.auth_utils import get_current_user_id
 
-
 translate_router = APIRouter(prefix="/translate", tags=["translate"])
 
 

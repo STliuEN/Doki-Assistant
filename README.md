@@ -98,13 +98,15 @@ CREATE DATABASE user_service CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```powershell
 Copy-Item backend\.env.example backend\.env
 Copy-Item DjangoUserService\.env.example DjangoUserService\.env
+.\scripts\migrate-local-config.ps1
 ```
 
 至少完成以下配置：
 
-- `backend/.env`：LLM、Embedding、MySQL、Redis、`SECRET_KEY`。
+- `backend/.env`：LLM、Embedding、MySQL、Redis、`SECRET_KEY`、`MODEL_CONFIG_ENCRYPTION_KEY`。
 - `DjangoUserService/.env`：MySQL、Redis、`JWT_SECRET_KEY`。
 - `backend/.env` 的 `SECRET_KEY` 必须与 Django 的 `JWT_SECRET_KEY` 相同。
+- 新安装可为 `MODEL_CONFIG_ENCRYPTION_KEY` 使用独立强密钥；已有模型配置密文的环境必须先使用当前 `SECRET_KEY` 的相同值，再按开发文档执行轮换。
 - Django 当前固定使用 HS256，因此 FastAPI 的 `ALGORITHM` 应保持 `HS256`。
 
 ### 2. 安装依赖
@@ -172,8 +174,8 @@ npm run dev -- --host 127.0.0.1 --port 18080
 | Agent 运行预算 | `backend/app/config/agent.yaml` |
 | Chroma 路径、切片和文件类型 | `backend/app/config/chroma.yaml` |
 | Prompt 文件映射 | `backend/app/config/prompt.yaml` |
-| 管理员兜底名单 | `backend/app/config/security.yaml` 和 `ADMIN_USER_IDS/ADMIN_USERNAMES` |
-| MCP server 与 tool overrides | `backend/app/config/mcp.yaml` |
+| 管理员兜底名单 | `backend/app/config/security.local.yaml` 和 `ADMIN_USER_IDS/ADMIN_USERNAMES`；模板为 `security.example.yaml` |
+| MCP server 与 tool overrides | `backend/app/config/mcp.local.yaml`；模板为 `mcp.example.yaml` |
 
 `backend/app/config/rag.yaml` 目前仅保留迁移提示，不再承载有效模型配置。
 

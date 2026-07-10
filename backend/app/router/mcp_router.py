@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 from app.agent.mcp.config import (
@@ -16,7 +17,6 @@ from app.agent.mcp.registry import mcp_tool_registry
 from app.agent.skill_registry import skill_registry
 from app.core.success_response import success_response
 from app.utils.auth_utils import get_current_user_id, is_admin_user, require_admin_user, security
-from fastapi.security import HTTPAuthorizationCredentials
 
 mcp_router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 

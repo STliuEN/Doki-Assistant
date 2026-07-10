@@ -309,8 +309,11 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(({ value,
   const ghostFromRef = useRef(0)
   const [preview, setPreview] = useState(false)
   const [ghost, setGhost] = useState<{ text: string; left: number; top: number } | null>(null)
-  onChangeRef.current = onChange
-  autocompleteRef.current = onAutocomplete
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+    autocompleteRef.current = onAutocomplete
+  }, [onAutocomplete, onChange])
 
   const editor = useEditor({
     extensions: [

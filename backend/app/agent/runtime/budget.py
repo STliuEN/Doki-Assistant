@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 DEFAULT_RUNTIME_BUDGET = {
     "max_iterations": 160,
     "max_tool_calls": 120,

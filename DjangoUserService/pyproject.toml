@@ -35,14 +35,14 @@ where = ["."]
 include = ["DjangoUserService", "apps"]
 
 [[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+url = "https://pypi.org/simple"
+default = true
 
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv]
-index-url = "https://pypi.org/simple"
-cache-dir = ".uv-cache"
+cache-dir = "../.uv-cache"
 python-downloads = "never"
 python-preference = "only-system"

@@ -2,7 +2,7 @@ servers:
   - id: powershell_ls_test
     label: PowerShell LS Test
     description: Read-only MCP smoke test server that exposes a bounded project file listing tool.
-    enabled: true
+    enabled: false
     transport: stdio
     command: python
     args:
@@ -18,7 +18,7 @@ servers:
   - id: public_info_lookup
     label: Public Info Lookup
     description: Read-only MCP server for Chinese university information and external ping checks.
-    enabled: true
+    enabled: false
     transport: stdio
     command: python
     args:
@@ -29,6 +29,6 @@ servers:
       - ping_check
     deny_tools: []
     default_risk_level: medium
-    default_requires_confirmation: false
+    default_requires_confirmation: true
     timeout_seconds: 20
     max_output_chars: 10000

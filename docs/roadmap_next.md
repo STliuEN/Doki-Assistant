@@ -13,7 +13,7 @@
 - Tool 调用次数、确认、超时和输出截断统一进入 GuardedTool。
 - 高风险 pending action 使用 Redis、TTL、用户隔离和一次性消费。
 - 前端 SSE 消费已拆入 `features/chat/useChatStream` 并有 Vitest 合同测试。
-- MCP server/tool 已支持 catalog、refresh、配置更新、禁用和删除，并写回 `mcp.yaml`。
+- MCP server/tool 已支持 catalog、refresh、配置更新、禁用和删除，并写回 Git 忽略的 `mcp.local.yaml`。
 - 本地 smoke benchmark 已覆盖 Agent 流、工具安全、SSE 合同和 scorer。
 
 ## 优先级原则

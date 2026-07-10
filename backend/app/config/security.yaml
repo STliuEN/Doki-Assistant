@@ -1,7 +1,0 @@
-admin:
-  # Prefer stable Django user UUIDs for long-lived administrator grants.
-  user_ids: 
-    - j6BVY9AHmHPQEbwoZabRMq
-  # Usernames are convenient for local development; STliuEN is the initial admin.
-  usernames:
-    - STliuEN

@@ -12,7 +12,6 @@ from app.schemas.model_config import ModelConfigCreate, ModelConfigResponse, Mod
 from app.utils.crypto_utils import decrypt_text, encrypt_text, mask_secret
 from app.utils.model_provider import create_chat_model_from_config
 
-
 SUPPORTED_MODEL_TYPES = {"default", "ollama", "openai_compatible"}
 USER_EDITABLE_MODEL_TYPES = {"ollama", "openai_compatible"}
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"

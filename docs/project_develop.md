@@ -252,7 +252,7 @@ pending action 默认 TTL 为 600 秒，按 `user_id` 校验，确认后一次�
 MCP 是外部 Tool 来源，不替代本地 Tool。
 
 ```text
-mcp.yaml
+mcp.local.yaml
   -> McpToolProvider tools/list
   -> McpToolRegistry
   -> adapter to BaseTool
@@ -267,7 +267,7 @@ mcp.yaml
 - stdio、SSE、HTTP/streamable HTTP transport。
 - server enable、label、description 和 URL 更新。
 - tool label、description、enable、风险、确认、超时和输出限制 override。
-- server/tool 删除写回 `mcp.yaml`。
+- server/tool 删除写回 Git 忽略的 `mcp.local.yaml`。
 - 普通用户只读，管理员 refresh 和修改。
 - provider 错误状态和 Agent 请求时的惰性自愈。
 
@@ -333,7 +333,7 @@ FastAPI -> decode shared-secret JWT -> user_id
 - FastAPI 使用 `SECRET_KEY` 和 `ALGORITHM` 解码。
 - 两个服务通过 Redis 黑名单识别已撤销 token。
 - FastAPI 业务数据查询必须携带当前 `user_id`。
-- 管理员来自 `security.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`。
+- 管理员来自 `security.local.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`；仓库只跟踪空名单模板 `security.example.yaml`。
 
 当前权限不是数据库角色模型，也没有完整管理审计。
 

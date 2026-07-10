@@ -10,12 +10,10 @@ import asyncio
 import contextvars
 import json
 
-import pytest
-
 from app.agent.runtime import budget as budget_mod
 from app.agent.runtime.budget import DEFAULT_RUNTIME_BUDGET, get_runtime_budget
 from app.agent.runtime.event_pump import stream_agent_events
-from app.agent.runtime.sse_driver import drive_sse_stream, make_thinking_callback, new_run_id
+from app.agent.runtime.sse_driver import drive_sse_stream
 
 
 def _run(coro):

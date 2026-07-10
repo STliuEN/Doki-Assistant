@@ -12,8 +12,8 @@ from app.db.redis_config import close_redis, connect_redis
 from app.router.chat import chat_router
 from app.router.health import health_router
 from app.router.knowledge_router import knowledge_router
-from app.router.memory_router import memory_router
 from app.router.mcp_router import mcp_router
+from app.router.memory_router import memory_router
 from app.router.model_config_router import model_config_router
 from app.router.note_router import note_router
 from app.router.note_template_router import note_template_router
@@ -22,6 +22,7 @@ from app.router.tool_router import tool_router
 from app.router.translate import translate_router
 from app.router.user import user_router
 from app.services.database_session_manager import init_database_session_manager
+from app.utils.auth_utils import validate_security_configuration
 
 # 加载环境变量
 load_dotenv()
@@ -83,6 +84,8 @@ async def say_hello(name: str):
 @app.on_event("startup")
 async def startup_event():
     """应用启动时初始化会话管理器"""
+    validate_security_configuration()
+
     # 初始化数据库表结构
     await init_db()
     logger.info("数据库表结构初始化完成")

@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import mimetypes
 import os
@@ -71,12 +70,28 @@ def _sync_slice_file(file_content: bytes, filename: str, file_index: int, user_i
             store = VectorStoreService()
             documents = store.get_file_document_sync(temp_file_path, md5=md5_hex, user_id=user_id)
             if not documents:
-                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="文件加载为空", md5=md5_hex, document_id=document_id))
+                queue.put(
+                    SliceResult.error_result(
+                        file_index=file_index,
+                        filename=filename,
+                        error="文件加载为空",
+                        md5=md5_hex,
+                        document_id=document_id,
+                    )
+                )
                 return
 
             split_docs = store.split_documents_sync(documents)
             if not split_docs:
-                queue.put(SliceResult.error_result(file_index=file_index, filename=filename, error="切片结果为空", md5=md5_hex, document_id=document_id))
+                queue.put(
+                    SliceResult.error_result(
+                        file_index=file_index,
+                        filename=filename,
+                        error="切片结果为空",
+                        md5=md5_hex,
+                        document_id=document_id,
+                    )
+                )
                 return
 
             for doc in split_docs:

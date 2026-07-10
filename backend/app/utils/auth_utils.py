@@ -22,7 +22,43 @@ ALGORITHM = os.getenv("ALGORITHM")
 # 创建Bearer认证方案
 security = HTTPBearer()
 
-SECURITY_CONFIG_PATH = Path(__file__).parents[1] / "config" / "security.yaml"
+CONFIG_DIR = Path(__file__).parents[1] / "config"
+SECURITY_EXAMPLE_CONFIG_PATH = CONFIG_DIR / "security.example.yaml"
+SECURITY_LOCAL_CONFIG_PATH = CONFIG_DIR / "security.local.yaml"
+
+
+def get_security_config_path() -> Path:
+    configured = os.getenv("SECURITY_CONFIG_PATH", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    if SECURITY_LOCAL_CONFIG_PATH.exists():
+        return SECURITY_LOCAL_CONFIG_PATH
+    return SECURITY_EXAMPLE_CONFIG_PATH
+
+
+def _is_insecure_secret(value: str | None) -> bool:
+    if not value or len(value.strip()) < 32:
+        return True
+    normalized = value.strip().lower()
+    return any(marker in normalized for marker in ("replace-with", "replace_with", "your-secret", "example"))
+
+
+def validate_security_configuration() -> None:
+    environment = os.getenv("ENV", "dev").strip().lower()
+    if environment in {"dev", "development", "test", "testing"}:
+        return
+
+    errors: list[str] = []
+    jwt_secret = os.getenv("SECRET_KEY")
+    model_secret = os.getenv("MODEL_CONFIG_ENCRYPTION_KEY")
+    if _is_insecure_secret(jwt_secret):
+        errors.append("SECRET_KEY must be a non-placeholder secret of at least 32 characters")
+    if _is_insecure_secret(model_secret):
+        errors.append("MODEL_CONFIG_ENCRYPTION_KEY must be a non-placeholder secret of at least 32 characters")
+    if jwt_secret and model_secret and jwt_secret == model_secret:
+        errors.append("SECRET_KEY and MODEL_CONFIG_ENCRYPTION_KEY must be different")
+    if errors:
+        raise RuntimeError("Invalid security configuration: " + "; ".join(errors))
 
 
 def decode_django_jwt(token: str) -> dict[str, Any] | None:
@@ -102,8 +138,9 @@ def _split_env_list(value: str | None) -> set[str]:
 
 
 def _read_security_admins() -> tuple[set[str], set[str]]:
+    config_path = get_security_config_path()
     try:
-        data = yaml.safe_load(SECURITY_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     except Exception as exc:
         logger.warning(f"读取安全配置失败，使用环境变量管理员名单: {exc}")
         data = {}
@@ -130,7 +167,7 @@ async def require_admin_user(
 ) -> str:
     """Require a logged-in administrator.
 
-    Administrators are configured in app/config/security.yaml.
+    Administrators are configured in app/config/security.local.yaml.
     ADMIN_USER_IDS and ADMIN_USERNAMES can add deployment-specific admins.
     """
     if await is_admin_user(user_id, credentials):

@@ -11,8 +11,7 @@ import asyncio
 
 import pytest
 
-from app.agent import intent_router
-from app.agent import routing_calibration
+from app.agent import intent_router, routing_calibration
 from app.agent.intent_router import route_skills
 from app.core.background_init import init_manager
 

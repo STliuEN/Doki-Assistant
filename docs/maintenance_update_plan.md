@@ -1,10 +1,26 @@
 # 仓库更新完整性整改计划
 
-状态：待实施  
-基线日期：2026-07-10  
+状态：本地实施完成，待首次远端 CI 运行
+基线日期：2026-07-10
+实施日期：2026-07-10
 适用范围：当前 `ai_document_assistant` 分支
 
 本文处理依赖、生成文件、配置、安全、前端质量门禁和 CI 的更新完整性问题。产品功能路线仍以 [下一阶段路线图](./roadmap_next.md) 为准。
+
+## 实施结果
+
+| 项目 | 结果 |
+|------|------|
+| Python 依赖 | 两个项目统一官方 PyPI；requirements 由 `scripts/export-requirements.ps1` 从 lock 生成 |
+| FastAPI OpenAPI | `backend/scripts/export_openapi.py` 生成并检查，静态文件与当前 91 条路径一致 |
+| 安全配置 | 仓库只跟踪空名单模板；本机管理员配置迁移到 Git 忽略文件 |
+| 模型配置密钥 | 本机已从当前 `SECRET_KEY` 初始化专用变量，并提供 dry-run 优先的轮换脚本 |
+| MCP 配置 | 示例默认禁用，本机可写配置与 Git 分离 |
+| Frontend | lint 0 errors/0 warnings，Vitest 与构建通过 |
+| Python 工具链 | Ruff 通过，Pydantic class config 警告已消除，uv 缓存统一到仓库根目录 |
+| CI | `.github/workflows/ci.yml` 已覆盖文档、后端、Django、前端、OpenAPI、requirements 和 smoke benchmark |
+
+以下“已确认基线”和 M0-M6 保留实施前问题及决策过程，不能再作为当前失败状态解读。
 
 ## 目标
 
@@ -18,7 +34,7 @@
 - Django 和 FastAPI 的 uv 配置可以在干净环境稳定复现。
 - CI 自动阻止上述问题再次进入主分支。
 
-## 已确认基线
+## 实施前基线
 
 | 检查项 | 当前结果 |
 |--------|----------|
@@ -124,11 +140,11 @@ npm run build -- --outDir dist-build-check
 ```powershell
 cd backend
 uv lock --check
-uv pip compile pyproject.toml -o requirements.txt
-
 cd ..\DjangoUserService
 uv lock --check
-uv pip compile pyproject.toml -o requirements.txt
+cd ..
+.\scripts\export-requirements.ps1
+.\scripts\export-requirements.ps1 -Check
 ```
 
 实施时必须确认 torch 仍从 `pytorch-cu132` index 解析，不能让通用 PyPI wheel 替换 CUDA wheel。

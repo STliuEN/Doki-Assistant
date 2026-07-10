@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   Archive,
@@ -71,7 +71,7 @@ export default function MemoryCenter() {
   const [selectedAnswer, setSelectedAnswer] = useState<Record<string, string>>({})
   const [questionLoading, setQuestionLoading] = useState<string | null>(null)
 
-  const loadItems = async (nextFilter = filter) => {
+  const loadItems = useCallback(async (nextFilter: FilterKey) => {
     setLoading(true)
     try {
       if (nextFilter === 'today') {
@@ -95,11 +95,11 @@ export default function MemoryCenter() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    void loadItems()
-  }, [])
+    void loadItems('today')
+  }, [loadItems])
 
   const handleFilter = (key: FilterKey) => {
     setFilter(key)
@@ -120,7 +120,7 @@ export default function MemoryCenter() {
       toast.success('记忆事项已创建')
       setForm(initialForm)
       setCreating(false)
-      void loadItems()
+      void loadItems(filter)
     } catch {
       toast.error('创建失败')
     }
@@ -129,32 +129,32 @@ export default function MemoryCenter() {
   const handleComplete = async (id: string) => {
     await memoryApi.complete(id)
     toast.success('已完成')
-    void loadItems()
+    void loadItems(filter)
   }
 
   const handleReviewed = async (id: string) => {
     await memoryApi.reviewed(id)
     toast.success('已标记复习完成')
-    void loadItems()
+    void loadItems(filter)
   }
 
   const handlePostpone = async (id: string) => {
     await memoryApi.postpone(id, 1)
     toast.success('已延期 1 天')
-    void loadItems()
+    void loadItems(filter)
   }
 
   const handleArchive = async (id: string) => {
     await memoryApi.archive(id)
     toast.success('已归档')
-    void loadItems()
+    void loadItems(filter)
   }
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('确定要删除这条记忆事项吗？')) return
     await memoryApi.delete(id)
     toast.success('已删除')
-    void loadItems()
+    void loadItems(filter)
   }
 
   const handleStartQuiz = async (item: MemoryItem) => {

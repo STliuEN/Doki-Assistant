@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -17,7 +17,7 @@ export default function Sessions() {
   const { sessions, setSessions, removeSession, setLoading, loading } = useSessionStore()
   const [deleteTarget, setDeleteTarget] = useState<ChatSession | null>(null)
 
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     if (!userId) return
     setLoading(true)
     try {
@@ -29,9 +29,9 @@ export default function Sessions() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [setLoading, setSessions, userId])
 
-  useEffect(() => { loadSessions() }, [userId])
+  useEffect(() => { loadSessions() }, [loadSessions])
 
   const handleDelete = async () => {
     if (!deleteTarget) return

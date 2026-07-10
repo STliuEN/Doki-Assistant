@@ -2,8 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from langchain_community.chat_models import ChatTongyi
-from langchain_ollama import ChatOllama
-from langchain_ollama import OllamaEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 from app.models.model_config import UserModelConfig
 from app.utils.clean_openai_chat import CleanOpenAIChatModel

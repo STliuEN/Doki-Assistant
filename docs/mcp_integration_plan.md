@@ -5,7 +5,8 @@ MCP（Model Context Protocol）是 Doki 助手的外部 Tool 来源。本地 Too
 ## 当前实现
 
 ```text
-backend/app/config/mcp.yaml
+backend/app/config/mcp.example.yaml  # 仓库模板，默认禁用
+backend/app/config/mcp.local.yaml    # 本机可写配置，Git 忽略
 backend/app/agent/mcp/
   config.py       YAML 读取、server 更新、tool override 和删除
   provider.py     transport、tools/list、tools/call、连接错误
@@ -24,7 +25,7 @@ front/src/pages/ToolManager.tsx
 - tool 级 label、description、enabled、风险、确认、超时和输出限制 override。
 - 启动 discovery、管理员 refresh 和错误态惰性自愈。
 - ToolManager 展示本地 Tool、MCP server 和 MCP Tool。
-- 管理员更新或删除 server/tool，配置直接写回 `mcp.yaml`。
+- 管理员更新或删除 server/tool，配置写回 `mcp.local.yaml`。
 - 普通登录用户只读，管理员执行修改操作。
 
 当前没有独立的连接测试 API、数据库配置中心、secret store 或完整审计记录。
@@ -33,7 +34,7 @@ front/src/pages/ToolManager.tsx
 
 ```mermaid
 flowchart TD
-  Config[mcp.yaml] --> Provider[McpToolProvider]
+  Config[mcp.local.yaml] --> Provider[McpToolProvider]
   Provider --> List[MCP tools/list]
   List --> Registry[McpToolRegistry]
   Registry --> Adapter[LangChain adapter]
@@ -60,7 +61,7 @@ flowchart TD
 | 类型 | 来源 | 执行位置 | 典型用途 |
 |------|------|----------|----------|
 | 本地 Tool | `backend/app/agent/tools/<id>/` | FastAPI 进程 | 内部数据库、笔记、记忆、RAG |
-| MCP Tool | `mcp.yaml` 指向的 server | 外部进程或服务 | 外部系统、跨语言工具、桌面或网络能力 |
+| MCP Tool | `mcp.local.yaml` 指向的 server | 外部进程或服务 | 外部系统、跨语言工具、桌面或网络能力 |
 
 进入 Agent 后两者都转换为 `ToolDefinition`，再包装为 GuardedTool。MCP Tool 的 `source` 为 `mcp`，并保留 `provider_id` 和 `external_name`，便于事件和待确认动作恢复真实来源。
 
@@ -69,8 +70,11 @@ flowchart TD
 配置入口：
 
 ```text
-backend/app/config/mcp.yaml
+backend/app/config/mcp.example.yaml
+backend/app/config/mcp.local.yaml
 ```
+
+读取顺序为 `MCP_CONFIG_PATH`、`mcp.local.yaml`、`mcp.example.yaml`。写操作始终使用显式路径或本机文件；若本机文件不存在，会先从示例创建。仓库示例中的 server 全部默认禁用。
 
 server 字段：
 
@@ -120,7 +124,7 @@ servers:
         max_output_chars: 3000
 ```
 
-默认值是保守的：未配置风险时为 `medium`，未配置确认时为 `true`。仓库当前 `mcp.yaml` 显式启用了两个开发/演示 server；部署环境应逐项审查，而不是默认信任。
+默认值是保守的：未配置风险时为 `medium`，未配置确认时为 `true`。仓库示例包含两个开发/演示 server，但均为禁用状态；部署环境必须显式启用并逐项审查。
 
 ## Tool ID
 
@@ -187,7 +191,7 @@ server 更新目前不支持通过 API 修改 stdio command、args、env 或 tra
 - 管理员可以更新 MCP Tool 展示、enabled、风险、确认、超时和输出限制。
 - 管理员可以从项目删除 server 或屏蔽 Tool。
 
-UI 保存后会立即触发后端 refresh。由于配置写回跟踪中的 `mcp.yaml`，开发者提交前必须检查 Git diff。
+UI 保存后会立即触发后端 refresh。配置写回 Git 忽略的 `mcp.local.yaml`，不会污染仓库模板。
 
 ## stdio 环境
 
@@ -258,6 +262,6 @@ MCP Tool 的最终风险配置按以下顺序确定：
 - stdio env 可能包含 secret，当前没有 secret manager。
 - 没有独立 server/tool test API 和最近测试记录。
 - 外部 server 的权限边界仍由部署者负责；MCP 协议本身不构成沙箱。
-- 多实例 FastAPI 同时写 `mcp.yaml` 没有并发控制。
+- 多实例 FastAPI 同时写 `mcp.local.yaml` 没有并发控制。
 
 后续工作见 [下一阶段路线图](./roadmap_next.md#p1-权限与-mcp-治理)。

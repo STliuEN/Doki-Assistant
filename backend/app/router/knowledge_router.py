@@ -18,9 +18,9 @@ from app.schemas.models import (
     MD5ListResponse,
     MD5Record,
 )
-from app.utils.auth_utils import get_current_user_id
 from app.services.embedding_config_service import get_embedding_config_service
 from app.services.reranker_config_service import get_reranker_config_service
+from app.utils.auth_utils import get_current_user_id
 
 # 图片相关工具：定位存储目录，构建文件路径
 from app.utils.image_extractor import get_image_storage_dir

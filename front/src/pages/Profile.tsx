@@ -38,7 +38,7 @@ export default function Profile() {
         }
       }).catch(() => {})
     }
-  }, [token])
+  }, [setUserInfo, token])
 
   useEffect(() => {
     if (userInfo) {
