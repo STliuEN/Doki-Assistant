@@ -1,215 +1,218 @@
-# 项目发展与当前架构
+# 当前架构
 
-本文面向当前代码结构，说明 Doki 助手如何组织为个人 Agent 工作台。历史演进只保留必要背景；后续待办见 [下一阶段开发计划](./roadmap_next.md)。
+本文描述当前仓库中的服务、模块和运行边界。历史设计过程位于 `project_changes/`；尚未完成的工作位于 [下一阶段路线图](./roadmap_next.md)。
 
-## 当前定位
+## 系统边界
 
-Doki 助手已经从基础 RAG 服务演进为个人 Agent 工作台。当前核心不是单一问答、单一笔记或单一翻译功能，而是把对话、知识库、笔记、记忆中心、模型配置和工具调用组织到同一套用户上下文中。
-
-当前产品形态：
-
-- 用户通过 React 工作台使用聊天、知识库、笔记、记忆、翻译和设置页面。
-- Django 用户服务负责登录、注册、用户资料和文件入口。
-- FastAPI 业务后端负责 Agent、RAG、笔记、记忆、模型配置、Skill/Tool 和 MCP。
-- MySQL 保存用户、会话和业务数据。
-- Redis 用于缓存、token 黑名单、限流辅助和待确认动作。
-- ChromaDB 保存知识库和笔记向量索引。
-
-## 简要演进
-
-项目经历过三个方向：
-
-1. 基础 RAG：文档上传、切片、向量检索和 LLM 回答。
-2. RAG NoteBook：把笔记纳入搜索、关联推荐和写作辅助。
-3. 个人 Agent 工作台：以对话为入口，统一 Skill/Tool、RAG、记忆、笔记和外部工具。
-
-这些历史解释了当前代码里同时存在 RAG、笔记、Agent、MCP 和记忆中心的原因。后续维护重点是收敛边界，而不是继续把新逻辑塞进旧的大文件。
-
-## 总体架构
+Doki 助手是一个由三个应用进程组成的本地开发系统：
 
 ```mermaid
 flowchart TD
-  U[用户浏览器] --> F[React + Vite]
-  F -->|/user /file| D[DjangoUserService]
-  F -->|业务 API / SSE| B[FastAPI backend]
+  Browser[Browser] --> Front[React/Vite]
+  Front -->|/user /file| Django[DjangoUserService]
+  Front -->|Business API and SSE| API[FastAPI backend]
 
-  D --> UserDB[(MySQL 用户数据)]
-  D --> Redis[(Redis)]
+  Django --> UserDB[(MySQL user database)]
+  Django --> Redis[(Redis)]
 
-  B --> Auth[JWT 解析 user_id]
-  B --> AppDB[(MySQL 业务数据)]
-  B --> Redis
-  B --> Chroma[(ChromaDB)]
+  API --> BusinessDB[(MySQL business database)]
+  API --> Redis
+  API --> Chroma[(ChromaDB)]
+  API --> Files[(Local files)]
 
-  B --> Chat[Chat Router]
-  B --> Knowledge[Knowledge Router]
-  B --> Note[Note Router]
-  B --> Memory[Memory Router]
-  B --> ModelConfig[Model Config Router]
-  B --> Translate[Translate Router]
-  B --> SkillTool[Skill / Tool Router]
-  B --> MCP[MCP Router]
-
-  Chat --> Agent[LangChain AgentExecutor]
-  Agent --> Registry[Skill / Tool Registry]
-  Registry --> LocalTools[本地 Tools]
-  Registry --> MCPTools[MCP Tools]
-
-  LocalTools --> Knowledge
-  LocalTools --> Note
-  LocalTools --> Memory
-  MCPTools --> External[MCP Server]
-
-  Agent --> ModelLayer[模型调用层]
-  Translate --> ModelLayer
-  Knowledge --> Embedding[Embedding / Reranker]
+  API --> Runtime[Agent runtime]
+  Runtime --> Local[Local Tools]
+  Runtime --> MCP[MCP Tools]
+  MCP --> External[External MCP server]
 ```
 
-服务分工：
+| 服务 | 主要职责 | 不负责 |
+|------|----------|--------|
+| React | 页面、交互状态、API 调用、SSE 消费 | 业务持久化、JWT 签发 |
+| Django | 用户、JWT、用户资料、头像文件 | Agent、RAG、笔记和记忆 |
+| FastAPI | Agent 和全部业务模块 | 登录注册、JWT 签发 |
 
-- `front/`：React 工作台。负责页面、状态、API 请求、SSE 消费、主题和国际化。
-- `DjangoUserService/`：用户与文件入口。负责登录注册、用户资料、JWT 和 `/file` 路由。
-- `backend/`：FastAPI 主业务。负责 Agent、业务 API、RAG、笔记、记忆、模型配置和 MCP。
+开发环境由 Vite proxy 聚合两个后端。生产环境目前没有对应的反向代理或部署定义。
 
-## 后端结构
-
-FastAPI 后端主要目录：
+## 仓库结构
 
 ```text
-backend/app/
-  agent/       # Agent、Skill、Tool、MCP 适配和工具运行保护
-  cache/       # Redis 辅助
-  config/      # agent/security/chroma/rag/prompt/mcp 配置
-  core/        # 日志、限流、响应、异常、后台初始化
-  db/          # MySQL / Redis 连接
-  models/      # SQLAlchemy 模型
-  prompt/      # Prompt 文本
-  rag/         # 文档处理、向量库、检索和重排
-  router/      # FastAPI 路由
-  schemas/     # Pydantic schema
-  services/    # 业务服务
-  utils/       # 模型、文件、路径、加密、PDF/视觉等工具
+backend/
+  app/
+    agent/          AgentFactory、上下文、流式运行、Skill/Tool、MCP
+    cache/          Redis 缓存辅助
+    config/         YAML 配置
+    core/           初始化、日志、限流、响应和异常
+    db/             MySQL、Redis 连接
+    models/         SQLAlchemy 模型
+    prompt/         Prompt 文本
+    rag/            文档处理、向量索引、检索和重排
+    router/         FastAPI 路由
+    schemas/        Pydantic schema
+    services/       业务服务和运行准备
+    utils/          认证、模型、路径、文件、视觉等辅助
+  tests/
+  main.py
+
+front/
+  src/
+    api/            Axios client、endpoint 和业务 API
+    components/     通用与业务组件
+    features/chat/  聊天 SSE hook、类型、存储和测试
+    hooks/          通用 hooks
+    i18n/           中英文文案
+    layouts/        主布局和认证布局
+    pages/          页面级组件
+    router/         React Router
+    stores/         Zustand stores
+    types/          共享类型
+
+DjangoUserService/
+  apps/user/        用户模型、序列化、JWT 和用户接口
+  apps/file/        头像上传
+  DjangoUserService/ settings、URL、ASGI/WSGI
+  manage.py
+
+benchmarks/
+  cases/            YAML cases
+  fixtures/         离线脚本和工具数据
+  runners/          CLI、harness、scorer、report
+  schemas/          case JSON Schema
+  baselines/        smoke baseline
+  results/          本地运行产物
 ```
 
-当前分层意图：
+## FastAPI 启动过程
 
-- `router` 负责 HTTP/SSE 入口。
-- `services` 负责业务规则和数据库操作。
-- `agent` 负责 Agent 运行时、Skill/Tool 注册和工具保护。
-- `rag` 负责文档索引、检索和重排。
-- `utils` 放通用能力，但已经有部分模块偏业务，需要后续收敛。
+入口是 `backend/main.py`。
 
-当前主要维护风险：
+启动事件依次执行：
 
-- `backend/app/agent/agent.py` 职责过重，是 Agent 运行时重构的首要目标。
-- `backend/app/router/chat.py` 同时承担路由和业务编排，需要迁移到服务层。
-- `backend/app/router/knowledge_service.py`、`backend/app/rag/vector_store.py`、`backend/app/rag/rag_service.py` 体量偏大，需要进一步明确边界。
-- 模块级单例较多，例如 `init_manager`、`skill_registry`、`tool_registry`、`session_manager`，测试和热重载成本较高。
+1. 创建缺失的 SQLAlchemy 表，并补充缺失列。
+2. 初始化数据库会话管理器。
+3. 建立 Redis 连接池。
+4. 后台启动聊天模型、Embedding、Chroma NoteService 和 Reranker 初始化。
+5. 刷新 MCP 工具并 reload SkillRegistry。
 
-## 前端结构
+重型模型在后台初始化，因此 Uvicorn 端口可用不等于 Embedding 或 Reranker 已完成预热。`/health/ready` 当前只检查 MySQL 和 Redis。
 
-React 前端主要目录：
+关闭事件会关闭 MCP provider、Redis 连接池和 SQLAlchemy engine。
+
+## FastAPI 分层
+
+### Router
+
+`backend/app/router/` 负责协议层：
+
+- 接收 HTTP/SSE 参数。
+- 注入 JWT、数据库会话和限流依赖。
+- 调用 service 或 Agent 编排。
+- 返回统一响应或 StreamingResponse。
+
+主要 namespace：
+
+| Namespace | 模块 |
+|-----------|------|
+| `/chat` | Agent、会话、RAG query、重新生成、高风险确认 |
+| `/knowledge` | 文档入库、向量数据、Embedding/Reranker 配置 |
+| `/note` | 笔记 CRUD、批处理和 AI 辅助 |
+| `/note-template` | 笔记模板 |
+| `/memory` | 记忆和事项 |
+| `/model-config` | 用户模型配置 |
+| `/translate` | 流式翻译 |
+| `/skills` | Skill catalog 和管理 |
+| `/tools` | 本地 Tool catalog 和管理 |
+| `/api/mcp` | MCP catalog、权限和管理 |
+| `/health` | 存活与就绪检查 |
+
+Vite 对 `/api/skills` 和 `/api/tools` 去掉 `/api` 后再转发，因此浏览器使用的路径与 FastAPI 原始路径不同。
+
+### Services
+
+`backend/app/services/` 保存跨路由复用的业务规则。关键服务包括：
+
+- `agent_run_service.py`：模型配置、Prompt 模式、Skill 预路由、MCP 自愈、Tool 解析和 system prompt。
+- `database_session_manager.py`：会话消息、摘要和消息变更。
+- `session_query_service.py`：会话读取、删除、RAG query 和重排入口。
+- `note_service.py`：笔记业务与向量索引。
+- `memory_service.py`：记忆事项 CRUD 和状态变化。
+- `model_config_service.py`：用户模型配置与系统默认模型。
+- `embedding_config_service.py`、`reranker_config_service.py`：知识库模型配置。
+- `pending_action_store.py`：Redis 中一次性消费的高风险待确认动作。
+
+### Models 与数据库
+
+FastAPI 使用 SQLAlchemy async engine 和 MySQL。业务模型包括：
+
+- `ChatSession` / `ChatMessage`。
+- `Note` / `NoteTemplate`。
+- `MemoryItem`。
+- `KnowledgeSourceDocument`。
+- `UserModelConfig`。
+- 用户 Embedding 配置记录。Reranker 当前保存到 `backend/data/reranker_config.json`，不在业务表中。
+
+FastAPI 目前没有 Alembic。启动时调用 `create_all`，并通过自定义逻辑增加缺失列；复杂 schema 迁移仍需要正式 migration 方案。
+
+## Agent 运行时
+
+旧版集中式 `backend/app/agent/agent.py` 已删除。当前职责拆分如下：
 
 ```text
-front/src/
-  api/          # axios client、endpoint、各业务 API 封装
-  components/   # 通用组件和业务组件
-  hooks/        # 通用 hooks
-  i18n/         # 中英文文案
-  layouts/      # 主布局和认证布局
-  pages/        # 页面级组件
-  router/       # 路由定义
-  stores/       # Zustand 状态
-  types/        # 共享类型
+backend/app/agent/
+  factory.py             创建聊天模型和 AgentExecutor
+  context_builder.py     历史、摘要、上下文窗口
+  streaming.py           query、regenerate、confirm 的流式编排
+  intent_router.py       Skill 预路由
+  routing_calibration.py 路由阈值校准和缓存
+  skill_registry.py      Skill、Local Tool、MCP Tool 注册与解析
+  tool_guard.py          调用预算、确认、超时、输出截断
+  tool_context.py        当前 user/session/run contextvars
+  runtime/
+    budget.py            读取 Agent 预算
+    events.py            运行时事件结构
+    event_pump.py        AgentExecutor astream_events 消费
+    sse_driver.py        SSE、超时、停止和收尾
 ```
 
-当前页面：
-
-- `AIChat.tsx`：Agent 对话、模型选择、Prompt 模式、Skill/Tool 选择、上下文策略、SSE 和确认动作。
-- `KnowledgeBase.tsx`：文档上传、知识库列表、源文件、切片、Embedding 和 Reranker 设置。
-- `NoteList.tsx` / `NoteEditor.tsx`：笔记列表、编辑、标签、分类、AI 写作和相关片段。
-- `MemoryCenter.tsx`：复习、待办、提醒、长期事项和备忘。
-- `ModelSettings.tsx`：用户模型配置、Ollama 模型读取和连接测试。
-- `SkillManager.tsx` / `ToolManager.tsx`：Skill/Tool 管理、风险字段和 MCP 来源展示。
-- `RealtimeTranslate.tsx`：对话式翻译和文本翻译。
-
-当前主要维护风险：
-
-- `AIChat.tsx`、`NoteEditor.tsx`、`ToolManager.tsx`、`KnowledgeBase.tsx` 等页面较大，页面、状态、请求和渲染耦合明显。
-- 前端目前按 `pages/api/stores/components` 横向分层，功能继续增长后更适合逐步引入 `features/<domain>`。
-- SSE 消费、聊天设置、Skill catalog 和消息渲染应从页面中拆出。
-
-## 用户与认证
-
-认证由 Django 用户服务主导：
+### Query 和 regenerate
 
 ```text
-React
-  -> /user/login/
-  -> DjangoUserService 生成 JWT
-  -> 前端保存 token
-  -> 后续 HTTP/SSE 请求携带 Bearer token
-  -> FastAPI 解析 JWT 得到 user_id
+router/chat.py
+  -> prepare_agent_run
+      -> model config
+      -> prompt mode
+      -> route_skills
+      -> MCP ensure_fresh
+      -> resolve_skills
+      -> build_chat_system_prompt
+  -> streaming.py
+      -> bind_run_context
+      -> context_builder
+      -> AgentFactory.create_agent_executor
+      -> stream_agent_events
+      -> drive_sse_stream
+      -> save/replace message
 ```
 
-FastAPI 不重新实现登录注册，而是通过 `backend/app/utils/auth_utils.py` 解析 Django JWT。业务数据按当前 `user_id` 隔离，包括会话、笔记、知识库、记忆和模型配置。
+Query 和 regenerate 共用 `prepare_agent_run`。二者分别构造新消息上下文和重新生成上下文，但使用同一 AgentFactory 与 SSE driver。
 
-当前权限模型：
+### SSE 合同
 
-- 普通登录用户可以使用主业务能力。
-- 管理员可以创建、更新、删除 Skill/Tool，并刷新 MCP 工具。
-- 管理员名单主要来自 `backend/app/config/security.yaml` 和环境变量。
+当前前端消费：
 
-后续方向是数据库角色权限和审计，见路线图 P1。
+| 类型 | 作用 |
+|------|------|
+| `thinking` | 阶段、工具、耗时和运行状态 |
+| `waiting_confirmation` | 高风险动作等待用户选择 |
+| `response` | 最终回答增量 |
+| `done` | 完成和 session 信息 |
+| `error` | 运行错误 |
 
-## Agent 运行链路
-
-当前主入口：
-
-```text
-front/src/pages/AIChat.tsx
-  -> POST /chat/agent/query/stream
-  -> backend/app/router/chat.py
-  -> backend/app/agent/intent_router.py
-  -> backend/app/agent/skill_registry.py
-  -> backend/app/agent/agent.py
-  -> LangChain AgentExecutor
-  -> SSE thinking / waiting_confirmation / response / done / error
-```
-
-简化流程：
-
-```text
-用户消息
-  -> JWT 鉴权 user_id
-  -> 读取模型配置
-  -> 解析 prompt_type、context、rag_retrieval、skill_ids、tool_ids
-  -> 在候选 Skill 内预路由
-  -> resolve_skills 得到 Skill prompt 和 Tool 实例
-  -> 拼接 system prompt
-  -> 加载摘要和近期上下文
-  -> 创建 AgentExecutor
-  -> astream_events 推送工具事件和模型输出
-  -> 保存或覆盖数据库消息
-```
-
-上下文策略：
-
-- `current_only`：不带历史。
-- `low/medium/high`：按 token 预算裁剪。
-- `custom`：按最近轮数和 token 限制。
-- `auto`：短会话裁剪，长会话使用摘要加最近窗口。
-
-运行时控制：
-
-- 运行预算来自 `backend/app/config/agent.yaml`。
-- 工具调用次数、超时和输出截断由 `GuardedTool` 处理。
-- 高风险工具会进入 pending action，等待用户确认。
-- SSE thinking 事件包含运行状态、工具调用和错误信息。
+前端合同测试位于 `front/src/features/chat/__tests__/useChatStream.test.ts`，后端合同测试位于 `backend/tests/test_chat_stream_contract.py`。
 
 ## Skill 与 Tool
 
-本地 Skill 结构：
+### Skill
 
 ```text
 backend/app/agent/skills/<skill_id>/
@@ -217,307 +220,145 @@ backend/app/agent/skills/<skill_id>/
   SKILL.md
 ```
 
-本地 Tool 结构：
+`skill.yaml` 定义 ID、标签、绑定工具、默认状态、可见性、`always_on`、`routable` 和路由样例。`SKILL.md` 作为本轮 system prompt 的能力说明。
+
+前端传入的 `skill_ids` 是候选上界：未显式指定 Tool 时，意图路由只在候选 Skill 中收窄。显式 `tool_ids` 表示精确工具控制，会跳过 Skill 收窄。
+
+### 本地 Tool
 
 ```text
 backend/app/agent/tools/<tool_id>/
+  __init__.py
   tool.yaml
   TOOL.md
   tool.py
 ```
 
-注册流程：
+`tool.yaml` 定义 entrypoint、风险、确认、超时和输出长度。`TOOL.md` 进入工具说明，`tool.py` 返回 LangChain `BaseTool`。
 
-```text
-SkillRegistry
-  -> 扫描 skills/*
-  -> 扫描 tools/*
-  -> 合并 MCP tools
-  -> resolve_skills(skill_ids, tool_ids)
-  -> GuardedTool.wrap()
-  -> AgentExecutor
-```
+### GuardedTool
 
-Tool 元数据包含：
+本地 Tool 与 MCP Tool 在进入 Agent 前统一包装为 `GuardedTool`：
 
-```yaml
-risk_level: low | medium | high
-requires_confirmation: true | false
-timeout_seconds: 30
-max_output_chars: 10000
-```
+1. 增加本轮工具调用计数并检查预算。
+2. 对 `requires_confirmation` 工具写入 Redis pending action 并阻断本次执行。
+3. 使用 `asyncio.wait_for` 执行并限制超时。
+4. 截断超过 `max_output_chars` 的结果。
 
-设计边界：
+pending action 默认 TTL 为 600 秒，按 `user_id` 校验，确认后一次性消费。
 
-- `SKILL.md` 面向 Agent，描述何时使用能力。
-- `TOOL.md` 面向 LangChain tool description，描述工具参数和行为。
-- `tool.py` 只实现工具执行，不应塞路由或 UI 逻辑。
-- 高风险工具必须使用风险元数据，而不是只靠 prompt 约束。
+## MCP
 
-## MCP 外部工具
-
-MCP 当前作为外部工具来源接入 Skill/Tool 体系，不替代本地 Tool。
-
-配置入口：
-
-```text
-backend/app/config/mcp.yaml
-```
-
-主要模块：
-
-```text
-backend/app/agent/mcp/config.py
-backend/app/agent/mcp/provider.py
-backend/app/agent/mcp/adapter.py
-backend/app/agent/mcp/registry.py
-backend/app/router/mcp_router.py
-```
-
-发现与调用：
+MCP 是外部 Tool 来源，不替代本地 Tool。
 
 ```text
 mcp.yaml
-  -> load_mcp_servers
-  -> tools/list
+  -> McpToolProvider tools/list
   -> McpToolRegistry
-  -> ToolRegistry 合并
+  -> adapter to BaseTool
+  -> ToolRegistry
+  -> resolve_skills
   -> GuardedTool
-  -> tools/call
+  -> provider tools/call
 ```
 
-边界：
+当前支持：
 
-- 未配置 MCP 时主聊天链路应正常工作。
-- MCP server 离线时应降级到本地工具。
-- 文件系统、Shell、数据库写入、外部发送类工具默认应保守启用。
-- MCP 管理、测试、持久化和审计仍是后续重点。
+- stdio、SSE、HTTP/streamable HTTP transport。
+- server enable、label、description 和 URL 更新。
+- tool label、description、enable、风险、确认、超时和输出限制 override。
+- server/tool 删除写回 `mcp.yaml`。
+- 普通用户只读，管理员 refresh 和修改。
+- provider 错误状态和 Agent 请求时的惰性自愈。
+
+完整说明见 [MCP 接入与管理](./mcp_integration_plan.md)。
 
 ## RAG 与知识库
 
-知识库链路：
+```text
+upload
+  -> save source file and metadata
+  -> parse document
+  -> split chunks
+  -> embedding
+  -> Chroma index
+
+query
+  -> retrieve knowledge and note candidates
+  -> rerank candidates
+  -> build context
+  -> LLM answer
+```
+
+模块边界：
+
+- `router/knowledge_router.py`：HTTP/SSE 接口。
+- `router/knowledge_service.py`：上传、源文件、任务和切片编排。
+- `rag/document_handler/`：文档解析。
+- `rag/vector_store.py`：Chroma 索引和 retriever。
+- `rag/rag_service.py`：查询期召回、重排和上下文生成。
+- `rag/reorder_service.py`：CrossEncoder Reranker。
+- `utils/pdf_multimodal_loader.py`、`vision_service.py`：PDF 视觉处理。
+
+有效配置分散在 `.env`、`config/chroma.yaml` 以及可写的 Embedding/Reranker 配置服务中。`config/rag.yaml` 已不生效。
+
+## 前端
+
+页面路由位于 `front/src/router/index.tsx`。主要页面：
+
+- `/`、`/notes`、`/notes/:id`：笔记。
+- `/chat`、`/chat/:sessionId`：Agent 对话。
+- `/knowledge`：知识库。
+- `/memory`：记忆中心。
+- `/skills`、`/tools`：Skill/Tool/MCP 管理。
+- `/model-settings`：模型配置。
+- `/translate`：翻译。
+- `/sessions`：会话列表。
+- `/profile`、`/settings`：用户和界面设置。
+
+JWT 保存在 `localStorage.jwt_token`。Axios interceptor 为 HTTP 请求添加 Bearer token，并在 401 时清理 token、跳转登录页。流式请求由 `features/chat/hooks/useChatStream.ts` 处理。
+
+当前只完成聊天功能域拆分的第一阶段：SSE hook、types 和 storage 已移入 `features/chat`，但 `AIChat.tsx`、`NoteEditor.tsx`、`ToolManager.tsx` 和 `KnowledgeBase.tsx` 仍是较大的页面组件。
+
+## 用户与认证
 
 ```text
-上传文件
-  -> 保存源文件和文档元数据
-  -> 文档解析
-  -> 切片
-  -> Embedding
-  -> 写入 Chroma
-  -> 查询时召回
-  -> Reranker 重排
-  -> 拼接上下文
-  -> LLM 生成
+React -> Django /user/login/
+      <- JWT with user_id, jti, exp
+React -> FastAPI Authorization: Bearer <token>
+FastAPI -> decode shared-secret JWT -> user_id
 ```
 
-主要模块：
+- Django 签发 HS256 JWT，当前有效期 24 小时。
+- FastAPI 使用 `SECRET_KEY` 和 `ALGORITHM` 解码。
+- 两个服务通过 Redis 黑名单识别已撤销 token。
+- FastAPI 业务数据查询必须携带当前 `user_id`。
+- 管理员来自 `security.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`。
 
-- `backend/app/router/knowledge_router.py`：知识库 HTTP/SSE 接口。
-- `backend/app/router/knowledge_service.py`：上传、任务、源文件和切片相关编排。
-- `backend/app/rag/vector_store.py`：Chroma 索引、retriever 和向量库操作。
-- `backend/app/rag/rag_service.py`：对话时的知识库和笔记召回、重排和摘要。
-- `backend/app/rag/document_handler/processor.py`：文档解析处理。
-- `backend/app/utils/pdf_multimodal_loader.py`、`vision_service.py`：PDF 多模态和视觉解析辅助。
+当前权限不是数据库角色模型，也没有完整管理审计。
 
-RAG 检索策略由前端随聊天请求传入：
+## 数据位置
 
-```json
-{
-  "rag_retrieval": {
-    "mode": "auto",
-    "knowledge_k": 6,
-    "note_k": 3,
-    "summary_k": 3
-  }
-}
-```
+| 数据 | 位置 |
+|------|------|
+| 用户与认证数据 | Django MySQL database |
+| 会话、笔记、记忆、知识元数据、模型配置 | FastAPI MySQL database |
+| 缓存、token 黑名单、pending action | Redis |
+| 知识库和笔记向量 | `backend/data/chromadb` |
+| 上传源文件和解析图片 | `backend/data/` |
+| Django 头像 | `DjangoUserService/media/` |
+| Reranker 权重 | `backend/models/` |
+| Benchmark 结果 | `benchmarks/results/` |
 
-边界：
+这些运行数据大多被 `.gitignore` 排除，不应作为可复现配置提交。
 
-- 知识库文档和笔记都会进入向量检索，但需要保留来源类型。
-- Embedding 和 Reranker 配置不应污染 Chat 路由。
-- 文档上传任务和对话时 RAG 查询应能独立测试。
+## 当前技术债
 
-## 笔记系统
+- FastAPI 数据库 schema 使用启动期自动补列，没有正式 migration 工具。
+- 管理员权限仍是文件/环境变量名单。
+- MCP 配置写回跟踪中的 YAML，缺少数据库配置和审计。
+- RAG 关键文件仍较大，上传、索引和查询的测试隔离不足。
+- 前端多个页面仍承担请求、状态与渲染混合职责。
+- 生产部署、安全 header、TLS、secret manager 和 CI/CD 尚未定义。
 
-笔记模块承担三类职责：
-
-- CRUD：创建、编辑、删除、分类、标签、置顶和下载。
-- 知识化：自动标签、向量索引、相关片段推荐。
-- Agent 工具：搜索笔记、创建笔记、相关笔记、笔记统计等。
-
-主要模块：
-
-- `backend/app/router/note_router.py`
-- `backend/app/services/note_service.py`
-- `backend/app/models/note.py`
-- `front/src/pages/NoteList.tsx`
-- `front/src/pages/NoteEditor.tsx`
-- `front/src/components/note/`
-- `backend/app/agent/tools/search_notes/`
-- `backend/app/agent/tools/create_note/`
-- `backend/app/agent/tools/related_notes/`
-
-维护边界：
-
-- 笔记 CRUD 逻辑应留在 `note_service`。
-- 笔记作为 RAG 召回源时，应通过向量服务暴露，不应让 Agent 直接拼数据库细节。
-- 编辑器 UI 与 AI 写作辅助应逐步拆分。
-
-## 记忆中心
-
-记忆中心统一管理：
-
-- `review`
-- `todo`
-- `reminder`
-- `long_term`
-- `memo`
-
-主要模块：
-
-- `backend/app/models/memory_item.py`
-- `backend/app/services/memory_service.py`
-- `backend/app/router/memory_router.py`
-- `front/src/pages/MemoryCenter.tsx`
-- `backend/app/agent/tools/*memory*/`
-- `backend/app/agent/skills/memory_*`
-
-当前语义：
-
-- `review` 用于复习和回顾。
-- `todo` 用于待办。
-- `reminder` 用于提醒。
-- `long_term` 用于长期事项。
-- `memo` 用于普通备忘。
-
-安全边界：
-
-- 删除记忆属于高风险工具，必须确认后执行。
-- Agent 查询或修改记忆必须基于当前 `user_id`。
-- 后续主动提炼事项必须先给用户确认，不应自动写入。
-
-## 模型配置与调用层
-
-模型配置入口：
-
-- `front/src/pages/ModelSettings.tsx`
-- `backend/app/router/model_config_router.py`
-- `backend/app/services/model_config_service.py`
-- `backend/app/utils/model_provider.py`
-
-模型来源：
-
-- 工程默认模型：来自 `.env`。
-- 用户 OpenAI-compatible 配置。
-- 用户 Ollama 本地模型配置。
-
-使用场景：
-
-- Agent 对话。
-- 实时翻译。
-- RAG HyDE 或摘要。
-- 自动标签、自动补全、复习题生成等工具。
-
-边界：
-
-- 用户模型配置按 `user_id` 隔离。
-- API key 加密保存，前端只显示脱敏结果。
-- Embedding 和 Reranker 是知识库配置，不等同于聊天模型配置。
-
-## 数据存储
-
-```text
-MySQL
-  -> Django 用户数据
-  -> ChatSession / ChatMessage
-  -> Note / NoteTemplate
-  -> MemoryItem
-  -> KnowledgeSourceDocument
-  -> UserModelConfig
-  -> Embedding / Reranker 配置
-
-Redis
-  -> 用户缓存
-  -> token 黑名单
-  -> 限流辅助
-  -> pending action
-
-ChromaDB
-  -> 知识库向量索引
-  -> 笔记向量索引
-
-本地文件
-  -> 上传源文件
-  -> 图片抽取结果
-  -> routing calibration 缓存
-```
-
-数据边界：
-
-- 所有用户业务数据必须带 `user_id`。
-- 向量库 filter 必须包含当前用户。
-- pending action 需要 user_id 隔离和一次性消费。
-
-## 配置文件
-
-关键配置：
-
-```text
-backend/app/config/agent.yaml      # Agent 运行预算
-backend/app/config/security.yaml   # 管理员名单
-backend/app/config/mcp.yaml        # MCP server 配置
-backend/app/config/chroma.yaml     # Chroma 路径和集合配置
-backend/app/config/rag.yaml        # RAG 配置
-backend/app/config/prompt.yaml     # Prompt 文件映射
-```
-
-维护原则：
-
-- 运行预算、风险控制和 MCP 配置应保持显式。
-- 生产环境敏感信息不应写入仓库配置。
-- 管理员配置后续应迁移到数据库角色，配置文件只保留兜底。
-
-## 当前主要耦合点
-
-这些不是功能缺失，而是可维护性风险：
-
-1. `agent.py` 过大，运行时、上下文、SSE 和持久化耦合。
-2. `chat.py` 过厚，路由层承担业务编排。
-3. `AIChat.tsx` 过大，页面、状态、请求和渲染耦合。
-4. `knowledge_service.py`、`vector_store.py`、`rag_service.py` 边界需要进一步清晰。
-5. 模块级单例降低测试隔离性。
-6. 权限模型仍偏配置化，缺少数据库角色和审计。
-7. 工具事件和错误分类仍需统一。
-
-这些事项已经转入 [下一阶段开发计划](./roadmap_next.md)，其中架构解耦为 P0。
-
-## Benchmark 体系
-
-当前项目已经接入第一版本地 benchmark，用来保护 Agent 重构后的行为契约。它位于：
-
-```text
-benchmarks/
-  cases/       # YAML case
-  fixtures/    # 离线模型脚本和后续 fixture
-  runners/     # CLI、harness、fake factory、scorer、report
-  baselines/   # smoke baseline
-  results/     # 运行产物，只提交 .gitkeep
-```
-
-设计原则：
-
-- smoke 层离线运行，不依赖真实模型、MySQL、embedding 服务或 MCP discovery。
-- 只替换模型输出，生产链路仍走 `prepare_agent_run`、`get_agent_stream_response`、`drive_sse_stream` 和 `stream_agent_events`；落库收尾只验证编排入口，真实持久化由非 smoke 层覆盖。
-- 工具安全 case 通过真实 `GuardedTool` 验证高风险确认、阻断和 `waiting_confirmation` 事件。
-- 前端用 Vitest 锁住 `useChatStream` 的 SSE 消费契约。
-
-日常开发 gate：
-
-```powershell
-cd backend
-uv run pytest tests\test_benchmark_runner.py tests\test_benchmark_scoring.py tests\test_chat_stream_contract.py
-uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
-```
-
-开发者细节见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)。非工程背景解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。
+这些未完成项在 [下一阶段路线图](./roadmap_next.md) 中按优先级维护。

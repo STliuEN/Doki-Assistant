@@ -4,7 +4,7 @@
 > 以及如何从零开始、一步步把它建起来。配套的工程细节版见
 > [Benchmark 开发者指南](benchmark_engineering_plan.md)，两份配合看。
 
-> 当前状态：项目已接入第一版离线 smoke benchmark（B1-B5）。本文第六节保留为“历史建设路径 / 教学版上手路线”，用于理解这套系统是怎么搭起来的；实际继续开发时以开发者指南的 Backlog 为准。
+> 当前状态：项目已接入离线 smoke benchmark、fixture 隔离、严格 case schema、可配置 scorer 权重和 baseline 对比。本文第六节保留为“历史建设路径 / 教学版上手路线”；实际扩展方式以开发者指南为准。
 
 ## 一、先用大白话说清楚 benchmark 是什么
 
@@ -86,8 +86,8 @@ input:                               # 给助手的输入
 
 fixtures:                            # 这道题用的假数据
   model_script: "fixtures/scripts/review_plan_001.json"  # 假模型的「剧本」
-  # 说明：复习事项等假数据当前由上面这份剧本模拟返回；
-  # 由真实 fixture 直接喂给工具（如独立的 memories 文件）属 B6a 规划，smoke 暂未实装。
+  # 普通工具需要的数据通过 tool_data fixture 提供，
+  # smoke 不会连接真实 MySQL、RAG 或用户数据。
 
 expect:                              # 标准答案 / 评分标准
   must_include: ["30"]               # 回答里必须出现「30」
@@ -98,12 +98,10 @@ expect:                              # 标准答案 / 评分标准
   min_score: 0.75                        # 至少考到 0.75 分才算过
 ```
 
-> ⚠️ 字段名要写对。`tool_policy` 的真实字段是
+> 字段名要写对。`tool_policy` 的合法字段是
 > `allowed / forbidden_call / forbidden_execute / expect_blocked`（语义见
-> [开发者指南](benchmark_engineering_plan.md) 的「Scorer 语义」）。当前 schema 校验较宽松，
-> **拼错或杜撰的字段（例如只写 `forbidden`）会被静默忽略，不报错也不生效**——
-> 你以为设了安全红线，实际那条工具毫无防护，case 还照常通过。这是本节最容易踩的坑
-> （schema 收紧已列入开发者指南 B10）。
+> [开发者指南](benchmark_engineering_plan.md) 的「Tool policy」）。当前加载器会使用严格
+> JSON Schema 校验；拼错或杜撰字段会在运行 case 前直接报错。
 
 读法：这道题给助手一句话，助手该去查复习事项（`today_reviews`），
 最后给出的计划里要出现“30”。至于 `delete_memory`——它是危险操作，
@@ -184,7 +182,7 @@ expect:                              # 标准答案 / 评分标准
   - 让它做三件事：① 读一个 YAML 考题；② 用“假模型”跑出回答；③ 把结果打印出来。
   - “假模型”怎么接？项目里 `get_agent_stream_response(...)` 有个参数 `factory`，
     默认用真模型工厂。你只要传一个**假工厂**进去，让它返回照剧本演的 `_FakeExecutor`，
-    整条链路就会用假模型跑起来（详见工程版计划 B2 的“离线注入接缝”）。
+    整条链路就会用假模型跑起来（详见开发者指南的“执行链路”）。
 - 怎么算成功：终端里运行 runner，能看到助手对你第 1 步那道题给出的回答。
 
 > 卡住很正常：这步是整个项目技术含量最高的地方。如果自己啃不动，

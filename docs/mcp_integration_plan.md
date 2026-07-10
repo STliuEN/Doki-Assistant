@@ -1,415 +1,263 @@
-# MCP 外部工具接入现状与使用指南
+# MCP 接入与管理
 
-本文记录当前 MCP（Model Context Protocol）接入方式、与本地 Tool 的差异、测试 MCP server 写法以及后续剩余工作。当前目标不是用 MCP 替代本地 `backend/app/agent/tools/*`，而是把 MCP 作为新的外部工具来源接入现有 Agent 运行时。
+MCP（Model Context Protocol）是 Doki 助手的外部 Tool 来源。本地 Tool 和 MCP Tool 最终都进入统一 ToolRegistry、Skill 解析和 GuardedTool，不存在两套 Agent 执行规则。
 
-## 当前状态
+## 当前实现
 
-已落地：
+```text
+backend/app/config/mcp.yaml
+backend/app/agent/mcp/
+  config.py       YAML 读取、server 更新、tool override 和删除
+  provider.py     transport、tools/list、tools/call、连接错误
+  adapter.py      MCP schema -> Pydantic schema -> LangChain BaseTool
+  registry.py     discovery cache、refresh、ensure_fresh、catalog
+backend/app/router/mcp_router.py
+backend/app/agent/skill_registry.py
+backend/app/agent/tool_guard.py
+front/src/pages/ToolManager.tsx
+```
 
-- `backend/app/config/mcp.yaml`：MCP server bootstrap 配置，默认 `servers: []`。
-- `backend/app/agent/mcp/config.py`：读取和校验 MCP 配置。
-- `backend/app/agent/mcp/provider.py`：通过 MCP `tools/list` 发现工具，通过 `tools/call` 调用工具。
-- `backend/app/agent/mcp/adapter.py`：把 MCP tool schema 转为 Pydantic args schema，并包装成 LangChain `BaseTool`。
-- `backend/app/agent/mcp/registry.py`：缓存发现到的 MCP tools，提供 refresh 和 catalog。
-- `backend/app/router/mcp_router.py`：提供 `/api/mcp/servers`、`/api/mcp/tools`、`POST /api/mcp/servers/refresh`。
-- `backend/app/agent/skill_registry.py`：合并本地 tools 和已发现的 MCP tools。
-- `backend/app/agent/tool_guard.py`：MCP tools 和本地 tools 一样进入调用次数、确认、超时和输出截断控制。
+当前支持：
 
-当前边界：
+- `stdio`、`sse`、`http` 和 `streamable_http` transport。
+- server 级 enabled、allow/deny、默认风险、确认、超时和输出限制。
+- tool 级 label、description、enabled、风险、确认、超时和输出限制 override。
+- 启动 discovery、管理员 refresh 和错误态惰性自愈。
+- ToolManager 展示本地 Tool、MCP server 和 MCP Tool。
+- 管理员更新或删除 server/tool，配置直接写回 `mcp.yaml`。
+- 普通登录用户只读，管理员执行修改操作。
 
-- MCP server 仍由 `mcp.yaml` 管理，尚未数据库化。
-- 当前是 server 级 `enabled` 和 `allow_tools` / `deny_tools`，尚未持久化 tool 级启用状态。
-- ToolManager 已能只读展示 MCP 来源、server、外部工具名和错误信息，但完整 MCP refresh、test、启用/禁用 UI 尚未补齐。
-- 高风险确认后的直接执行路径仍需进一步统一超时和输出截断策略。
+当前没有独立的连接测试 API、数据库配置中心、secret store 或完整审计记录。
 
-## 总体架构
+## 调用链路
 
 ```mermaid
 flowchart TD
   Config[mcp.yaml] --> Provider[McpToolProvider]
-  Provider --> Discover[MCP tools/list]
-  Discover --> Registry[McpToolRegistry]
-  Registry --> Adapter[McpLangChainTool]
-  Adapter --> ToolRegistry[统一 ToolRegistry]
-
-  Local[本地 tools 目录] --> ToolRegistry
-  ToolRegistry --> Skill[Skill 绑定或 tool_ids]
-  Skill --> Resolve[resolve_skills]
+  Provider --> List[MCP tools/list]
+  List --> Registry[McpToolRegistry]
+  Registry --> Adapter[LangChain adapter]
+  Adapter --> Unified[ToolRegistry]
+  Local[Local tools] --> Unified
+  Unified --> Resolve[resolve_skills]
   Resolve --> Guard[GuardedTool]
-  Guard --> Agent[LangChain AgentExecutor]
+  Guard --> Agent[AgentExecutor]
   Agent --> Call[MCP tools/call]
   Call --> Provider
-
-  Guard --> Events[SSE thinking / waiting_confirmation]
+  Guard --> Events[SSE and confirmation]
 ```
 
-核心原则：
+边界：
 
-- 本地 Tool 和 MCP Tool 在 Agent 看来都是 LangChain `BaseTool`。
-- 本地 Tool 和 MCP Tool 都进入统一 `ToolDefinition`。
-- MCP 的连接、发现和调用由 provider 层负责。
-- 工具真正执行前的预算、确认、超时和输出限制由 `GuardedTool` 负责。
+- provider 只负责 MCP 协议、连接和远程调用。
+- registry 负责已发现工具的缓存和公开 catalog。
+- adapter 负责参数 schema 和 LangChain Tool 适配。
+- SkillRegistry 将本地 Tool 与 MCP Tool 合并。
+- GuardedTool 负责执行预算、确认、超时和输出截断。
 
-## 本地 Tool 与 MCP Tool 的区别
+## 本地 Tool 与 MCP Tool
 
-| 类型 | 注册来源 | 执行位置 | 适合场景 |
-|------|----------|----------|----------|
-| 本地 Tool | `backend/app/agent/tools/<tool_id>/tool.yaml` | FastAPI 后端进程内 | 访问内部服务、数据库、知识库、笔记、记忆中心 |
-| MCP Tool | `backend/app/config/mcp.yaml` 指向的 MCP server | 外部 MCP server | 浏览器、桌面应用、文件系统、第三方服务、跨语言工具 |
+| 类型 | 来源 | 执行位置 | 典型用途 |
+|------|------|----------|----------|
+| 本地 Tool | `backend/app/agent/tools/<id>/` | FastAPI 进程 | 内部数据库、笔记、记忆、RAG |
+| MCP Tool | `mcp.yaml` 指向的 server | 外部进程或服务 | 外部系统、跨语言工具、桌面或网络能力 |
 
-本地 Tool 目录结构：
+进入 Agent 后两者都转换为 `ToolDefinition`，再包装为 GuardedTool。MCP Tool 的 `source` 为 `mcp`，并保留 `provider_id` 和 `external_name`，便于事件和待确认动作恢复真实来源。
 
-```text
-backend/app/agent/tools/<tool_id>/
-  __init__.py
-  tool.yaml
-  TOOL.md
-  tool.py
-```
+## 配置文件
 
-MCP Tool 配置入口：
+配置入口：
 
 ```text
 backend/app/config/mcp.yaml
 ```
 
-进入 Agent 后二者共用同一条链路：
-
-```text
-本地 Tool / MCP Tool
-  -> ToolDefinition
-  -> Skill 绑定或显式 tool_ids
-  -> GuardedTool
-  -> AgentExecutor
-```
-
-## MCP 配置
-
-配置文件：
-
-```text
-backend/app/config/mcp.yaml
-```
-
-字段说明：
+server 字段：
 
 | 字段 | 说明 |
 |------|------|
-| `id` | MCP server 内部 ID，用于生成工具 ID |
-| `label` | 展示名 |
-| `enabled` | 是否启用该 server |
-| `transport` | `stdio`、`sse`、`http` 或 `streamable_http` |
-| `command` / `args` | stdio server 启动命令 |
-| `url` | SSE 或 streamable HTTP server 地址 |
-| `allow_tools` | 只允许这些 MCP 原始工具名进入 catalog；空列表表示不限制 |
-| `deny_tools` | 禁止这些 MCP 原始工具名进入 catalog |
-| `default_risk_level` | MCP tools 默认风险等级 |
-| `default_requires_confirmation` | 默认是否需要二次确认 |
-| `timeout_seconds` | 单次工具调用超时 |
-| `max_output_chars` | 工具输出最大字符数 |
+| `id` | server 唯一 ID |
+| `label` / `description` | UI 展示信息 |
+| `enabled` | 是否参加 discovery |
+| `transport` | `stdio`、`sse`、`http`、`streamable_http` |
+| `command` / `args` / `env` | stdio 子进程配置 |
+| `url` | SSE 或 streamable HTTP 地址 |
+| `allow_tools` | 非空时只允许列出的外部工具名 |
+| `deny_tools` | 显式拒绝的外部工具名 |
+| `default_risk_level` | Tool 默认 `low/medium/high` |
+| `default_requires_confirmation` | Tool 默认是否需要确认 |
+| `timeout_seconds` | 默认单次执行超时 |
+| `max_output_chars` | 默认输出截断长度 |
+| `tool_overrides` | 针对外部工具名的覆盖 |
 
 示例：
 
 ```yaml
 servers:
-  - id: doki_test
-    label: Doki Test MCP
+  - id: example_stdio
+    label: Example stdio server
+    description: Read-only example
     enabled: true
     transport: stdio
     command: python
     args:
-      - mcp_servers/echo_server.py
+      - mcp_servers/example_server.py
     env: {}
     allow_tools:
-      - echo
-      - add
+      - lookup
     deny_tools: []
     default_risk_level: low
     default_requires_confirmation: false
     timeout_seconds: 10
-    max_output_chars: 2000
+    max_output_chars: 5000
+    tool_overrides:
+      lookup:
+        label: Public lookup
+        enabled: true
+        risk_level: low
+        requires_confirmation: false
+        timeout_seconds: 8
+        max_output_chars: 3000
 ```
 
-发现后的内部工具 ID 规则：
+默认值是保守的：未配置风险时为 `medium`，未配置确认时为 `true`。仓库当前 `mcp.yaml` 显式启用了两个开发/演示 server；部署环境应逐项审查，而不是默认信任。
+
+## Tool ID
+
+内部 Tool ID 由 server ID 和 MCP 原始工具名规范化：
 
 ```text
 mcp_<server_id>_<tool_name>
 ```
 
-例如：
+ID 转为小写，非字母数字字符替换为下划线，并限制为 64 个字符。LangChain Tool name 由 adapter 生成，管理 API 使用的是内部 Tool ID，不是 MCP 原始名称。
+
+## Discovery 生命周期
+
+### FastAPI 启动
+
+`backend/main.py` 在 startup 中执行：
 
 ```text
-mcp_doki_test_echo
-mcp_doki_test_add
+mcp_tool_registry.refresh()
+skill_registry.reload()
 ```
 
-传给 LangChain 的 tool name 会再加 `_tool`：
+某个 server 失败不会阻止 FastAPI 启动；provider 记录 `last_error`，普通聊天仍可使用本地工具。
 
-```text
-mcp_doki_test_echo_tool
-```
+### 请求时自愈
 
-## 写一个测试 MCP 工具
+`prepare_agent_run` 调用 `mcp_tool_registry.ensure_fresh()`。只有 registry 处于需要恢复的状态时才刷新，正常状态不会每轮执行 `tools/list`。
 
-最省事的测试方式是 stdio server。新建：
+### 管理员刷新
 
-```text
-backend/mcp_servers/echo_server.py
-```
-
-内容：
-
-```python
-from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
-
-
-mcp = FastMCP("Doki Test MCP")
-
-
-@mcp.tool(
-    description="Echo a message back for MCP integration testing.",
-    annotations=ToolAnnotations(readOnlyHint=True),
-)
-def echo(message: str) -> str:
-    return f"echo: {message}"
-
-
-@mcp.tool(
-    description="Add two integers for MCP integration testing.",
-    annotations=ToolAnnotations(readOnlyHint=True),
-)
-def add(a: int, b: int) -> str:
-    return str(a + b)
-
-
-if __name__ == "__main__":
-    mcp.run("stdio")
-```
-
-`readOnlyHint=True` 会被后端识别为只读工具。只读工具在 `default_requires_confirmation: true` 时也会被放宽为不需要确认。
-
-然后配置 `mcp.yaml`：
-
-```yaml
-servers:
-  - id: doki_test
-    label: Doki Test MCP
-    enabled: true
-    transport: stdio
-    command: python
-    args:
-      - mcp_servers/echo_server.py
-    env: {}
-    allow_tools:
-      - echo
-      - add
-    deny_tools: []
-    default_risk_level: low
-    default_requires_confirmation: false
-    timeout_seconds: 10
-    max_output_chars: 2000
-```
-
-刷新发现：
-
-```powershell
-cd backend
-uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print(asyncio.run(mcp_tool_registry.refresh()))"
-```
-
-启动后端后也可以通过 API 刷新：
-
-```text
+```http
 POST /api/mcp/servers/refresh
-GET  /api/mcp/tools
 ```
 
-在 chat 请求里显式使用工具：
+刷新完成后自动 reload SkillRegistry，让最新 MCP Tool 进入统一 catalog。
 
-```json
-{
-  "query": "调用 echo 测试一下，内容是 hello",
-  "tool_ids": ["mcp_doki_test_echo"]
-}
-```
+## 管理 API
 
-或在 SkillManager 中把 `mcp_doki_test_echo` 绑定到某个 Skill。
+所有读取接口要求登录；修改接口要求管理员。
 
-## 调用流程细节
-
-发现：
-
-```text
-FastAPI startup 或 POST /api/mcp/servers/refresh
-  -> McpToolRegistry.refresh()
-  -> McpToolProvider.discover_tools()
-  -> session.list_tools()
-  -> allow_tools / deny_tools 过滤
-  -> 生成 McpToolSpec
-  -> skill_registry.reload()
-  -> ToolRegistry 合并 MCP tools
-```
-
-调用：
-
-```text
-Agent 选择 mcp_doki_test_echo_tool
-  -> GuardedTool._arun()
-  -> 预算、确认、超时、输出限制
-  -> McpLangChainTool._arun()
-  -> McpToolProvider.call_tool()
-  -> MCP session.call_tool()
-  -> normalize_mcp_result()
-```
-
-stdio transport 当前每次发现和调用都会新建 MCP session。测试工具很适合这样跑；如果是重型工具或常驻服务，建议改用 `streamable_http`。
-
-## API
-
-| 方法 | 路径 | 权限 | 说明 |
+| 方法 | 路径 | 权限 | 作用 |
 |------|------|------|------|
-| GET | `/api/mcp/servers` | 登录 | 查看配置中的 MCP server 状态 |
-| GET | `/api/mcp/tools` | 登录 | 查看已发现的 MCP tools |
-| POST | `/api/mcp/servers/refresh` | 管理员 | 重新发现所有启用 server 的 tools，并 reload Skill/Tool registry |
+| GET | `/api/mcp/servers` | 登录 | server 状态与 last_error |
+| GET | `/api/mcp/tools` | 登录 | 已发现 MCP Tool |
+| GET | `/api/mcp/permissions` | 登录 | 当前用户是否可管理 MCP |
+| POST | `/api/mcp/servers/refresh` | 管理员 | 重新 discovery |
+| PATCH | `/api/mcp/servers/{server_id}` | 管理员 | 更新 enabled、展示信息或 URL |
+| DELETE | `/api/mcp/servers/{server_id}` | 管理员 | 从 YAML 删除 server |
+| PATCH | `/api/mcp/tools/{tool_id}` | 管理员 | 写入 tool override |
+| DELETE | `/api/mcp/tools/{tool_id}` | 管理员 | 加入 server deny_tools |
 
-当前尚未实现：
+server 更新目前不支持通过 API 修改 stdio command、args、env 或 transport。这些字段仍需人工编辑 YAML。
 
-- `POST /api/mcp/tools/{tool_id}/test`
-- `PATCH /api/mcp/tools/{tool_id}`
-- 单 server refresh
-- Web 端创建 MCP server 配置
+删除 MCP Tool 的语义是把其外部名称加入 `deny_tools`，并移除对应 override；不会修改外部 MCP server。
 
-## 安全策略
+## ToolManager
 
-默认建议：
+前端 `/tools` 页面：
 
-- `mcp.yaml` 中未配置 server 时，系统行为与本地工具模式一致。
-- MCP server 默认应保持 `enabled: false`，确认可信后再开启。
-- 文件系统、Shell、数据库写入、浏览器自动化、外部发送类工具必须显式 allowlist。
-- 写入、删除、命令执行和外部发送类工具应设置：
+- 将本地 Tool 与 MCP Tool 分组展示。
+- 按 MCP server 展示工具。
+- 普通用户只读 MCP 配置。
+- 管理员可以更新 server enabled、label、description 和非 stdio URL。
+- 管理员可以更新 MCP Tool 展示、enabled、风险、确认、超时和输出限制。
+- 管理员可以从项目删除 server 或屏蔽 Tool。
+
+UI 保存后会立即触发后端 refresh。由于配置写回跟踪中的 `mcp.yaml`，开发者提交前必须检查 Git diff。
+
+## stdio 环境
+
+stdio server 是 FastAPI 启动的独立子进程。配置中的：
 
 ```yaml
-default_risk_level: high
-default_requires_confirmation: true
+command: python
 ```
 
-风险分级建议：
+会按 FastAPI 进程的 PATH 查找 Python，不保证使用 `backend/.venv`。如果系统 Python 没有安装 `mcp`，discovery 会失败。
 
-| 类型 | risk_level | requires_confirmation |
-|------|------------|-----------------------|
-| 只读查询、状态读取 | low | false |
-| 外部网页读取、跨服务查询 | medium | false 或 true |
-| 创建、更新、删除本地数据 | high | true |
-| 文件系统写入 | high | true |
-| Shell / 进程执行 | high | true |
-| 数据库写入 | high | true |
-| 发送邮件、消息、Webhook | high | true |
+推荐方案：
 
-## 依赖与重建
+- 从 `backend` 使用 `uv run uvicorn ...` 启动 FastAPI，并保证 PATH 解析正确。
+- 或在本地配置中把 `command` 指向明确的 venv Python。
+- 不要把只在某台机器存在的绝对路径提交到共享配置。
+- 更可移植的长期方案是让配置支持命令模板或运行器引用。
 
-后端依赖已经包含：
+## 测试 server
 
-```toml
-mcp>=1.9.0
-uvicorn>=0.31.1,<0.50.0
-```
-
-当前锁定版本：
-
-```text
-mcp==1.28.0
-uvicorn==0.49.0
-```
-
-重建命令：
-
-```powershell
-cd backend
-uv lock
-uv sync
-uv pip compile pyproject.toml -o requirements.txt
-uv run python -c "from importlib.metadata import version; import uvicorn; print('mcp', version('mcp')); print('uvicorn', uvicorn.__version__)"
-```
-
-## Skill 启用与意图路由
-
-聊天页支持同时启用多个 Skill。多个 `skill_ids` 进入后端后，会先被解析成一组可用工具，再交给同一个 LangChain Agent 使用；当前实现不是为每个 Skill 启动独立 Agent，也不是并行执行多个 Skill。
-
-当前请求链路：
-
-```text
-front selectedSkillIds
-  -> /chat/agent/query/stream skill_ids
-  -> route_skills(query, candidate_skill_ids)
-  -> resolve_skills()
-  -> 合并 Skill 绑定的 tools
-  -> Agent 按需顺序调用工具
-```
-
-需要注意：
-
-- 前端会把聊天页 Skill 选择保存到 `localStorage.ai_chat_skill_ids`。如果上次只勾选了 `mcp_smoke_test`，后续请求也只会发送该 Skill，直到用户重新勾选或清理本地存储。
-- 后端 `intent_router.route_skills()` 会在已选 Skill 集合内做收窄。命中 `mcp`、连通测试、smoke test 等关键词时，本轮可能只保留 `mcp_smoke_test`。
-- 显式传入 `tool_ids` 时，后端视为精确工具控制，会跳过 Skill 预路由。
-- 如果日常对话不希望默认携带 MCP 连通性测试，可以把 `backend/app/agent/skills/mcp_smoke_test/skill.yaml` 中的 `default` 改为 `false`。
-
-排查“只能调用 MCP 一个 Skill”时，优先检查：
-
-1. 聊天页 Skill 面板是否只勾选了 MCP。
-2. 浏览器 `localStorage.ai_chat_skill_ids` 是否只保存了 `["mcp_smoke_test"]`。
-3. 用户输入是否命中了 MCP 连通性测试关键词。
-4. 请求体是否传了显式 `tool_ids`。
-
-## 当前 Smoke Test Server
-
-当前项目内置了一个只读 smoke test server：
+仓库包含：
 
 ```text
 backend/mcp_servers/powershell_ls_server.py
+backend/mcp_servers/public_info_server.py
 ```
 
-默认配置位于：
+前者提供有界的只读项目文件列表；后者提供公开信息查询和连通性检查。它们是开发/演示配置，不是生产安全背书。
 
-```text
-backend/app/config/mcp.yaml
-```
-
-它暴露 `list_project_files`，用于验证 MCP stdio server 能否被发现和调用。该工具只允许列出项目目录内文件，不接受任意 PowerShell 命令，不做写入、删除或项目外路径访问。
-
-推荐验证命令：
+手动刷新：
 
 ```powershell
 cd backend
 uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print([t.to_public_dict() for t in asyncio.run(mcp_tool_registry.refresh())])"
 ```
 
-stdio server 的 `command: python` 会启动一个新的子进程。这个子进程使用的 Python 环境必须能 import `mcp`。如果直接运行后端 venv 的 `python`，但子进程 PATH 指向系统 Python，就可能出现：
+启动后读取状态：
 
-```text
-ModuleNotFoundError: No module named 'mcp'
+```powershell
+Invoke-RestMethod http://127.0.0.1:18000/api/mcp/servers -Headers @{Authorization="Bearer $token"}
 ```
 
-解决方式：
+当前没有专用 `test` endpoint。`refresh` 只能证明 server 可连接并完成 `tools/list`，不能证明每个 Tool 的真实调用成功。
 
-- 优先通过 `uv run ...` 启动后端和验证命令，让子进程继承正确环境。
-- 或把 `mcp.yaml` 中 stdio server 的 `command` 改为明确的虚拟环境 Python 路径。
-- 或在 `env` 中补齐子进程所需环境变量。
+## 风险和确认
 
-## 后续计划
+MCP Tool 的最终风险配置按以下顺序确定：
 
-优先级：
+1. tool override。
+2. server default。
+3. config loader 的保守默认值。
 
-1. ToolManager 增加 MCP refresh、test、last_error 和只读/高风险标签。
-2. MCP tool 级启用/禁用、风险等级、确认要求、超时和输出限制持久化。
-3. 高风险 MCP 工具确认后仍走统一 wrapper 或等价的超时/截断路径。
-4. 单 server refresh 和 MCP tool test API。
-5. MCP 调用审计记录，至少包含 `run_id/user_id/session_id/tool_id/source/provider_id/external_name/risk_level/status`。
-6. 文件系统、Shell、数据库写入类 MCP server 的默认关闭和配置审查。
+进入 Agent 后，GuardedTool 执行：
 
-回归要求：
+- 本轮调用次数检查。
+- `requires_confirmation` 阻断。
+- Redis pending action。
+- 用户确认后的来源恢复。
+- 单次执行超时。
+- 输出截断。
 
-- 未配置 MCP 时聊天主链路可用。
-- MCP server 离线时本地 tools catalog 和 Agent 不受影响。
-- MCP 调用失败时返回结构化错误，不破坏 SSE 流。
-- 本地工具和记忆中心高风险确认行为保持不变。
+文件系统写入、Shell、数据库写入、外部消息发送和付费 API 应默认 `requires_confirmation: true`。只读 annotation 只能作为风险判断信号，不能替代项目侧配置。
+
+## 已知限制
+
+- 配置是共享 YAML，不支持按用户或环境分层。
+- API 修改配置没有审计表和回滚版本。
+- stdio env 可能包含 secret，当前没有 secret manager。
+- 没有独立 server/tool test API 和最近测试记录。
+- 外部 server 的权限边界仍由部署者负责；MCP 协议本身不构成沙箱。
+- 多实例 FastAPI 同时写 `mcp.yaml` 没有并发控制。
+
+后续工作见 [下一阶段路线图](./roadmap_next.md#p1-权限与-mcp-治理)。

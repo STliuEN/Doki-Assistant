@@ -1,22 +1,20 @@
-# 记忆中心当前实现与后续计划
+# 记忆中心
 
-记忆中心已经替代旧的每日回顾主链路，成为统一管理复习、待办、提醒、长期事项和普通备忘的模块。本文记录当前实现、接口、Agent tools 和下一步闭环方向。
+记忆中心管理用户的复习、待办、提醒、长期事项和普通备忘，并通过本地 Tool 向 Agent 提供受控读写能力。
 
-## 当前定位
+## 数据类型
 
-记忆中心负责管理用户的个人事项与复习记忆：
+| 类型 | 语义 |
+|------|------|
+| `review` | 复习、回顾和自测 |
+| `todo` | 待办事项 |
+| `reminder` | 到期提醒 |
+| `long_term` | 长期目标或持续事项 |
+| `memo` | 普通备忘 |
 
-- `review`：笔记复习和自测。
-- `todo`：待办事项。
-- `reminder`：提醒。
-- `long_term`：长期事项。
-- `memo`：普通备忘。
+记忆中心不是聊天历史的替代品。聊天历史保存对话，知识库/笔记用于内容检索，MemoryItem 保存结构化的个人事项。
 
-它不是单独的复习页面，而是 Agent 可以读写的长期任务/记忆底座。
-
-## 当前后端实现
-
-核心文件：
+## 后端结构
 
 ```text
 backend/app/models/memory_item.py
@@ -25,197 +23,150 @@ backend/app/services/memory_service.py
 backend/app/router/memory_router.py
 ```
 
-主要接口：
+所有 memory 路由使用 `Depends(get_current_user_id)`，service 查询和修改时必须携带当前 `user_id`。
+
+## API
+
+| 方法 | 路径 | 作用 |
+|------|------|------|
+| GET | `/memory/today` | 今日到期或需要处理的事项 |
+| GET | `/memory/list` | 按类型、状态等条件列出 |
+| POST | `/memory/create` | 创建 |
+| GET | `/memory/{memory_id}` | 详情 |
+| PUT | `/memory/{memory_id}` | 更新 |
+| POST | `/memory/{memory_id}/complete` | 完成 |
+| POST | `/memory/{memory_id}/reviewed` | 标记已复习 |
+| POST | `/memory/{memory_id}/postpone` | 延期 |
+| POST | `/memory/{memory_id}/archive` | 归档 |
+| DELETE | `/memory/{memory_id}` | 删除 |
+| GET | `/memory/{memory_id}/review-question` | 生成复习问题 |
+
+API 与 Agent Tool 使用同一个 `MemoryService`，避免两套状态变化规则。
+
+## 前端
 
 ```text
-GET    /memory/today
-GET    /memory/list
-POST   /memory/create
-GET    /memory/{memory_id}
-PUT    /memory/{memory_id}
-POST   /memory/{memory_id}/complete
-POST   /memory/{memory_id}/reviewed
-POST   /memory/{memory_id}/postpone
-POST   /memory/{memory_id}/archive
-DELETE /memory/{memory_id}
-GET    /memory/{memory_id}/review-question
-```
-
-所有正式 memory 接口都通过 `Depends(get_current_user_id)` 使用当前登录用户，服务层按 `user_id` 查询和修改。
-
-## 当前前端实现
-
-核心文件：
-
-```text
-front/src/api/memory.ts
 front/src/pages/MemoryCenter.tsx
+front/src/api/memory.ts
 front/src/api/endpoints.ts
 front/src/types/api.ts
 ```
 
-页面已支持：
+当前页面支持：
 
-- 今日
-- 进行中
-- 复习
-- 事项
-- 备忘
-- 已完成
-- 新建 memory
-- 完成
-- 延期
-- 归档
-- 删除
-- 复习题生成
-- 标记已复习
+- 今日、进行中、复习、事项、备忘和已完成视图。
+- 新建和编辑。
+- 完成、延期、归档和删除。
+- 标记已复习和生成复习问题。
+- 删除前的前端确认弹窗。
 
-前端删除 memory 当前有确认弹窗。Agent 侧 `delete_memory` 已标记为高风险，由 `GuardedTool` 在执行前拦截、进入 `waiting_confirmation`；用户经 `POST /chat/agent/confirm` 确认后才执行删除，确认续跑闭环已打通。
+当前没有后台定时扫描或 WebSocket 推送；“今日”数据需要页面请求触发，不是系统级主动提醒。
 
-## 当前 Agent Tools
-
-当前已存在记忆相关工具：
+## Agent Tools
 
 ```text
-backend/app/agent/tools/create_memory/
-backend/app/agent/tools/list_memories/
-backend/app/agent/tools/get_memory/
-backend/app/agent/tools/update_memory/
-backend/app/agent/tools/delete_memory/
-backend/app/agent/tools/complete_memory/
-backend/app/agent/tools/postpone_memory/
-backend/app/agent/tools/archive_memory/
-backend/app/agent/tools/mark_memory_reviewed/
+backend/app/agent/tools/
+  create_memory/
+  list_memories/
+  get_memory/
+  update_memory/
+  delete_memory/
+  complete_memory/
+  postpone_memory/
+  archive_memory/
+  mark_memory_reviewed/
+  today_reviews/
+  generate_review_question/
 ```
 
-这些工具通过 `tool_context` 读取当前 `user_id`，避免模型直接决定用户身份。
+工具通过 `tool_context` 读取当前 `user_id` 和 `session_id`，不接受模型任意指定其他用户身份。
 
-相关 Skill：
+相关 Skills：
 
 ```text
-backend/app/agent/skills/memory_read/
-backend/app/agent/skills/memory_write/
-backend/app/agent/skills/memory_cleanup/
+backend/app/agent/skills/
+  memory_read/
+  memory_write/
+  memory_cleanup/
+  review_planner/
 ```
 
-当前 skill 预路由会根据用户意图选中 memory read/write/cleanup 类能力。
+Skill 是否进入本轮 Agent 由用户候选选择和意图预路由共同决定。
 
-## 当前可用场景
-
-示例：
+## 典型调用
 
 ```text
 “帮我记一下明天下午检查模型配置”
+  -> memory_write
   -> create_memory
 
-“今天有什么要做”
-  -> list_memories
+“今天有什么待办”
+  -> memory_read
+  -> list_memories or today_reviews
 
-“这个事项完成了”
-  -> complete_memory
+“把刚才那个任务延期到周五”
+  -> memory_write
+  -> get/list + postpone_memory
 
-“今天有什么要复习”
-  -> list_memories(type=review)
-
-“这条复习完成了”
-  -> mark_memory_reviewed
+“删除这条记忆”
+  -> memory_cleanup
+  -> delete_memory
+  -> waiting_confirmation
 ```
 
-## 当前不足
+## 删除安全
 
-### 1. 缺主动提醒
+`delete_memory` 是需要确认的高风险 Tool：
 
-后端能查今日事项，但没有后台扫描任务，也没有页面级主动提醒推送。
+1. Agent 首次调用时，GuardedTool 不执行删除。
+2. 工具参数写入 Redis pending action，默认 TTL 600 秒。
+3. SSE 返回 `waiting_confirmation` 和 `pending_action_id`。
+4. 用户调用 `POST /chat/agent/confirm` 确认或取消。
+5. 确认后按同一 `user_id` 一次性取出动作，并通过 GuardedTool 执行。
 
-### 2. 缺自动提炼
+前端 API 直接删除与 Agent 删除是两个入口：页面已有确认弹窗，但 API 自身仍会在鉴权后直接执行。需要更严格策略时，应在服务/API 层增加统一的软删除或确认合同。
 
-Agent 只有在用户明确要求“记一下 / 提醒我 / 加待办”时才写入 memory。普通对话、RAG 回答、翻译结果还不会自动提炼待办或提醒。
+## 当前存储
 
-### 3. 缺语义搜索
+MemoryItem 保存在 FastAPI 业务 MySQL database。当前主要通过结构化字段查询：
 
-memory 当前主要按类型、状态、时间查询。还没有把 memory 写入向量库做语义召回。
+- user ID。
+- memory type。
+- status。
+- due/review 时间。
+- 创建和更新时间。
 
-### 4. 旧复习文案仍需继续清理
+MemoryItem 尚未写入独立向量索引，因此当前没有真正的语义搜索。Agent 只能使用已有列表、过滤和详情工具组合查找。
 
-部分文档、i18n 或历史变更记录里可能仍出现“每日回顾”。历史记录可以保留，但正式产品入口应统一为“记忆中心”。
+## 当前限制
 
-## 下一步计划
+- 没有到期事项后台调度和主动页面推送。
+- 不会自动从普通对话、笔记或翻译中提炼候选事项。
+- 没有 Memory 语义向量搜索。
+- 来源会话/消息/笔记的结构化关联仍不完整。
+- 直接 API 删除与 Agent 确认删除的安全体验不同。
 
-### P1.1 主动提醒
+对应后续工作见 [下一阶段路线图](./roadmap_next.md#p2-前端与产品闭环)。
 
-目标：
+## 验证
 
-- 后端定时扫描到期 `reminder/todo/review`。
-- 前端页面内提示。
-- 预留桌面端系统通知。
-
-验收：
-
-- 到期事项不用用户主动刷新也能提示。
-- 完成、延期后不再重复提醒。
-
-### P1.2 对话后事项提炼
-
-目标：
-
-- 对话结束后提炼“可能保存的事项”。
-- 只展示建议，不自动写入。
-- 用户确认后调用 memory API 创建。
-
-来源：
-
-- AI 对话
-- RAG 总结
-- 笔记内容
-- 实时翻译结果
-
-验收：
-
-- 用户能从一次对话中一键保存待办/提醒/长期事项。
-- 提炼错误时不会污染 memory。
-
-### P1.3 Memory 语义搜索
-
-目标：
-
-- 将 memory 内容写入向量索引。
-- 支持“我之前说过什么待办”“找一下关于模型配置的提醒”。
-
-验收：
-
-- Agent 可以通过语义查询找回相关 memory。
-- 仍然按当前 user_id 隔离。
-
-### P1.4 高风险操作确认闭环（已完成）
-
-`delete_memory` 等高风险工具的确认闭环已经打通：
-
-- 前端显示确认/拒绝控件。
-- 后端 `GuardedTool` 在执行前保存 pending action（Redis，带 TTL 与 `user_id` 隔离）。
-- 用户经 `POST /chat/agent/confirm` 确认后才执行删除，拒绝则放弃。
-
-机制细节见 [Agent 运行时现状](./agent_runtime_improvements.md) 中的高风险工具确认部分。后续仅剩拒绝后替代方案说明的细化。
-
-## 验收命令
-
-后端：
+基础语法与服务测试：
 
 ```powershell
 cd backend
 uv run python -m compileall app
+uv run pytest tests\test_agent_runtime.py tests\test_agent_run_service.py
 ```
 
-前端：
+工具安全回归由 offline smoke benchmark 覆盖：
 
 ```powershell
-cd front
-npm run build
+uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
 ```
 
-旧引用检查：
+人工验证应至少覆盖：
 
-```powershell
-rg -n "DailyReview|review_router|review_service|ReviewRecord|reviewApi|/review" backend front
-```
-
-说明：`review_question_prompt.txt` 和历史文档中出现 review 属于正常情况；业务入口不应继续依赖旧 review router/service/page。
+- 两个用户不能读取或修改彼此事项。
+- 完成、延期、归档状态正确。
+- Agent 删除首次只返回确认，不发生底层删除。
+- 确认动作过期、重复消费和跨用户消费均失败。

@@ -1,329 +1,301 @@
-# Doki助手开发与运行说明
+# 开发与运行说明
 
-本文记录 Doki助手的本地开发、启动、配置和验证方式。项目展示页见 [README](../README.md)。
+本文是 Doki 助手本地开发环境的操作基线。架构说明见 [当前架构](./project_develop.md)，常见故障见 [故障排除](./troubleshooting.md)。
 
-## 本地启动
+## 运行组成
 
-### 后端
+本地开发需要三个应用进程和外部基础设施：
 
-```powershell
-cd backend
-uv sync
-uv run uvicorn main:app --host 127.0.0.1 --port 18000 --reload
-```
+| 组件 | 默认地址 | 是否必需 |
+|------|----------|----------|
+| React/Vite | `127.0.0.1:18080` | 是 |
+| FastAPI | `127.0.0.1:18000` | 是 |
+| DjangoUserService | `127.0.0.1:18001` | 是 |
+| MySQL | `127.0.0.1:3306` | 是 |
+| Redis | `127.0.0.1:18020` | 是 |
+| Ollama | `127.0.0.1:11434` | 使用 Ollama 聊天模型或本地 Embedding 时需要 |
 
-### 前端
+FastAPI 启动时会创建缺失的业务表和列，但不会创建 MySQL database。Django 的表由 migration 管理。
 
-```powershell
-cd front
-npm install
-npm run dev -- --host 0.0.0.0 --port 18080
-```
+## 工具链版本
 
-### 用户服务
+### Python
 
-```powershell
-cd DjangoUserService
-uv sync
-uv run python manage.py migrate
-uv run python manage.py runserver 127.0.0.1:18001
-```
+- `backend/.python-version` 是 `3.12`。
+- `backend/pyproject.toml` 严格要求 `>=3.12,<3.13`。
+- `DjangoUserService/.python-version` 是 `3.13`。
+- `DjangoUserService/pyproject.toml` 声明支持 `>=3.10`。
 
-### Windows 一键启动
+两个项目都配置了 `python-downloads = "never"`，所以 `uv` 不会自动下载 Python。建议直接安装 Python 3.12 和 3.13，与仓库固定版本保持一致。
 
-支持两种启动模式，可按需选择。
+### Node.js
 
-模式①：单个 Windows Terminal 窗口、多 Tab（默认，最整洁）
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
-```
-
-模式①回退：每个服务一个独立 PowerShell 窗口（旧行为）
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1 -Mode Window
-```
-
-> 选 `Terminal` 但机器上没有 Windows Terminal（`wt.exe`）时，脚本会自动降级为 `Window` 模式。两种模式都保留阶梯启动：按 Redis/Ollama → Django → FastAPI → 前端 顺序逐个等待端口就绪再启动下一个。
-
-模式②：VS Code 集成终端，零独立弹窗
-
-在 VS Code 里打开命令面板或菜单 `Terminal → Run Task`，选择 `doki: start all`。所有服务在编辑器内的终端分组里按相同顺序启动，关闭 VS Code 即全部停止。配置见 `.vscode/tasks.json`。
-
-访问地址：
-
-- 前端：<http://127.0.0.1:18080>
-- FastAPI 文档：<http://127.0.0.1:18000/docs>
-- Django 文档：<http://127.0.0.1:18001/docs/>
-
-> 端口统一使用 18000（后端）、18001（用户服务）、18080（前端），均在 Windows 动态端口区（1024–15000）之外，避免重启后被系统保留段占用导致 `bind: ...forbidden by its access permissions`（错误码 10013）。一键启动脚本 `scripts/start-all.ps1` 会按 Redis/Ollama → Django → FastAPI → 前端 的顺序逐个等待就绪再启动下一个，避免服务未就绪时的交叉调用失败。
-
-## 关键配置
-
-管理员名单：
+前端使用 Vite 8。其 engines 要求：
 
 ```text
-backend/app/config/security.yaml
+^20.19.0 || >=22.12.0
 ```
 
-Agent 运行预算：
+Node.js 18 不满足当前前端依赖要求。
 
-```text
-backend/app/config/agent.yaml
+### 基础设施
+
+- MySQL 8.x。
+- Redis 7.x。
+- 可选 Ollama，用于本地聊天模型和默认的 Ollama Embedding。
+
+## 首次初始化
+
+以下命令均从仓库根目录开始。
+
+### 1. 创建 MySQL database
+
+```sql
+CREATE DATABASE chat_history CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE user_service CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-MCP 外部工具：
+名称可以修改，但必须与两个 `.env` 中的配置一致。
 
-```text
-backend/app/config/mcp.yaml
+### 2. 创建本地配置
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+Copy-Item DjangoUserService\.env.example DjangoUserService\.env
 ```
 
-知识库与向量库：
+不要提交 `.env`。仓库的 `.gitignore` 已忽略这些文件。
 
-```text
-backend/app/config/chroma.yaml
-backend/app/config/rag.yaml
-```
+### 3. 配置 FastAPI
 
-Prompt 配置：
-
-```text
-backend/app/config/prompt.yaml
-backend/app/prompt/
-```
-
-## 环境变量
-
-### FastAPI 后端 `.env`
+以 `backend/.env.example` 为完整字段清单。最小关注项：
 
 ```env
+# 聊天模型
 LLM_TYPE=ALIYUN
-
 ALIYUN_ACCESS_KEY_SECRET=your_api_key
 ALIYUN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-ALIYUN_MODEL_NAME=qwen3-max
+CHAT_MODEL_NAME=qwen3-max
 
+# 或本地 Ollama 聊天模型
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL_NAME=qwen3:0.6b
 
+# Embedding
 EMBED_MODEL_TYPE=OLLAMA
-TEXT_EMBEDDING_MODEL_NAME=qwen3-embedding:4b
+TEXT_EMBEDDING_MODEL_NAME=qwen3-embedding:0.6b
 
+# MySQL
 MYSQL_USER=root
 MYSQL_PASSWORD=root
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_DATABASE=chat_history
 
+# Redis
 REDIS_HOST=localhost
 REDIS_PORT=18020
 REDIS_DB=0
 
+# Django 与 JWT
 DJANGO_API_URL=http://127.0.0.1:18001
-
-SECRET_KEY=MY_JWT_SECRET_KEY
+SECRET_KEY=replace_with_a_shared_secret
 ALGORITHM=HS256
-
-RERANKER_MODEL_PATH=./models/qwen3-reranker-4b
-RERANKER_MODEL_NAME=Qwen/Qwen3-Reranker-4B
-RERANKER_DEVICE=auto
-RERANKER_MAX_LENGTH=8192
-RERANKER_BATCH_SIZE=1
-RERANKER_TORCH_DTYPE=auto
 ```
 
-### Django 用户服务 `.env`
+代码同时兼容旧变量 `ALIYUN_MODEL_NAME`，但新配置应统一使用模板中的 `CHAT_MODEL_NAME`。
+
+默认 Reranker 配置是 `Qwen/Qwen3-Reranker-4B`，会占用较多磁盘、内存和显存。配置与替代方案见 [本地模型配置](./modelscope_model.md)。
+
+### 4. 配置 Django
 
 ```env
-JWT_SECRET_KEY=MY_JWT_SECRET_KEY
+JWT_SECRET_KEY=replace_with_a_shared_secret
 
+DB_ENGINE=mysql
+DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=user_service
 DB_USER=root
 DB_PASSWORD=root
-DB_HOST=localhost
 
 CELERY_BROKER_URL=redis://localhost:18020/0
 CELERY_RESULT_BACKEND=redis://localhost:18020/0
-
 REDIS_CACHE_URL=redis://localhost:18020/1
 ```
 
-FastAPI 和 Django 的 JWT 密钥、算法需要保持一致。
+`JWT_SECRET_KEY` 必须与 FastAPI 的 `SECRET_KEY` 完全一致。Django 生成的 JWT 固定使用 HS256，当前有效期为 24 小时。
 
-## 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 前端 | React 19、TypeScript、Vite、Tailwind CSS、Zustand、i18next |
-| 后端 | FastAPI、SQLAlchemy、Redis、MySQL、ChromaDB |
-| 用户服务 | Django、JWT、MySQL |
-| Agent | LangChain、Tool Calling、Skill/Tool Registry、MCP SDK |
-| RAG | ChromaDB、Ollama Embedding、CrossEncoder Reranker |
-| 模型 | 阿里云百炼、OpenAI-compatible API、Ollama |
-
-## 依赖重建
-
-后端使用 `uv` 管理依赖。更新 `backend/pyproject.toml` 后，按下面顺序重建锁文件、同步虚拟环境，并更新兼容 `pip` 的 `requirements.txt`：
+### 5. 安装依赖与迁移
 
 ```powershell
 cd backend
+uv sync --extra dev
+
+cd ..\DjangoUserService
+uv sync
+uv run python manage.py migrate
+
+cd ..\front
+npm ci
+```
+
+日常只运行应用、不运行后端测试时，后端可以使用 `uv sync`；开发环境使用 `--extra dev` 安装 pytest、ruff 等工具。
+
+## 启动方式
+
+### Windows 一键启动
+
+```powershell
+.\start-all.bat
+```
+
+等价命令：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
+```
+
+常用参数：
+
+| 参数 | 作用 |
+|------|------|
+| `-Mode Terminal` | 默认，在同一 Windows Terminal 窗口中创建多个 Tab |
+| `-Mode Window` | 每个服务使用独立 PowerShell 窗口 |
+| `-SkipRedis` | 不启动 Redis |
+| `-SkipOllama` | 不启动 Ollama |
+| `-SkipFrontend` | 不启动前端 |
+| `-SkipBackend` | 不启动 FastAPI |
+| `-SkipUserService` | 不启动 Django |
+| `-NoReload` | FastAPI 不启用热重载 |
+| `-WaitTimeoutSeconds 120` | 调整每个服务的端口等待时间 |
+
+脚本只检查 MySQL 是否可连接，不会启动 MySQL。Redis 和 Ollama 只有在命令存在且端口未监听时才会自动启动。
+
+### VS Code Tasks
+
+打开 `Terminal -> Run Task`，选择 `doki: start all`。任务定义位于 `.vscode/tasks.json`，同样按 Redis、Ollama、Django、FastAPI、前端的顺序启动。
+
+### 手动启动
+
+分别打开终端：
+
+```powershell
+# Django
+cd DjangoUserService
+uv run python manage.py runserver 127.0.0.1:18001
+```
+
+```powershell
+# FastAPI
+cd backend
+uv run uvicorn main:app --host 127.0.0.1 --port 18000 --reload
+```
+
+```powershell
+# Frontend
+cd front
+npm run dev -- --host 127.0.0.1 --port 18080
+```
+
+## 访问与健康检查
+
+- 前端：<http://127.0.0.1:18080>
+- FastAPI OpenAPI：<http://127.0.0.1:18000/docs>
+- Django Swagger：<http://127.0.0.1:18001/docs/>
+- FastAPI 存活：<http://127.0.0.1:18000/health/live>
+- FastAPI 就绪：<http://127.0.0.1:18000/health/ready>
+
+`/health/live` 只说明应用进程存活；`/health/ready` 会检查 MySQL 和 Redis，不检查 Ollama、Embedding、Reranker 或 MCP server。
+
+## 前端代理
+
+Vite 默认代理目标：
+
+```text
+FastAPI: http://127.0.0.1:18000
+Django:  http://127.0.0.1:18001
+```
+
+可在启动前覆盖：
+
+```powershell
+$env:VITE_BACKEND_TARGET='http://127.0.0.1:18000'
+$env:VITE_USER_TARGET='http://127.0.0.1:18001'
+npm run dev
+```
+
+`/user` 和 `/file` 转发到 Django；聊天、知识库、笔记、记忆、模型配置、翻译及 `/api/mcp` 转发到 FastAPI。`/api/skills` 与 `/api/tools` 会去掉 `/api` 前缀后转发。
+
+## 有效配置文件
+
+| 文件 | 当前用途 |
+|------|----------|
+| `backend/app/config/agent.yaml` | Agent 最大迭代、工具调用、运行时间和输出预算 |
+| `backend/app/config/chroma.yaml` | Chroma collection、持久化目录、切片和文件类型 |
+| `backend/app/config/mcp.yaml` | MCP server、allow/deny 和 tool override |
+| `backend/app/config/prompt.yaml` | Prompt 名称到文件的映射 |
+| `backend/app/config/security.yaml` | 本地管理员兜底名单 |
+| `backend/app/config/rag.yaml` | 仅保留迁移说明，不再生效 |
+
+通过 ToolManager 修改 MCP server/tool 会直接写回跟踪中的 `mcp.yaml`。提交前应检查配置差异，避免把本机专用 URL、命令或凭据提交进仓库。
+
+## 依赖维护
+
+`pyproject.toml` 是 Python 直接依赖的来源，`uv.lock` 是可复现环境的锁文件，`requirements.txt` 是兼容 pip 的导出结果。
+
+更新后端依赖：
+
+```powershell
+cd backend
+uv lock
+uv sync --extra dev
+uv pip compile pyproject.toml -o requirements.txt
+```
+
+更新 Django 依赖：
+
+```powershell
+cd DjangoUserService
 uv lock
 uv sync
 uv pip compile pyproject.toml -o requirements.txt
 ```
 
-MCP 接入依赖当前包含：
+更新前端依赖后必须提交 `package.json` 和 `package-lock.json`，干净环境使用 `npm ci` 验证。
 
-```text
-mcp==1.28.0
-uvicorn==0.49.0
-```
+## 验证命令
 
-验证：
+### 后端
 
 ```powershell
 cd backend
-uv run python -c "from importlib.metadata import version; import uvicorn; print('mcp', version('mcp')); print('uvicorn', uvicorn.__version__)"
+uv run pytest
+uv run python -m compileall app
 ```
 
-如果 Windows 上 `uv sync` 下载 `pywin32` 时出现 `.uv-cache` 拒绝访问，可用管理员权限 PowerShell 重新执行 `uv sync`。
+当前测试覆盖 Agent 运行准备、运行时预算、意图路由、Benchmark runner/scorer 和 SSE 合同。
 
-## MCP 测试工具
-
-最小 stdio MCP server 可放在：
-
-```text
-backend/mcp_servers/echo_server.py
-```
-
-示例：
-
-```python
-from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
-
-
-mcp = FastMCP("Doki Test MCP")
-
-
-@mcp.tool(
-    description="Echo a message back for MCP integration testing.",
-    annotations=ToolAnnotations(readOnlyHint=True),
-)
-def echo(message: str) -> str:
-    return f"echo: {message}"
-
-
-if __name__ == "__main__":
-    mcp.run("stdio")
-```
-
-配置 `backend/app/config/mcp.yaml`：
-
-```yaml
-servers:
-  - id: doki_test
-    label: Doki Test MCP
-    enabled: true
-    transport: stdio
-    command: python
-    args:
-      - mcp_servers/echo_server.py
-    allow_tools:
-      - echo
-    deny_tools: []
-    default_risk_level: low
-    default_requires_confirmation: false
-    timeout_seconds: 10
-    max_output_chars: 2000
-```
-
-刷新发现：
-
-```powershell
-cd backend
-uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print(asyncio.run(mcp_tool_registry.refresh()))"
-```
-
-后端启动后也可以使用：
-
-```text
-POST /api/mcp/servers/refresh
-GET  /api/mcp/tools
-```
-
-stdio MCP server 会作为子进程启动。`mcp.yaml` 中的 `command: python` 依赖当前 PATH 和启动方式；如果子进程使用了没有安装 `mcp` 包的系统 Python，会导致发现失败。开发和验证时优先使用：
-
-```powershell
-cd backend
-uv run python -c "import asyncio; from app.agent.mcp.registry import mcp_tool_registry; print([t.to_public_dict() for t in asyncio.run(mcp_tool_registry.refresh())])"
-```
-
-如果必须直接用 venv Python 启动后端，请确认 stdio 子进程也能找到同一个环境，或在 `backend/app/config/mcp.yaml` 中把 `command` 改成明确的 venv Python 路径。
-
-当前默认 smoke test server 为：
-
-```text
-backend/mcp_servers/powershell_ls_server.py
-```
-
-它只暴露只读 `list_project_files`，用于验证 MCP 发现、注册和调用链路。
-
-## 开发检查
-
-后端语法检查：
-
-```powershell
-python -m compileall backend\app
-```
-
-前端构建：
-
-```powershell
-cd front
-npm run build
-```
-
-已知情况：前端构建可能提示 `tailwind.config.cjs` 的 ESM warning，但构建可以完成。
-
-## Benchmark 验证
-
-Benchmark 用来验证 Agent 重构后的整条运行链路：运行计划准备、Skill/Tool 选择、SSE 流、工具安全、落库收尾编排入口和前端流式消费契约。开发者文档见 [Benchmark 开发者指南](./benchmark_engineering_plan.md)，新手解释见 [Benchmark 新手指南](./benchmark_starter_guide.md)。
-
-### 后端 benchmark 相关测试
-
-```powershell
-cd backend
-uv run pytest tests\test_benchmark_runner.py tests\test_benchmark_scoring.py tests\test_chat_stream_contract.py
-```
-
-这些测试覆盖 runner 能否跑 case、scorer 边界，以及错误路径/异常路径的 SSE `done.session_id` 合同。
-
-### Smoke benchmark
+### Benchmark
 
 ```powershell
 cd backend
 uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
 ```
 
-`smoke` 是日常开发 gate：离线、脚本化、无真实模型、无 MySQL、无 embedding 服务、无 MCP discovery。不要把裸 `--offline` 当 gate，因为它会包含用于验证 scorer 失败路径的 `negative` fixtures。
+裸 `--offline` 默认排除 `negative` fixtures，但范围比 `smoke` suite 更广。只有显式传入 `--include-negative` 才运行用于验证 scorer 失败路径的 negative fixtures。
 
-开发单条 case 时使用：
-
-```powershell
-cd backend
-uv run python ..\benchmarks\runners\run_benchmarks.py --case-id agent_basic.plain_text_001 --offline
-```
-
-运行产物写入 `benchmarks/results/`，该目录只提交 `.gitkeep`。
-
-### 前端流式测试
+### 前端
 
 ```powershell
 cd front
 npm run test
+npm run build
+npm run lint
 ```
 
-当前前端测试使用 Vitest，重点覆盖 `useChatStream` 的 SSE 分包、thinking/error 前 flush、regenerate 覆盖和 `done.session_id` 传递。
+前端测试重点覆盖 `useChatStream` 的 SSE 分包、事件 flush、重新生成覆盖和 `done.session_id`。
+
+## 生产边界
+
+当前 Django 使用 `DEBUG=True` 和宽松 CORS，FastAPI 也允许所有来源。仓库没有生产反向代理、TLS、静态资源部署、进程守护、数据库 migration 策略或 secret manager 配置。部署到公网前必须单独完成这些工作，不能直接复用开发启动命令。
