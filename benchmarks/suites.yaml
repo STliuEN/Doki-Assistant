@@ -6,6 +6,9 @@ suites:
       event_contract_score: 0.2
       tool_policy_score: 0.1
       stop_reason_score: 0.05
+      routing_contract_score: 0.0
+      state_contract_score: 0.0
+      efficiency_score: 0.0
   chat_stream:
     weights:
       must_include_score: 0.2
@@ -13,6 +16,9 @@ suites:
       event_contract_score: 0.35
       tool_policy_score: 0.3
       stop_reason_score: 0.05
+      routing_contract_score: 0.0
+      state_contract_score: 0.0
+      efficiency_score: 0.0
   skill_routing:
     weights:
       must_include_score: 0.2
@@ -20,6 +26,9 @@ suites:
       event_contract_score: 0.35
       tool_policy_score: 0.3
       stop_reason_score: 0.05
+      routing_contract_score: 0.0
+      state_contract_score: 0.0
+      efficiency_score: 0.0
   tool_safety:
     weights:
       must_include_score: 0.2
@@ -27,3 +36,46 @@ suites:
       event_contract_score: 0.35
       tool_policy_score: 0.3
       stop_reason_score: 0.05
+      routing_contract_score: 0.0
+      state_contract_score: 0.0
+      efficiency_score: 0.0
+  intent_routing:
+    weights:
+      must_include_score: 0.05
+      forbidden_content_score: 0.05
+      event_contract_score: 0.1
+      tool_policy_score: 0.05
+      stop_reason_score: 0.05
+      routing_contract_score: 0.7
+      state_contract_score: 0.0
+      efficiency_score: 0.0
+  skill_tool_selection:
+    weights:
+      must_include_score: 0.05
+      forbidden_content_score: 0.05
+      event_contract_score: 0.1
+      tool_policy_score: 0.25
+      stop_reason_score: 0.05
+      routing_contract_score: 0.5
+      state_contract_score: 0.0
+      efficiency_score: 0.0
+  context_management:
+    weights:
+      must_include_score: 0.2
+      forbidden_content_score: 0.1
+      event_contract_score: 0.25
+      tool_policy_score: 0.05
+      stop_reason_score: 0.1
+      routing_contract_score: 0.0
+      state_contract_score: 0.25
+      efficiency_score: 0.05
+  error_recovery:
+    weights:
+      must_include_score: 0.1
+      forbidden_content_score: 0.1
+      event_contract_score: 0.4
+      tool_policy_score: 0.1
+      stop_reason_score: 0.1
+      routing_contract_score: 0.0
+      state_contract_score: 0.1
+      efficiency_score: 0.1

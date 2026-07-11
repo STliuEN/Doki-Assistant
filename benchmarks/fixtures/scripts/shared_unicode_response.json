@@ -1,0 +1,6 @@
+[
+  {
+    "event": "on_chat_model_stream",
+    "data": {"chunk": "基准测试响应完成 safely ✅"}
+  }
+]

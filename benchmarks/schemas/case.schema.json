@@ -7,7 +7,8 @@
     "id": { "type": "string" },
     "suite": { "type": "string" },
     "title": { "type": "string" },
-    "mode": { "enum": ["offline", "online"] },
+    "mode": { "enum": ["offline", "integration", "online"] },
+    "variant": { "enum": ["manual", "auto"] },
     "input": {
       "type": "object",
       "required": ["query"],
@@ -55,6 +56,21 @@
             }
           },
           "additionalProperties": false
+        },
+        "routing": {
+          "type": "object",
+          "properties": {
+            "mode": { "enum": ["scripted", "production"] }
+          },
+          "additionalProperties": false
+        },
+        "state": {
+          "type": "object",
+          "properties": {
+            "cross_user_accesses": { "type": "array", "items": { "type": "string" } },
+            "external_accesses": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -80,7 +96,47 @@
             "first_event_type": { "type": "string" },
             "require_done_session_id": { "type": "boolean" },
             "require_response_before_done": { "type": "boolean" },
-            "require_non_empty_response_before_done": { "type": "boolean" }
+            "require_non_empty_response_before_done": { "type": "boolean" },
+            "ordered_types": { "type": "array", "items": { "type": "string" } },
+            "exactly_once": { "type": "array", "items": { "type": "string" } },
+            "forbidden_types": { "type": "array", "items": { "type": "string" } },
+            "terminal_type": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "routing_contract": {
+          "type": "object",
+          "properties": {
+            "exact_skill_ids": { "type": "array", "items": { "type": "string" } },
+            "allowed_skill_ids": { "type": "array", "items": { "type": "string" } },
+            "forbidden_skill_ids": { "type": "array", "items": { "type": "string" } },
+            "exact_tool_ids": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "state_contract": {
+          "type": "object",
+          "properties": {
+            "created_messages": { "type": "integer", "minimum": 0 },
+            "updated_messages": { "type": "integer", "minimum": 0 },
+            "pending_actions": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "efficiency_contract": {
+          "type": "object",
+          "properties": {
+            "min_tool_calls": { "type": "integer", "minimum": 0 },
+            "max_tool_calls": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "hard_vetoes": {
+          "type": "object",
+          "properties": {
+            "forbidden_execute": { "type": "array", "items": { "type": "string" } },
+            "forbidden_cross_user_access": { "type": "boolean" },
+            "forbidden_external_access": { "type": "boolean" }
           },
           "additionalProperties": false
         },
@@ -91,7 +147,10 @@
             "forbidden_content_score": { "type": "number", "minimum": 0 },
             "event_contract_score": { "type": "number", "minimum": 0 },
             "tool_policy_score": { "type": "number", "minimum": 0 },
-            "stop_reason_score": { "type": "number", "minimum": 0 }
+            "stop_reason_score": { "type": "number", "minimum": 0 },
+            "routing_contract_score": { "type": "number", "minimum": 0 },
+            "state_contract_score": { "type": "number", "minimum": 0 },
+            "efficiency_score": { "type": "number", "minimum": 0 }
           },
           "additionalProperties": false
         },

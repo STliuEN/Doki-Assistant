@@ -228,6 +228,9 @@ uv run pytest
 # 离线 smoke benchmark
 uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
 
+# 完整离线回归 benchmark（117 个矩阵 case）
+uv run python ..\benchmarks\runners\run_benchmarks.py --mode offline --tag regression --fail-on-veto
+
 # 前端测试与构建
 cd ..\front
 npm run test

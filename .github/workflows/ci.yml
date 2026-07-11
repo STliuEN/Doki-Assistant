@@ -49,6 +49,9 @@ jobs:
       - name: Run offline smoke benchmark
         working-directory: backend
         run: uv run --frozen python ../benchmarks/runners/run_benchmarks.py --suite smoke --offline --fail-under 0.9
+      - name: Run offline regression benchmark
+        working-directory: backend
+        run: uv run --frozen python ../benchmarks/runners/run_benchmarks.py --mode offline --tag regression --fail-on-veto
 
   django:
     runs-on: windows-latest

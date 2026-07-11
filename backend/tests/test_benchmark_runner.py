@@ -7,6 +7,7 @@ from benchmarks.runners.harness import (
     REPO_ROOT,
     _first_non_empty_response_ms,
     load_cases,
+    offline_patches,
     run_case_sync,
     select_cases,
     validate_case,
@@ -126,6 +127,104 @@ def test_first_non_empty_response_ms_ignores_whitespace_content():
     ]
 
     assert _first_non_empty_response_ms(events) == 25
+
+
+def test_case_matrix_expands_with_deep_overrides(tmp_path):
+    matrix_file = tmp_path / "matrix.yaml"
+    matrix_file.write_text(
+        """
+matrices:
+  - id_prefix: matrix.sample
+    defaults:
+      suite: agent_basic
+      title: default title
+      mode: offline
+      input:
+        query: default query
+      fixtures:
+        model_script: fixtures/scripts/agent_basic_plain_text_001.json
+      expect:
+        must_include: [review]
+        event_contract:
+          terminal_type: done
+      tags: [regression]
+    rows:
+      - id: first
+        title: first title
+        input:
+          query: first query
+      - id: second
+        expect:
+          must_include: [plan]
+""",
+        encoding="utf-8",
+    )
+
+    cases = load_cases(tmp_path)
+
+    assert [case["id"] for case in cases] == ["matrix.sample.first", "matrix.sample.second"]
+    assert cases[0]["input"]["query"] == "first query"
+    assert cases[0]["expect"]["event_contract"]["terminal_type"] == "done"
+    assert cases[1]["expect"]["must_include"] == ["plan"]
+
+
+def test_case_matrix_rejects_unknown_matrix_field(tmp_path):
+    matrix_file = tmp_path / "matrix.yaml"
+    matrix_file.write_text(
+        """
+matrices:
+  - id_prefix: matrix.sample
+    defaults: {}
+    rows: [{id: first}]
+    typo: true
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unknown fields: typo"):
+        load_cases(tmp_path)
+
+
+def test_load_cases_rejects_duplicate_ids(tmp_path):
+    case = _valid_case()
+    import yaml
+
+    (tmp_path / "duplicates.yaml").write_text(
+        yaml.safe_dump({"cases": [case, case]}, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicate benchmark case id"):
+        load_cases(tmp_path)
+
+
+def test_select_cases_filters_mode_tag_and_variant():
+    cases = [
+        {"id": "a", "suite": "x", "mode": "offline", "variant": "auto", "tags": ["regression"]},
+        {"id": "b", "suite": "x", "mode": "online", "variant": "manual", "tags": ["quality"]},
+    ]
+
+    selected = select_cases(
+        cases,
+        suite=None,
+        case_id=None,
+        offline_only=False,
+        mode="online",
+        tag="quality",
+        variant="manual",
+    )
+
+    assert [case["id"] for case in selected] == ["b"]
+
+
+def test_offline_patches_block_and_record_socket_access():
+    import socket
+
+    with offline_patches(_valid_case()) as observation:
+        with pytest.raises(RuntimeError, match="blocked external connection"):
+            socket.create_connection(("example.invalid", 443))
+
+    assert observation["external_accesses"] == ["('example.invalid', 443)"]
 
 
 def _valid_case():

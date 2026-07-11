@@ -226,9 +226,15 @@ front/src/features/chat/
 
 ### P2.6 Benchmark 扩展
 
-目标：
+已完成：
 
 - 保留 offline smoke 作为日常 gate。
+- 新增 117 个矩阵化 regression case，正向离线 case 总数达到 121。
+- 新增路由、状态、效率、事件顺序/唯一性评分和安全/隔离 hard veto。
+- CI 增加完整离线 regression gate。
+
+剩余目标：
+
 - 新增可选的真实 MySQL/Redis 集成层。
 - 新增真实模型质量层，不纳入默认离线 gate。
 - 对上下文摘要、MCP 恢复、客户端取消和认证边界增加 cases。

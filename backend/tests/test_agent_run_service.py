@@ -104,6 +104,8 @@ def test_prepare_run_explicit_tool_ids_skip_routing(monkeypatch):
     ))
     assert routed == []  # 显式 tool_ids → route_skills 未被调用
     assert [t.name for t in plan.tools] == ["rag"]
+    assert plan.skill_ids == ["s1"]
+    assert plan.tool_ids == ["rag"]
 
 
 def test_prepare_run_routes_when_no_tool_ids(monkeypatch):

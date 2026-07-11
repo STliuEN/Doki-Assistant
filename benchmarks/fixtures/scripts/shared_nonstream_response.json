@@ -1,0 +1,6 @@
+[
+  {
+    "event": "on_chat_model_end",
+    "data": {"output": "benchmark non-stream response completed safely"}
+  }
+]

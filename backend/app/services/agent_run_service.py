@@ -63,6 +63,8 @@ class AgentRunPlan:
     system_prompt: str
     tools: list[BaseTool]
     notices: list[str]
+    skill_ids: list[str]
+    tool_ids: list[str]
 
 
 async def prepare_agent_run(
@@ -122,4 +124,6 @@ async def prepare_agent_run(
         system_prompt=system_prompt,
         tools=skill_resolution.tools,
         notices=skill_resolution.notices,
+        skill_ids=skill_resolution.skill_ids,
+        tool_ids=skill_resolution.tool_ids,
     )

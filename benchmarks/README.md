@@ -2,9 +2,14 @@
 
 This directory contains the local benchmark harness for the assistant runtime.
 
-The first supported layer is `smoke`: offline, scripted, no real model, no MySQL,
-no embedding service, and no MCP discovery. It exercises the production stream
+The default supported layer is offline: scripted model, no real MySQL, no
+embedding service, and no MCP discovery. It exercises the production stream
 path by injecting a fake agent factory into `get_agent_stream_response`.
+
+The repository currently contains 121 passing offline cases: the four-case
+`smoke` gate plus a 117-case `regression` matrix covering expression boundaries,
+Skill/Tool assembly, high-risk confirmation, SSE, context settings, and error
+recovery. One intentionally failing negative case verifies scorer behavior.
 
 ## Run
 
@@ -18,6 +23,12 @@ Run the related backend tests:
 
 ```powershell
 uv run pytest tests\test_benchmark_runner.py tests\test_benchmark_scoring.py tests\test_chat_stream_contract.py
+```
+
+Run the complete deterministic regression layer:
+
+```powershell
+uv run python ..\benchmarks\runners\run_benchmarks.py --mode offline --tag regression --fail-on-veto
 ```
 
 Use `--case-id` while developing one fixture:
@@ -48,6 +59,15 @@ uv run python ..\benchmarks\runners\run_benchmarks.py --offline --include-negati
 - Cases are validated against `schemas/case.schema.json` at load time. Unknown
   `expect.tool_policy` or `expect.event_contract` keys fail fast instead of
   being ignored by the scorer.
+- `matrices` in a case YAML file expands strictly validated defaults plus rows
+  into independent logical cases. Matrix IDs must remain unique repository-wide.
+- `routing_contract`, `state_contract`, `efficiency_contract`, and enhanced
+  `event_contract` fields protect actual prepared routes, side-effect counts,
+  Tool budgets, ordering, unique events, and terminal events.
+- `hard_vetoes` cannot be averaged away. Forbidden execution, cross-user access,
+  or external access sets the case score to zero and adds a `*_veto` flag.
+- `tags: [scripted_route]` fixes the route result to test downstream assembly;
+  `tags: [production_route]` executes the production keyword router.
 - `tool_safety` cases distinguish a tool being called from a tool being
   executed. A high-risk tool may be attempted, but it must emit
   `waiting_confirmation` and must not perform the underlying action.

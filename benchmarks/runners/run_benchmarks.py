@@ -22,13 +22,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case-id", help="Run exactly one case id.")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--offline", action="store_true", help="Only run offline cases.")
+    parser.add_argument("--mode", choices=("offline", "integration", "online"))
+    parser.add_argument("--tag", help="Only run cases containing this tag.")
+    parser.add_argument("--variant", choices=("manual", "auto"))
     parser.add_argument("--include-negative", action="store_true", help="Include negative scorer fixtures.")
     parser.add_argument("--output-dir", default=str(REPO_ROOT / "benchmarks" / "results"))
     parser.add_argument("--fail-under", type=float, default=None)
+    parser.add_argument("--fail-on-veto", action="store_true")
     args = parser.parse_args(argv)
 
     cases = load_cases(REPO_ROOT / "benchmarks" / "cases")
-    selected = select_cases(cases, args.suite, args.case_id, args.offline, include_negative=args.include_negative)
+    mode = "offline" if args.offline else args.mode
+    selected = select_cases(
+        cases,
+        args.suite,
+        args.case_id,
+        args.offline,
+        include_negative=args.include_negative,
+        mode=mode,
+        tag=args.tag,
+        variant=args.variant,
+    )
     if not selected:
         print("No benchmark cases selected.", file=sys.stderr)
         return 2
@@ -51,6 +65,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Summary: {run_dir / 'summary.md'}")
 
     failed = [result for result in results if result["status"] not in {"passed", "skipped"}]
+    vetoed = [result for result in results if any(flag.endswith("_veto") for flag in result.get("flags", []))]
+    if args.fail_on_veto and vetoed:
+        print(f"Benchmark hard-vetoed cases: {len(vetoed)}", file=sys.stderr)
+        return 1
     if args.fail_under is not None and summary["average_score"] < args.fail_under:
         print(
             f"Benchmark average score {summary['average_score']} is below --fail-under {args.fail_under}",

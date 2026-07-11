@@ -1,0 +1,11 @@
+[
+  {
+    "event": "call_tool",
+    "name": "unavailable_fixture_tool",
+    "data": {"input": {"value": "fixture"}}
+  },
+  {
+    "event": "on_chat_model_stream",
+    "data": {"chunk": "benchmark recovered safely after tool error"}
+  }
+]
