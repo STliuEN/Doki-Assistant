@@ -313,4 +313,16 @@ npm run lint
 
 ## 生产边界
 
-当前 Django 使用 `DEBUG=True` 和宽松 CORS，FastAPI 也允许所有来源。仓库没有生产反向代理、TLS、静态资源部署、进程守护、数据库 migration 策略或 secret manager 配置。部署到公网前必须单独完成这些工作，不能直接复用开发启动命令。
+当前代码只按受信任机器上的本地开发环境维护。不能把 `start-all.ps1`、Django `runserver` 或 Vite dev server 作为生产启动方式，也不能直接向公网或不受信任用户开放账号。
+
+已知边界：
+
+- Django 固定 `DEBUG=True`、允许任意 CORS origin；FastAPI 同样使用宽松 CORS。
+- 开发服务器会创建固定测试账号，登录页提供测试凭据填充。
+- Django migration 未被 Git 跟踪，FastAPI 仍使用启动期 `create_all` 和补列逻辑。
+- JWT refresh、撤销和用户锁定在 Django/FastAPI 间没有完整一致合同。
+- 用户模型/Embedding 地址会触发服务端网络请求，当前没有 production egress policy。
+- 消息原始 HTML 和知识库图片路径需要完成安全加固。
+- 仓库没有生产反向代理、TLS、静态资源部署、进程守护、secret manager 和备份回滚 runbook。
+
+具体风险和验收见 [安全与可靠性加固计划](./security_hardening_plan.md)，目标架构与实施顺序见 [全量重构开发计划](./roadmap_next.md)。只有安全计划中的“公网就绪条件”全部满足后，才能新增生产部署说明或放宽本节限制。

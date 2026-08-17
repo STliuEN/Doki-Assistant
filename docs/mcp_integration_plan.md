@@ -264,4 +264,4 @@ MCP Tool 的最终风险配置按以下顺序确定：
 - 外部 server 的权限边界仍由部署者负责；MCP 协议本身不构成沙箱。
 - 多实例 FastAPI 同时写 `mcp.local.yaml` 没有并发控制。
 
-后续工作见 [下一阶段路线图](./roadmap_next.md#p1-权限与-mcp-治理)。
+后续工作见 [全量重构开发计划的后端功能域阶段](./roadmap_next.md#r4-后端功能域模块化)。

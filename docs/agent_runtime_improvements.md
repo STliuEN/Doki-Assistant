@@ -1,6 +1,6 @@
 # Agent 运行时
 
-本文说明当前 Agent 请求如何从 HTTP 进入 LangChain AgentExecutor、如何产生 SSE、如何执行工具以及如何落库。尚未完成的改进统一维护在 [下一阶段路线图](./roadmap_next.md)。
+本文说明当前 Agent 请求如何从 HTTP 进入 LangChain AgentExecutor、如何产生 SSE、如何执行工具以及如何落库。尚未完成的改进统一维护在 [全量重构开发计划](./roadmap_next.md)。
 
 ## 当前模块
 

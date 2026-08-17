@@ -1,6 +1,6 @@
 # 当前架构
 
-本文描述当前仓库中的服务、模块和运行边界。历史设计过程位于 `project_changes/`；尚未完成的工作位于 [下一阶段路线图](./roadmap_next.md)。
+本文描述当前仓库中的服务、模块和运行边界。历史设计过程位于 `project_changes/`；尚未完成的工作位于 [全量重构开发计划](./roadmap_next.md)。
 
 ## 系统边界
 
@@ -335,7 +335,9 @@ FastAPI -> decode shared-secret JWT -> user_id
 - FastAPI 业务数据查询必须携带当前 `user_id`。
 - 管理员来自 `security.local.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`；仓库只跟踪空名单模板 `security.example.yaml`。
 
-当前权限不是数据库角色模型，也没有完整管理审计。
+当前 refresh 解码会忽略 access token 的 `exp`，FastAPI 只从已签名 payload 提取 `user_id`，不会在每次请求重新检查 Django 用户状态。FastAPI 黑名单检查使用 Redis wildcard `KEYS`，Redis 异常时跳过撤销检查。这些是当前行为描述，不是目标合同；整改见 [安全与可靠性加固计划](./security_hardening_plan.md)。
+
+当前权限不是数据库角色模型，也没有完整管理审计。全量重构推荐把用户与认证迁入 FastAPI，完成兼容迁移后退出 Django 运行链路，详见 [全量重构开发计划](./roadmap_next.md)。
 
 ## 数据位置
 
@@ -355,10 +357,14 @@ FastAPI -> decode shared-secret JWT -> user_id
 ## 当前技术债
 
 - FastAPI 数据库 schema 使用启动期自动补列，没有正式 migration 工具。
+- Django migration 被 Git 忽略，并在开发服务器启动线程中生成和应用。
 - 管理员权限仍是文件/环境变量名单。
-- MCP 配置写回跟踪中的 YAML，缺少数据库配置和审计。
+- MCP 配置写回 Git 忽略的本地 YAML，缺少数据库配置和审计。
+- 部分 FastAPI 路由声明裸 `response_model`，实际返回 `{code,message,data}`，OpenAPI 与响应校验不一致。
+- 用户名允许重复，当前登录查询只取第一条匹配记录。
 - RAG 关键文件仍较大，上传、索引和查询的测试隔离不足。
 - 前端多个页面仍承担请求、状态与渲染混合职责。
-- 生产部署、安全 header、TLS、secret manager 和 CI/CD 尚未定义。
+- Django 用户流程没有自动测试，前端测试主要集中在聊天 SSE。
+- 生产部署、安全 header、TLS、secret manager 和发布回滚流程尚未定义；仓库已有基础 CI。
 
-这些未完成项在 [下一阶段路线图](./roadmap_next.md) 中按优先级维护。
+这些未完成项在 [全量重构开发计划](./roadmap_next.md) 中按阶段维护。

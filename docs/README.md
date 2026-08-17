@@ -15,7 +15,9 @@
 | 排查运行问题 | [故障排除](./troubleshooting.md) |
 | 运行或扩展 Benchmark | [Benchmark 开发者指南](./benchmark_engineering_plan.md) |
 | 第一次理解 Benchmark | [Benchmark 新手指南](./benchmark_starter_guide.md) |
-| 查看尚未完成的工作 | [下一阶段路线图](./roadmap_next.md) |
+| 选择下一项可执行工作 | [改进执行选择](./improvement_execution_plan.md) |
+| 查看目标架构、阶段依赖和全部重构工作 | [全量重构开发计划](./roadmap_next.md) |
+| 修复安全、认证、路径、部署与 migration 风险 | [安全与可靠性加固计划](./security_hardening_plan.md) |
 | 修复依赖、OpenAPI、配置、lint 与 CI 漂移 | [仓库更新完整性整改计划](./maintenance_update_plan.md) |
 
 用户服务接口单独维护在 [DjangoUserService API](../DjangoUserService/api.md)。前端开发入口见 [front/README.md](../front/README.md)。

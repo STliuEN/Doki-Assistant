@@ -1,11 +1,12 @@
 # 仓库更新完整性整改计划
 
-状态：本地实施完成，待首次远端 CI 运行
+状态：第一轮完整性整改完成；后续工作已纳入全量重构计划
 基线日期：2026-07-10
 实施日期：2026-07-10
+复核日期：2026-07-16
 适用范围：当前 `ai_document_assistant` 分支
 
-本文处理依赖、生成文件、配置、安全、前端质量门禁和 CI 的更新完整性问题。产品功能路线仍以 [下一阶段路线图](./roadmap_next.md) 为准。
+本文保留第一轮依赖、生成文件、配置、前端质量门禁和 CI 整改的决策与验收记录。后续开发以 [全量重构开发计划](./roadmap_next.md) 为主计划；路径、认证、部署和数据库风险的细节见 [安全与可靠性加固计划](./security_hardening_plan.md)。
 
 ## 实施结果
 
@@ -18,9 +19,24 @@
 | MCP 配置 | 示例默认禁用，本机可写配置与 Git 分离 |
 | Frontend | lint 0 errors/0 warnings，Vitest 与构建通过 |
 | Python 工具链 | Ruff 通过，Pydantic class config 警告已消除，uv 缓存统一到仓库根目录 |
-| CI | `.github/workflows/ci.yml` 已覆盖文档、后端、Django、前端、OpenAPI、requirements 和 smoke benchmark |
+| CI | `.github/workflows/ci.yml` 已覆盖文档、后端、Django、前端、OpenAPI、requirements、smoke 和完整离线 regression benchmark |
 
 以下“已确认基线”和 M0-M6 保留实施前问题及决策过程，不能再作为当前失败状态解读。
+
+## 2026-07-16 复核
+
+| 检查项 | 结果 |
+|--------|------|
+| Backend tests | 82 passed |
+| Backend CI 范围 Ruff | passed |
+| Backend 全仓 Ruff | 7 个未纳入 CI 范围的问题 |
+| Frontend lint/test/typecheck/build | passed；4 tests |
+| Django system check | passed |
+| Django tests | 0 tests |
+| OpenAPI/requirements/lock/docs | passed |
+| Benchmark | smoke 与完整 offline regression passed |
+
+第一轮整改解决了依赖和生成物漂移，但没有覆盖目录穿越、原始 HTML、JWT refresh、固定测试账号、SSRF、正式 migration 和响应 envelope 等风险。这些事项不是本计划的“回归”，而是 2026-07-16 全仓审查新增的重构输入，统一由新的主计划跟踪。
 
 ## 目标
 
@@ -68,7 +84,7 @@
 - MCP 配置数据库化和完整审计系统。
 - 生产部署基础设施。
 
-这些事项继续保留在 [下一阶段路线图](./roadmap_next.md)。
+这些事项继续保留在 [全量重构开发计划](./roadmap_next.md)。
 
 ## 实施顺序
 
@@ -163,7 +179,7 @@ cd ..
 
 - 两个 `uv lock --check` 通过。
 - requirements 中每个精确 pin 都与对应 lock 版本一致。
-- `uv sync --extra dev` 后后端 45 项测试通过。
+- `uv sync --extra dev` 后后端全部当前测试通过。
 - Django `manage.py check` 通过。
 - 临时生成 requirements 后 `git diff --exit-code` 无差异。
 

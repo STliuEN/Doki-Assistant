@@ -246,17 +246,22 @@ npm run build
 - [Agent 运行时](./docs/agent_runtime_improvements.md)
 - [MCP 接入与管理](./docs/mcp_integration_plan.md)
 - [Benchmark 开发者指南](./docs/benchmark_engineering_plan.md)
-- [下一阶段路线图](./docs/roadmap_next.md)
+- [改进执行选择](./docs/improvement_execution_plan.md)
+- [全量重构开发计划](./docs/roadmap_next.md)
+- [安全与可靠性加固计划](./docs/security_hardening_plan.md)
 - [故障排除](./docs/troubleshooting.md)
 - [Django 用户服务 API](./DjangoUserService/api.md)
 
 ## 当前限制
 
-- Django 使用 `DEBUG=True`、宽松 CORS，FastAPI 也使用宽松 CORS；当前配置不应直接用于公网生产环境。
-- 仓库没有 Docker Compose、反向代理、TLS、CI/CD 或正式部署清单。
+- 当前只支持受信任机器上的本地开发，不应直接向公网或不受信任用户开放。Django 使用 `DEBUG=True` 和宽松 CORS，FastAPI 也使用宽松 CORS。
+- 已确认的路径、消息渲染、JWT 生命周期、默认测试账号和服务端网络出口风险正在 [安全与可靠性加固计划](./docs/security_hardening_plan.md) 中跟踪；完成 P0/P1 验收前不能宣称生产就绪。
+- Django migration 未进入版本控制，FastAPI 仍在启动时创建表和补列；当前 schema 演进不具备可靠回滚能力。
+- 仓库已有基础 CI，但没有 Docker Compose、反向代理、TLS、production profile、正式部署与回滚清单。
 - 管理员权限仍以配置文件和环境变量为主，尚未迁移到数据库角色与审计表。
 - MCP 配置写回 YAML，不是数据库配置中心。
 - 前端部分页面仍较大，聊天页面只完成了 SSE hook 等第一阶段拆分。
+- 后续目标架构、Django 退出路径、功能域拆分和阶段验收统一以 [全量重构开发计划](./docs/roadmap_next.md) 为准。
 
 ## License
 

@@ -378,4 +378,4 @@ npm run test
 - offline 中大部分意图表达 case 使用脚本路由，不能替代真实 Embedding 路由质量评估。
 - 没有 CI 自动运行 smoke gate。
 
-扩展优先级见 [下一阶段路线图](./roadmap_next.md#p2-rag-与测试)。
+扩展优先级见 [全量重构开发计划的质量门禁阶段](./roadmap_next.md#r7-质量性能与运维门禁)。
