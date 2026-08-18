@@ -1,6 +1,387 @@
 {
   "components": {
     "schemas": {
+      "ApiResponse_Any_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[Any]",
+        "type": "object"
+      },
+      "ApiResponse_DeleteMessageResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeleteMessageResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DeleteMessageResponse]",
+        "type": "object"
+      },
+      "ApiResponse_DocumentChunksResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentChunksResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[DocumentChunksResponse]",
+        "type": "object"
+      },
+      "ApiResponse_KnowledgeDocumentDetail_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeDocumentDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[KnowledgeDocumentDetail]",
+        "type": "object"
+      },
+      "ApiResponse_KnowledgeListResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[KnowledgeListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_MD5ListResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MD5ListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MD5ListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_MD5Record_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MD5Record"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[MD5Record]",
+        "type": "object"
+      },
+      "ApiResponse_NoneType_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "title": "Data",
+            "type": "null"
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[NoneType]",
+        "type": "object"
+      },
+      "ApiResponse_NoteListResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoteListResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[NoteListResponse]",
+        "type": "object"
+      },
+      "ApiResponse_NoteResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[NoteResponse]",
+        "type": "object"
+      },
+      "ApiResponse_RAGResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RAGResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[RAGResponse]",
+        "type": "object"
+      },
+      "ApiResponse_ReorderResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReorderResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[ReorderResponse]",
+        "type": "object"
+      },
+      "ApiResponse_SessionMessagesResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionMessagesResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SessionMessagesResponse]",
+        "type": "object"
+      },
+      "ApiResponse_SessionResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SessionResponse]",
+        "type": "object"
+      },
+      "ApiResponse_dict_str__str__": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[dict[str, str]]",
+        "type": "object"
+      },
       "AssistRequest": {
         "description": "写作辅助请求模型",
         "properties": {
@@ -1380,6 +1761,109 @@
         "title": "NoteCreate",
         "type": "object"
       },
+      "NoteListResponse": {
+        "description": "笔记列表响应模型",
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/NoteResponse"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "notes",
+          "total_count"
+        ],
+        "title": "NoteListResponse",
+        "type": "object"
+      },
+      "NoteResponse": {
+        "description": "笔记响应模型",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_pinned": {
+            "default": false,
+            "title": "Is Pinned",
+            "type": "boolean"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "title",
+          "content"
+        ],
+        "title": "NoteResponse",
+        "type": "object"
+      },
       "NoteTemplateCreate": {
         "description": "创建笔记模板请求模型",
         "properties": {
@@ -2192,7 +2676,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_str__str__"
+                }
               }
             },
             "description": "Successful Response"
@@ -2208,10 +2694,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -2232,10 +2720,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -2256,10 +2746,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -2291,10 +2783,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -2344,10 +2838,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -2378,10 +2874,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -2413,10 +2911,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -2466,10 +2966,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -2510,11 +3012,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -2555,11 +3060,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -2590,7 +3098,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -2621,7 +3131,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RAGResponse"
+                  "$ref": "#/components/schemas/ApiResponse_RAGResponse_"
                 }
               }
             },
@@ -2668,7 +3178,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReorderResponse"
+                  "$ref": "#/components/schemas/ApiResponse_ReorderResponse_"
                 }
               }
             },
@@ -2715,7 +3225,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -2760,7 +3272,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionResponse"
+                  "$ref": "#/components/schemas/ApiResponse_SessionResponse_"
                 }
               }
             },
@@ -2808,7 +3320,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SessionMessagesResponse"
+                  "$ref": "#/components/schemas/ApiResponse_SessionMessagesResponse_"
                 }
               }
             },
@@ -2875,7 +3387,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeleteMessageResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DeleteMessageResponse_"
                 }
               }
             },
@@ -2940,11 +3452,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -2976,7 +3491,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3012,7 +3529,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3046,7 +3565,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3066,10 +3587,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "summary": "健康检查",
@@ -3086,10 +3609,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "summary": "健康检查",
@@ -3116,7 +3641,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_dict_str__str__"
+                }
               }
             },
             "description": "Successful Response"
@@ -3153,7 +3680,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3197,11 +3726,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -3243,7 +3775,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3290,7 +3824,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocumentChunksResponse"
+                  "$ref": "#/components/schemas/ApiResponse_DocumentChunksResponse_"
                 }
               }
             },
@@ -3326,7 +3860,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3372,7 +3908,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3419,7 +3957,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeDocumentDetail"
+                  "$ref": "#/components/schemas/ApiResponse_KnowledgeDocumentDetail_"
                 }
               }
             },
@@ -3454,7 +3992,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3490,7 +4030,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3534,7 +4076,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3635,7 +4179,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3671,7 +4217,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeListResponse"
+                  "$ref": "#/components/schemas/ApiResponse_KnowledgeListResponse_"
                 }
               }
             },
@@ -3709,7 +4255,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3765,7 +4313,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3801,7 +4351,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MD5ListResponse"
+                  "$ref": "#/components/schemas/ApiResponse_MD5ListResponse_"
                 }
               }
             },
@@ -3839,7 +4389,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MD5Record"
+                  "$ref": "#/components/schemas/ApiResponse_MD5Record_"
                 }
               }
             },
@@ -3874,7 +4424,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3898,7 +4450,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -3932,7 +4486,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -4021,10 +4577,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4089,10 +4647,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4123,10 +4683,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -4158,10 +4720,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4201,10 +4765,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4254,10 +4820,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4299,10 +4867,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4344,10 +4914,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4399,10 +4971,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4444,10 +5018,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4489,10 +5065,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4533,10 +5111,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4567,10 +5147,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -4591,10 +5173,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -4627,10 +5211,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4661,10 +5247,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -4685,10 +5273,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -4719,10 +5309,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4764,10 +5356,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4817,10 +5411,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4862,10 +5458,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4907,10 +5505,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4952,10 +5552,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -4987,10 +5589,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -5022,10 +5626,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -5068,10 +5674,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -5122,10 +5730,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -5166,11 +5776,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -5212,7 +5825,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5257,7 +5872,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5302,7 +5919,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5392,7 +6011,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5438,7 +6059,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5483,7 +6106,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5572,7 +6197,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteListResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5620,7 +6247,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteListResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5655,7 +6284,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5691,7 +6322,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5735,7 +6368,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5789,7 +6424,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5835,7 +6472,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5881,10 +6520,18 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Markdown download, or a canonical JSON envelope when absent"
           },
           "422": {
             "content": {
@@ -5927,7 +6574,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -5973,7 +6622,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoteResponse_"
+                }
               }
             },
             "description": "Successful Response"
@@ -6019,7 +6670,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
             "description": "Successful Response"
@@ -6063,10 +6716,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6097,10 +6752,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -6132,10 +6789,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6175,10 +6834,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6228,10 +6889,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6272,10 +6935,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6306,10 +6971,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [
@@ -6341,10 +7008,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6394,10 +7063,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           },
           "422": {
             "content": {
@@ -6437,11 +7108,14 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "example": "data: {\"schema_version\":\"1.0\",\"type\":\"response\",\"content\":\"hello\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned Server-Sent Events stream"
           },
           "422": {
             "content": {
@@ -6473,10 +7147,12 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful response using the canonical API envelope"
           }
         },
         "security": [

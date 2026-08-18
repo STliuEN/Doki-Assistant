@@ -1,11 +1,11 @@
 import asyncio
-import json
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from uuid import uuid4
 
 from app.agent.runtime.events import runtime_event
 from app.core.logger_handler import logger
+from app.schemas.sse import encode_sse
 
 
 def make_thinking_callback(
@@ -28,7 +28,7 @@ def make_thinking_callback(
 
 
 def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    return encode_sse(payload)
 
 
 async def drive_sse_stream(

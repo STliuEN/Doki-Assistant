@@ -8,6 +8,7 @@ import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage, LocalRera
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import DocumentDetailDrawer from '../components/knowledge/DocumentDetailDrawer'
+import { getAccessToken } from '../stores/useUserStore'
 
 interface UploadFile {
   file: File
@@ -298,7 +299,7 @@ export default function KnowledgeBase() {
 
   const handleDownloadSource = async (doc: KnowledgeDocument) => {
     try {
-      const token = localStorage.getItem('jwt_token')
+      const token = getAccessToken()
       const response = await fetch(knowledgeApi.sourceUrl(doc.filename), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })

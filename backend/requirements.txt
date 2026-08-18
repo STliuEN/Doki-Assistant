@@ -19,6 +19,8 @@ aiomysql==0.3.2 ; sys_platform == 'win32'
     # via backend
 aiosignal==1.4.0 ; sys_platform == 'win32'
     # via aiohttp
+alembic==1.19.1 ; sys_platform == 'win32'
+    # via backend
 annotated-doc==0.0.4 ; sys_platform == 'win32'
     # via
     #   fastapi
@@ -298,12 +300,16 @@ lxml==6.1.1 ; sys_platform == 'win32'
     #   python-docx
     #   python-pptx
     #   unstructured
+mako==1.4.1 ; sys_platform == 'win32'
+    # via alembic
 markdown==3.10.2 ; sys_platform == 'win32'
     # via unstructured
 markdown-it-py==4.2.0 ; sys_platform == 'win32'
     # via rich
 markupsafe==3.0.3 ; sys_platform == 'win32'
-    # via jinja2
+    # via
+    #   jinja2
+    #   mako
 marshmallow==3.26.2 ; sys_platform == 'win32'
     # via dataclasses-json
 matplotlib==3.11.0 ; sys_platform == 'win32'
@@ -675,6 +681,7 @@ spacy-loggers==1.0.5 ; sys_platform == 'win32'
     # via spacy
 sqlalchemy==2.0.51 ; sys_platform == 'win32'
     # via
+    #   alembic
     #   backend
     #   langchain-classic
     #   langchain-community
@@ -750,6 +757,7 @@ typing-extensions==4.15.0 ; sys_platform == 'win32'
     # via
     #   aiohttp
     #   aiosignal
+    #   alembic
     #   anyio
     #   beautifulsoup4
     #   chromadb

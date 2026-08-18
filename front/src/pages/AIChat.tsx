@@ -2,9 +2,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Send, Sparkles, Bot, User, ChevronDown, ChevronRight, Loader2, Wrench, Trash2, RefreshCw, Gauge, ShieldAlert, Check, X } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
-import rehypeRaw from 'rehype-raw'
 import { chatApi, type ChatPromptMode, type ChatSkill, type ChatTool } from '../api/chat'
 import { modelConfigApi } from '../api/modelConfig'
 import { sessionsApi } from '../api/sessions'
@@ -33,6 +30,7 @@ import {
   type RagRetrievalMode,
   type RagRetrievalSettings,
 } from '../features/chat/types'
+import { ChatMarkdown } from '../features/chat/components/ChatMarkdown'
 
 export default function AIChat() {
   const { sessionId } = useParams()
@@ -422,9 +420,7 @@ export default function AIChat() {
                       </div>
                     )}
                     <div className={`prose prose-sm max-w-none markdown-body${theme === 'dark' ? ' prose-invert' : ''}`}>
-                      <ReactMarkdown rehypePlugins={[rehypeHighlight, rehypeRaw]}>
-                        {msg.content}
-                      </ReactMarkdown>
+                      <ChatMarkdown>{msg.content}</ChatMarkdown>
                     </div>
                     {hasStreamingAssistant && i === messages.length - 1 && (
                       <div className="flex gap-1 mt-3">

@@ -15,7 +15,7 @@
 | Redis | `127.0.0.1:18020` | 是 |
 | Ollama | `127.0.0.1:11434` | 使用 Ollama 聊天模型或本地 Embedding 时需要 |
 
-FastAPI 启动时会创建缺失的业务表和列，但不会创建 MySQL database。Django 的表由 migration 管理。
+应用启动不会创建 database、表或列，也不会生成或执行 migration、创建开发账号。Django schema 由已提交的 migration 管理；FastAPI schema 由 Alembic 管理，启动时只校验数据库 revision，不匹配时直接失败。
 
 ## 工具链版本
 
@@ -37,6 +37,8 @@ FastAPI 启动时会创建缺失的业务表和列，但不会创建 MySQL datab
 ```
 
 Node.js 18 不满足当前前端依赖要求。
+
+前端完整使用 npm 管理依赖和脚本，`package-lock.json` 是锁文件；本地安装、测试、构建都使用 `npm`，不需要额外的包管理器。
 
 ### 基础设施
 
@@ -74,6 +76,11 @@ Copy-Item DjangoUserService\.env.example DjangoUserService\.env
 以 `backend/.env.example` 为完整字段清单。最小关注项：
 
 ```env
+# 运行环境与浏览器来源
+ENV=dev
+DEBUG_MODE=true
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
 # 聊天模型
 LLM_TYPE=ALIYUN
 ALIYUN_ACCESS_KEY_SECRET=your_api_key
@@ -99,17 +106,21 @@ MYSQL_DATABASE=chat_history
 REDIS_HOST=localhost
 REDIS_PORT=18020
 REDIS_DB=0
+JWT_REDIS_URL=redis://localhost:18020/1
 
 # Django 与 JWT
 DJANGO_API_URL=http://127.0.0.1:18001
 SECRET_KEY=replace_with_a_shared_secret
 MODEL_CONFIG_ENCRYPTION_KEY=replace_with_a_model_config_secret
 ALGORITHM=HS256
+JWT_ISSUER=doki-user-service
+JWT_AUDIENCE=doki-api
+AUTH_STATE_VALIDATION_ENABLED=true
 ```
 
 新安装可以直接使用独立的模型配置加密密钥。已有密文需要分离密钥时，先设置 `MODEL_CONFIG_ENCRYPTION_KEY_PREVIOUS`，执行 `uv run python scripts\rotate_model_config_keys.py` dry-run，确认数量后再加 `--apply`；迁移完成后删除 previous key。
 
-当 `ENV` 不是开发或测试环境时，FastAPI 会在启动阶段拒绝空值、示例值、少于 32 字符或彼此相同的 `SECRET_KEY` 和 `MODEL_CONFIG_ENCRYPTION_KEY`。
+`ENV` 只接受 `dev/development`、`test/testing`、`prod/production`，拼写错误或其他值会拒绝启动。FastAPI 在 `prod/production` 下要求显式 `DEBUG_MODE=false`，并拒绝空值、示例值、少于 32 字符或彼此相同的 `SECRET_KEY` 和 `MODEL_CONFIG_ENCRYPTION_KEY`；同时要求显式配置 `JWT_REDIS_URL`、启用 `AUTH_STATE_VALIDATION_ENABLED`。生产环境的 `CORS_ALLOWED_ORIGINS` 必须是非空 allowlist，不能包含 `*`。
 
 代码同时兼容旧变量 `ALIYUN_MODEL_NAME`，但新配置应统一使用模板中的 `CHAT_MODEL_NAME`。
 
@@ -118,7 +129,18 @@ ALGORITHM=HS256
 ### 4. 配置 Django
 
 ```env
-JWT_SECRET_KEY=replace_with_a_shared_secret
+ENV=dev
+DJANGO_DEBUG=true
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+CORS_ALLOW_ALL_ORIGINS=false
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+JWT_SECRET_KEY=replace_with_a_shared_secret_at_least_32_characters
+ALGORITHM=HS256
+JWT_ISSUER=doki-user-service
+JWT_AUDIENCE=doki-api
+JWT_ACCESS_TTL_SECONDS=900
+JWT_REFRESH_TTL_SECONDS=2592000
 
 DB_ENGINE=mysql
 DB_HOST=localhost
@@ -132,13 +154,16 @@ CELERY_RESULT_BACKEND=redis://localhost:18020/0
 REDIS_CACHE_URL=redis://localhost:18020/1
 ```
 
-`JWT_SECRET_KEY` 必须与 FastAPI 的 `SECRET_KEY` 完全一致。Django 生成的 JWT 固定使用 HS256，当前有效期为 24 小时。
+`JWT_SECRET_KEY` 必须与 FastAPI 的 `SECRET_KEY` 完全一致，issuer、audience 和撤销 Redis 也必须对齐。默认 access token 有效期为 900 秒，refresh token 有效期为 2592000 秒；refresh token 成功使用后会原子失效并轮换为一组新 token，不能重放。
+
+两端使用同一组 `ENV` 枚举；未知值会拒绝启动。Django 生产环境会拒绝弱密钥、`DJANGO_DEBUG=true`、空的 allowed hosts/CORS allowlist、通配 CORS 和缺失的 `REDIS_CACHE_URL`。撤销存储不可用时，受保护接口、refresh 和 logout 采用 fail closed，返回 `503`，不会跳过检查。
 
 ### 5. 安装依赖与迁移
 
 ```powershell
 cd backend
 uv sync --extra dev
+uv run alembic upgrade head
 
 cd ..\DjangoUserService
 uv sync
@@ -148,7 +173,18 @@ cd ..\front
 npm ci
 ```
 
-日常只运行应用、不运行后端测试时，后端可以使用 `uv sync`；开发环境使用 `--extra dev` 安装 pytest、ruff 等工具。
+`alembic upgrade head` 只适用于新空库或已经纳入 Alembic 管理的数据库。接管已有但没有 `alembic_version` 的数据库前，必须先备份并将实际 schema 与 baseline 逐项核对；只有确认完全一致后才能执行 `alembic stamp 20260817_0001`，不能用 stamp 绕过结构差异。
+
+日常只运行应用、不运行后端测试时，后端可以使用 `uv sync`；开发环境使用 `--extra dev` 安装 pytest、ruff 等工具。Web 启动命令不会代替上述 migration。
+
+需要固定开发账号时，使用显式管理命令并传入仅供本机使用的密码：
+
+```powershell
+cd DjangoUserService
+uv run python manage.py seed_dev_user --username dev --email dev@example.invalid --password '<local-only-password>'
+```
+
+该命令在 `ENV=prod` 或 `ENV=production` 时拒绝执行。正常注册流程不需要 seed。
 
 ## 启动方式
 
@@ -179,6 +215,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 | `-WaitTimeoutSeconds 120` | 调整每个服务的端口等待时间 |
 
 脚本只检查 MySQL 是否可连接，不会启动 MySQL。Redis 和 Ollama 只有在命令存在且端口未监听时才会自动启动。
+
+一键脚本同样不会运行 migration 或创建账号。FastAPI 若报告 Alembic revision 缺失或不匹配，应先停止启动流程，按“首次初始化”中的数据库边界处理。
 
 ### VS Code Tasks
 
@@ -287,9 +325,26 @@ cd backend
 uv run pytest -p no:cacheprovider
 uv run ruff check main.py app tests scripts
 uv run python scripts\export_openapi.py --check
+uv run alembic heads
+uv run alembic upgrade head --sql
 ```
 
 当前测试覆盖 Agent 运行准备、运行时预算、意图路由、Benchmark runner/scorer 和 SSE 合同。
+
+### Django
+
+Django 测试使用隔离的 SQLite 内存数据库；`ENV=test` 会强制使用 `LocMemCache`，不会连接本机 Redis：
+
+```powershell
+cd DjangoUserService
+$env:ENV='test'
+$env:SECRET_KEY='test-only-django-jwt-secret-at-least-32-characters'
+$env:DB_ENGINE='sqlite3'
+$env:DB_NAME=':memory:'
+uv run python manage.py check
+uv run python manage.py makemigrations --check --dry-run
+uv run python manage.py test
+```
 
 ### Benchmark
 
@@ -313,16 +368,13 @@ npm run lint
 
 ## 生产边界
 
-当前代码只按受信任机器上的本地开发环境维护。不能把 `start-all.ps1`、Django `runserver` 或 Vite dev server 作为生产启动方式，也不能直接向公网或不受信任用户开放账号。
+不能把 `start-all.ps1`、Django `runserver` 或 Vite dev server 作为生产启动方式。仓库已经具备生产配置的 fail-fast 基线：
 
-已知边界：
+- Django 要求强 JWT 密钥、`DEBUG=false`、显式 allowed hosts/CORS allowlist 和 Redis 撤销存储。
+- FastAPI 要求分离的强 JWT/模型加密密钥、显式 CORS allowlist、`JWT_REDIS_URL` 和用户状态复核。
+- 两个服务都拒绝生产通配 CORS；认证状态或撤销依赖不可确认时返回 `503`。
+- Django migration 和 Alembic revision 均受版本控制，应用启动只验证，不修改 schema 或 seed 数据。
 
-- Django 固定 `DEBUG=True`、允许任意 CORS origin；FastAPI 同样使用宽松 CORS。
-- 开发服务器会创建固定测试账号，登录页提供测试凭据填充。
-- Django migration 未被 Git 跟踪，FastAPI 仍使用启动期 `create_all` 和补列逻辑。
-- JWT refresh、撤销和用户锁定在 Django/FastAPI 间没有完整一致合同。
-- 用户模型/Embedding 地址会触发服务端网络请求，当前没有 production egress policy。
-- 消息原始 HTML 和知识库图片路径需要完成安全加固。
-- 仓库没有生产反向代理、TLS、静态资源部署、进程守护、secret manager 和备份回滚 runbook。
+仍未交付的生产能力包括反向代理、TLS、静态资源部署、进程守护、secret manager、备份与回滚 runbook，以及用户可配置模型/Embedding 地址的 egress policy。完成这些部署层能力前，不应直接向公网开放。
 
 具体风险和验收见 [安全与可靠性加固计划](./security_hardening_plan.md)，目标架构与实施顺序见 [全量重构开发计划](./roadmap_next.md)。只有安全计划中的“公网就绪条件”全部满足后，才能新增生产部署说明或放宽本节限制。

@@ -5,6 +5,7 @@ import { notesApi } from '../api/notes'
 import { translateApi } from '../api/translate'
 import { useSSE } from '../hooks/useSSE'
 import type { ModelConfig } from '../types/api'
+import { getAccessToken } from '../stores/useUserStore'
 
 type TranslateMode = 'document' | 'dialogue'
 type DialogueItem = {
@@ -119,7 +120,7 @@ export default function RealtimeTranslate() {
   }
 
   const translateDialogueLine = async (id: string, text: string) => {
-    const token = localStorage.getItem('jwt_token')
+    const token = getAccessToken()
     try {
       const response = await fetch(translateApi.dialogueStream, {
         method: 'POST',

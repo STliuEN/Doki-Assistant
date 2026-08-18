@@ -49,7 +49,9 @@ media/
 # Database
 *.db
 *.sqlite3
-migrations/
+# Migration sources are deployable schema history; ignore generated files only.
+**/migrations/__pycache__/
+**/migrations/*.pyc
 
 # Build artifacts
 build/
@@ -66,6 +68,7 @@ test/
 benchmarks/results/*
 !benchmarks/results/.gitkeep
 front/dist-build-check/
+output/playwright/
 
 # Misc
 *.pem

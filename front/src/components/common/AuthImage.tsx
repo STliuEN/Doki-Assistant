@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getAccessToken } from '../../stores/useUserStore'
 
 interface AuthImageProps {
   src: string
@@ -16,7 +17,7 @@ export default function AuthImage({ src, alt, className }: AuthImageProps) {
     setBlobUrl(null)
     setLoaded(false)
 
-    const token = localStorage.getItem('jwt_token')
+    const token = getAccessToken()
     if (!token) {
       setBlobUrl(src)
       return

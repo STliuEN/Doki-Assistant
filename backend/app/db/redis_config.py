@@ -9,10 +9,13 @@ from redis.asyncio import ConnectionPool
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "18020"))
 REDIS_DB = int(os.getenv("REDIS_DB", "3"))
+JWT_REDIS_URL = os.getenv("JWT_REDIS_URL", "redis://localhost:18020/1")
 
 # 全局连接池
 _pool: ConnectionPool | None = None
 _pool_loop_id: int | None = None
+_jwt_pool: ConnectionPool | None = None
+_jwt_pool_loop_id: int | None = None
 
 
 async def _get_pool() -> ConnectionPool:
@@ -45,9 +48,25 @@ async def connect_redis():
     return redis.Redis(connection_pool=pool)
 
 
+async def connect_auth_redis():
+    """Return the Redis client shared with Django's JWT revocation cache."""
+    global _jwt_pool, _jwt_pool_loop_id
+    current_loop_id = id(asyncio.get_running_loop())
+    if _jwt_pool is not None and _jwt_pool_loop_id != current_loop_id:
+        try:
+            await _jwt_pool.disconnect()
+        except Exception:
+            pass
+        _jwt_pool = None
+    if _jwt_pool is None:
+        _jwt_pool = ConnectionPool.from_url(JWT_REDIS_URL, decode_responses=True)
+        _jwt_pool_loop_id = current_loop_id
+    return redis.Redis(connection_pool=_jwt_pool)
+
+
 async def close_redis():
     """关闭Redis连接池"""
-    global _pool, _pool_loop_id
+    global _pool, _pool_loop_id, _jwt_pool, _jwt_pool_loop_id
     if _pool:
         try:
             await _pool.disconnect()
@@ -55,6 +74,13 @@ async def close_redis():
             pass
         _pool = None
         _pool_loop_id = None
+    if _jwt_pool:
+        try:
+            await _jwt_pool.disconnect()
+        except Exception:
+            pass
+        _jwt_pool = None
+        _jwt_pool_loop_id = None
 
 async def check_redis_connection() -> bool:
     """检查Redis连接"""

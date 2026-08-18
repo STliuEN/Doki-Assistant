@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from app.agent.mcp.config import load_mcp_servers, update_mcp_server_config
+from app.core.environment import normalize_environment
 from app.utils import auth_utils
 from app.utils.crypto_utils import decrypt_text, encrypt_text
 
@@ -61,14 +65,41 @@ def test_production_rejects_placeholder_secrets(monkeypatch: pytest.MonkeyPatch)
 
     with pytest.raises(RuntimeError, match="Invalid security configuration"):
         auth_utils.validate_security_configuration()
+    with pytest.raises(RuntimeError, match="Unsupported ENV"):
+        normalize_environment("staging")
 
 
 def test_production_accepts_distinct_strong_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENV", "prod")
     monkeypatch.setenv("SECRET_KEY", "jwt-" + "a" * 40)
     monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", "model-" + "b" * 40)
+    monkeypatch.setenv("JWT_REDIS_URL", "redis://redis:6379/1")
 
     auth_utils.validate_security_configuration()
+
+    env = os.environ.copy()
+    env.update({"ENV": "production", "DEBUG_MODE": "false"})
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.core.failed_response import DEBUG_MODE; assert DEBUG_MODE is False"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+    env["DEBUG_MODE"] = "true"
+    result = subprocess.run(
+        [sys.executable, "-c", "import app.core.failed_response"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "DEBUG_MODE must be false in production" in result.stderr
 
 
 def test_production_rejects_reused_encryption_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,6 +109,16 @@ def test_production_rejects_reused_encryption_secret(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", reused)
 
     with pytest.raises(RuntimeError, match="must be different"):
+        auth_utils.validate_security_configuration()
+
+
+def test_production_requires_an_explicit_revocation_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "jwt-" + "a" * 40)
+    monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", "model-" + "b" * 40)
+    monkeypatch.delenv("JWT_REDIS_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="JWT_REDIS_URL"):
         auth_utils.validate_security_configuration()
 
 

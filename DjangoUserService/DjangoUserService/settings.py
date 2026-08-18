@@ -13,9 +13,30 @@ import os
 from pathlib import Path
 
 import pymysql
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name: str, default: str = "") -> list[str]:
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+ENVIRONMENT = os.getenv("ENV", "dev").strip().lower()
+SUPPORTED_ENVIRONMENTS = {"dev", "development", "test", "testing", "prod", "production"}
+if ENVIRONMENT not in SUPPORTED_ENVIRONMENTS:
+    supported = ", ".join(sorted(SUPPORTED_ENVIRONMENTS))
+    raise ImproperlyConfigured(f"Unsupported ENV {ENVIRONMENT!r}; expected one of: {supported}")
+IS_PRODUCTION = ENVIRONMENT in {"prod", "production"}
+IS_TEST = ENVIRONMENT in {"test", "testing"}
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,11 +47,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('JWT_SECRET_KEY') or os.getenv('SECRET_KEY')
+if not SECRET_KEY and not IS_PRODUCTION:
+    SECRET_KEY = "dev-only-change-me-doki-user-service"
+if IS_PRODUCTION and (not SECRET_KEY or len(SECRET_KEY) < 32 or "change-me" in SECRET_KEY.lower()):
+    raise ImproperlyConfigured("Production JWT secret must be a non-placeholder value of at least 32 characters")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool("DJANGO_DEBUG", not IS_PRODUCTION)
+if IS_PRODUCTION and DEBUG:
+    raise ImproperlyConfigured("DJANGO_DEBUG must be false in production")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1" if not IS_PRODUCTION else "")
+if IS_PRODUCTION and not ALLOWED_HOSTS:
+    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS is required in production")
 
 
 # Application definition
@@ -56,7 +85,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -167,12 +196,20 @@ CELERY_TASK_SOFT_TIME_LIMIT = 8
 CELERY_RESULT_EXPIRES = 3600
 
 # redis缓存设置
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.getenv('REDIS_CACHE_URL'),
+REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL')
+if IS_PRODUCTION and not REDIS_CACHE_URL:
+    raise ImproperlyConfigured("REDIS_CACHE_URL is required for production token revocation")
+if IS_TEST:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
+elif REDIS_CACHE_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_CACHE_URL,
+        }
     }
-}
+else:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -221,8 +258,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 
-# 允许所有域名跨域访问
-CORS_ALLOW_ALL_ORIGINS = True
+# Browser origins are explicit. Wildcard + credentials is never allowed.
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", False)
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173" if not IS_PRODUCTION else "",
+)
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+if IS_PRODUCTION and (CORS_ALLOW_ALL_ORIGINS or not CORS_ALLOWED_ORIGINS):
+    raise ImproperlyConfigured("Production requires an explicit CORS_ALLOWED_ORIGINS allowlist")
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_SECURE = IS_PRODUCTION
+CSRF_COOKIE_SECURE = IS_PRODUCTION
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if IS_PRODUCTION else None
 
 # 覆盖默认的用户模型
 AUTH_USER_MODEL = 'user.User'

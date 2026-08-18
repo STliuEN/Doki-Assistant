@@ -4,7 +4,12 @@ import shutil
 import fitz
 
 from app.core.logger_handler import logger
-from app.utils.path_tool import get_abstract_path, get_data_path
+from app.utils.knowledge_image_paths import (
+    InvalidKnowledgeImagePath,
+    resolve_image_storage_dir,
+    resolve_user_image_dir,
+)
+from app.utils.path_tool import get_abstract_path
 
 # 存储结构：data/extracted_images/{user_id}/{md5}/
 # 这样组织的好处：
@@ -15,10 +20,7 @@ from app.utils.path_tool import get_abstract_path, get_data_path
 
 def get_image_storage_dir(user_id: str, md5: str) -> str:
     """获取图片存储目录 data/extracted_images/{user_id}/{md5}/"""
-    base_dir = os.path.join(get_data_path(), 'extracted_images')
-    storage_dir = os.path.join(base_dir, user_id, md5)
-    os.makedirs(storage_dir, exist_ok=True)
-    return storage_dir
+    return str(resolve_image_storage_dir(user_id, md5, create=True))
 
 
 def extract_images_from_pdf(pdf_path: str, user_id: str, md5: str) -> dict[int, list[str]]:
@@ -92,9 +94,12 @@ def delete_image_directory(user_id: str, md5: str) -> bool:
     删除指定用户和md5的图片目录。
     当用户删除某个文档时，同步清理对应的图片目录，避免残留文件占用磁盘。
     """
-    base_dir = os.path.join(get_data_path(), 'extracted_images')
-    storage_dir = os.path.join(base_dir, user_id, md5)
-    if os.path.exists(storage_dir):
+    try:
+        storage_dir = resolve_image_storage_dir(user_id, md5, create=False)
+    except InvalidKnowledgeImagePath as exc:
+        logger.warning(f"【图片清理】拒绝不安全的图片目录: {exc}")
+        return False
+    if storage_dir.exists():
         shutil.rmtree(storage_dir)
         logger.info(f"【图片清理】已删除图片目录: {storage_dir}")
         return True
@@ -106,9 +111,12 @@ def delete_user_all_images(user_id: str) -> bool:
     删除指定用户的所有图片目录。
     当用户清空整个知识库时调用，清理该用户的所有提取图片。
     """
-    base_dir = os.path.join(get_data_path(), 'extracted_images')
-    user_dir = os.path.join(base_dir, user_id)
-    if os.path.exists(user_dir):
+    try:
+        user_dir = resolve_user_image_dir(user_id, create=False)
+    except InvalidKnowledgeImagePath as exc:
+        logger.warning(f"【图片清理】拒绝不安全的用户图片目录: {exc}")
+        return False
+    if user_dir.exists():
         shutil.rmtree(user_dir)
         logger.info(f"【图片清理】已删除用户 {user_id} 的所有图片")
         return True

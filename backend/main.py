@@ -1,13 +1,19 @@
+import os
 import time
+from contextlib import asynccontextmanager
+from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 
 from app.core.background_init import init_manager
+from app.core.environment import is_production_environment, normalize_environment
 from app.core.failed_response_register import register_exception_handlers
 from app.core.logger_handler import logger
-from app.db.db_config import init_db
+from app.core.rate_limit import RateLimitMiddleware
+from app.core.success_response import success_response
+from app.db.db_config import verify_database_schema
 from app.db.redis_config import close_redis, connect_redis
 from app.router.chat import chat_router
 from app.router.health import health_router
@@ -21,19 +27,92 @@ from app.router.skill_router import skill_router
 from app.router.tool_router import tool_router
 from app.router.translate import translate_router
 from app.router.user import user_router
+from app.schemas.api import ApiResponse
 from app.services.database_session_manager import init_database_session_manager
 from app.utils.auth_utils import validate_security_configuration
 
 # 加载环境变量
 load_dotenv()
 
-app = FastAPI()
+
+def _env_list(name: str, default: str = "") -> list[str]:
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+def _validate_cors_origins(environment: str, origins: list[str]) -> None:
+    if is_production_environment(normalize_environment(environment)) and (not origins or "*" in origins):
+        raise RuntimeError("Production requires an explicit CORS_ALLOWED_ORIGINS allowlist")
+
+
+ENVIRONMENT = normalize_environment()
+IS_PRODUCTION = is_production_environment(ENVIRONMENT)
+DEFAULT_BROWSER_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
+CORS_ALLOWED_ORIGINS = _env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "" if IS_PRODUCTION else DEFAULT_BROWSER_ORIGINS,
+)
+_validate_cors_origins(ENVIRONMENT, CORS_ALLOWED_ORIGINS)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Initialize runtime dependencies and release them on shutdown."""
+    validate_security_configuration()
+
+    await verify_database_schema()
+    logger.info("Database schema revision verified")
+
+    await init_database_session_manager()
+    logger.info("数据库会话管理器初始化完成")
+
+    await connect_redis()
+    logger.info("Redis连接初始化完成")
+
+    await init_manager.start()
+    logger.info("部分资源正在初始化（模型加载、ChromaDB初始化等将在后台继续加载）")
+
+    try:
+        from app.agent.mcp.registry import mcp_tool_registry
+        from app.agent.skill_registry import skill_registry
+
+        tools = await mcp_tool_registry.refresh()
+        skill_registry.reload()
+        logger.info(f"MCP 工具发现完成，已加载 {len(tools)} 个工具")
+    except Exception as exc:
+        logger.warning(f"MCP 工具发现失败，将仅使用本地工具: {exc}")
+
+    try:
+        yield
+    finally:
+        from app.agent.mcp.provider import mcp_provider
+        from app.db.db_config import async_engine
+
+        await mcp_provider.close()
+        await close_redis()
+        logger.info("Redis连接已关闭")
+        await async_engine.dispose()
+        logger.info("数据库引擎已关闭")
+
+
+app = FastAPI(lifespan=lifespan)
+
+JSON_ENVELOPE_RESPONSES = {
+    200: {
+        "model": ApiResponse[Any],
+        "description": "Successful response using the canonical API envelope",
+    }
+}
 
 # 集成限流中间件（暂时注释掉，以免在调试阶段干扰正常请求）
 # RateLimitMiddleware 基于令牌桶实现，每 60 秒允许 100 个请求
 # 正式部署时可根据接口负载调整限流策略
 # 所有限流（包括路由上的 Depends(rate_limit(...))）通过 RATE_LIMIT_ENABLED=false 一键关闭
-# app.add_middleware(RateLimitMiddleware, limit=100, window=60)
+if os.getenv("RATE_LIMIT_ENABLED", "true" if IS_PRODUCTION else "false").lower() == "true":
+    app.add_middleware(
+        RateLimitMiddleware,
+        limit=int(os.getenv("GLOBAL_RATE_LIMIT_REQUESTS", "300")),
+        window=int(os.getenv("GLOBAL_RATE_LIMIT_WINDOW_SECONDS", "60")),
+    )
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -46,15 +125,15 @@ async def add_process_time_header(request: Request, call_next):
 # 集成API路由
 app.include_router(chat_router)
 app.include_router(knowledge_router)
-app.include_router(health_router)
-app.include_router(user_router)
+app.include_router(health_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(user_router, responses=JSON_ENVELOPE_RESPONSES)
 app.include_router(note_router)
-app.include_router(note_template_router)
-app.include_router(memory_router)
-app.include_router(mcp_router)
-app.include_router(skill_router)
-app.include_router(tool_router)
-app.include_router(model_config_router)
+app.include_router(note_template_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(memory_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(mcp_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(skill_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(tool_router, responses=JSON_ENVELOPE_RESPONSES)
+app.include_router(model_config_router, responses=JSON_ENVELOPE_RESPONSES)
 app.include_router(translate_router)
 
 
@@ -62,68 +141,20 @@ app.include_router(translate_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 允许访问的源
-    allow_credentials=True, # 允许携带cookie
-    allow_methods=["*"], # 允许的请求方法
-    allow_headers=["*"], # 允许的请求头
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # 注册异常处理函数
 register_exception_handlers(app)
 
-@app.get("/")
+@app.get("/", response_model=ApiResponse[dict[str, str]])
 async def root():
-    return {"message": "Hello World"}
+    return success_response(data={"message": "Hello World"})
 
 
-@app.get("/hello/{name}")
+@app.get("/hello/{name}", response_model=ApiResponse[dict[str, str]])
 async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
-
-
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时初始化会话管理器"""
-    validate_security_configuration()
-
-    # 初始化数据库表结构
-    await init_db()
-    logger.info("数据库表结构初始化完成")
-
-    # 使用数据库版本的会话管理器
-    await init_database_session_manager()
-    logger.info("数据库会话管理器初始化完成")
-
-    # 连接Redis
-    await connect_redis()
-    logger.info("Redis连接初始化完成")
-
-    # 检查并重排序模型（在后台异步加载）
-    await init_manager.start()
-    logger.info("部分资源正在初始化（模型加载、ChromaDB初始化等将在后台继续加载）")
-
-    # 发现 MCP 外部工具，并刷新工具注册表使其对 agent 可见
-    try:
-        from app.agent.mcp.registry import mcp_tool_registry
-        from app.agent.skill_registry import skill_registry
-
-        tools = await mcp_tool_registry.refresh()
-        skill_registry.reload()
-        logger.info(f"MCP 工具发现完成，已加载 {len(tools)} 个工具")
-    except Exception as exc:
-        logger.warning(f"MCP 工具发现失败，将仅使用本地工具: {exc}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭时清理资源"""
-    from app.agent.mcp.provider import mcp_provider
-    await mcp_provider.close()
-
-    # 关闭 Redis 连接
-    await close_redis()
-    logger.info("Redis连接已关闭")
-
-    # 关闭 SQLAlchemy 引擎（释放 aiomysql 连接池，避免 GC 时事件循环已关闭）
-    from app.db.db_config import async_engine
-    await async_engine.dispose()
-    logger.info("数据库引擎已关闭")
+    return success_response(data={"message": f"Hello {name}"})

@@ -228,6 +228,7 @@ export interface MemoryListData {
 }
 
 export interface SSEMessage {
+  schema_version?: '1.0'
   type: 'thinking' | 'waiting_confirmation' | 'response' | 'done' | 'error'
   content?: string
   session_id?: string
@@ -236,6 +237,7 @@ export interface SSEMessage {
 }
 
 export interface KnowledgeSSEMessage {
+  schema_version?: '1.0'
   event_type: 'start' | 'queued' | 'processing' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish'
   filename?: string
   progress?: number

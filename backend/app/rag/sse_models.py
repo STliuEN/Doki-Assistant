@@ -1,5 +1,6 @@
-import json
 from dataclasses import asdict, dataclass
+
+from app.schemas.sse import SSE_SCHEMA_VERSION, encode_sse
 
 EVENT_RESPONSE = "response"
 EVENT_ERROR = "error"
@@ -22,10 +23,11 @@ class SSEEvent:
     chunk_count: int | None = None
     document_id: str | None = None
     md5: str | None = None
+    schema_version: str = SSE_SCHEMA_VERSION
 
     def to_sse(self) -> str:
         payload = {k: v for k, v in asdict(self).items() if v is not None}
-        return f"event: progress\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        return encode_sse(payload, event="progress")
 
 
 class SliceResult:

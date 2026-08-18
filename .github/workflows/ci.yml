@@ -43,6 +43,11 @@ jobs:
       - name: Test backend
         working-directory: backend
         run: uv run --frozen pytest -p no:cacheprovider
+      - name: Check FastAPI migrations
+        working-directory: backend
+        run: |
+          uv run --frozen alembic heads
+          uv run --frozen alembic upgrade head --sql
       - name: Check OpenAPI
         working-directory: backend
         run: uv run --frozen python scripts/export_openapi.py --check
@@ -55,6 +60,11 @@ jobs:
 
   django:
     runs-on: windows-latest
+    env:
+      ENV: test
+      SECRET_KEY: ci-django-jwt-secret-at-least-32-characters
+      DB_ENGINE: sqlite3
+      DB_NAME: ci.sqlite3
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -66,7 +76,10 @@ jobs:
         run: uv sync --frozen
       - name: Check Django
         working-directory: DjangoUserService
-        run: uv run --frozen python manage.py check
+        run: |
+          uv run --frozen python manage.py check
+          uv run --frozen python manage.py makemigrations --check --dry-run
+          uv run --frozen python manage.py test
 
   frontend:
     runs-on: windows-latest

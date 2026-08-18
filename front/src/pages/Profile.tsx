@@ -64,7 +64,7 @@ export default function Profile() {
       const res = await authApi.updateProfile(payload)
       const newToken = (res as { token?: string }).token
       if (newToken) {
-        useUserStore.getState().setToken(newToken)
+        useUserStore.getState().setTokens(newToken, res.refresh_token)
       }
       const userField = (res as { user?: Record<string, unknown> }).user
       if (userField) {
@@ -110,7 +110,7 @@ export default function Profile() {
     try {
       const res = await authApi.updatePassword(oldPassword, newPassword)
       if (res.token) {
-        useUserStore.getState().setToken(res.token)
+        useUserStore.getState().setTokens(res.token, res.refresh_token)
       }
       setPwdOpen(false)
       setPwdForm({ oldPassword: '', newPassword: '', confirmPassword: '' })

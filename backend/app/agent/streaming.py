@@ -1,5 +1,4 @@
 import asyncio
-import json
 import time
 from collections.abc import AsyncGenerator
 
@@ -21,6 +20,7 @@ from app.agent.tool_context import (
 )
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
+from app.schemas.sse import encode_sse
 from app.services import session_manager as sm
 
 
@@ -191,7 +191,7 @@ async def _stream_text_message(session_id: str | None, message: str) -> AsyncGen
     """把一段定长文本作为 SSE response 事件分块发出。"""
     for i in range(0, len(message), 15):
         chunk = message[i:i + 15]
-        yield f"data: {json.dumps({'type': 'response', 'content': chunk, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+        yield encode_sse({'type': 'response', 'content': chunk, 'session_id': session_id})
         await asyncio.sleep(0.02)
 
 
@@ -210,7 +210,7 @@ async def get_confirm_action_stream_response(
     tool_id = action.get("tool_id")
     args = action.get("args") or {}
 
-    yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+    yield encode_sse({'type': 'response', 'content': '', 'session_id': session_id})
 
     if not confirmed:
         message = f"已取消高风险操作（{tool_id}），未执行。"
@@ -244,4 +244,4 @@ async def get_confirm_action_stream_response(
 
     async for sse in _stream_text_message(session_id, message):
         yield sse
-    yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+    yield encode_sse({'type': 'done', 'session_id': session_id})

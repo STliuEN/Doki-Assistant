@@ -46,6 +46,10 @@ Frontend
 
 脚本提示端口 ready 只表示 TCP 可连接，不代表模型后台预热完成。Reranker 或 Embedding 问题应继续查看 FastAPI 日志。
 
+### ENV 或 DEBUG_MODE 导致启动失败
+
+两个后端只接受 `dev/development`、`test/testing`、`prod/production`。`staging`、拼写错误或空值会直接失败，必须改为受支持的环境名，再通过独立配置区分部署。FastAPI 在 `prod/production` 下还要求显式设置 `DEBUG_MODE=false`；不要为了启动而把生产异常详情重新打开。
+
 ## Python 与 uv
 
 ### 找不到合适的 Python
@@ -94,14 +98,18 @@ uv run pytest
 
 ## Node 与前端
 
-### npm 或 node 不在 PATH
+### 确认 npm 管理的 Node 环境
+
+项目完整使用 npm 管理前端依赖和脚本。先确认当前终端解析到受支持的 Node 与配套 npm：
 
 ```powershell
 Get-Command node -ErrorAction SilentlyContinue
 Get-Command npm.cmd -ErrorAction SilentlyContinue
+node --version
+npm --version
 ```
 
-一键脚本会额外检查常见的 nvm-windows 和 Program Files 路径，但手动运行仍需要正确 PATH。
+仓库不要求 yarn 或 pnpm。一键脚本会额外检查常见的 nvm-windows 和 Program Files 路径；如果当前终端找不到命令，应修复 Node 安装或 PATH 后重新打开终端。
 
 ### Vite 报 Node 版本不支持
 
@@ -194,11 +202,21 @@ cd DjangoUserService
 uv run python manage.py migrate
 ```
 
-### FastAPI 启动时自动补列失败
+### FastAPI 报数据库 revision 缺失或不匹配
 
-FastAPI 当前会在启动时 `create_all` 并执行自定义缺列迁移。检查 MySQL 用户是否有 `CREATE` 和 `ALTER` 权限，并查看日志中的 `[migrate]` SQL。
+FastAPI 启动只验证 `alembic_version`，不会创建表、补列或自动升级。如果是新空库，从 `backend` 显式执行：
 
-生产环境不应依赖该机制；正式 migration 仍在路线图中。
+```powershell
+uv run alembic upgrade head
+```
+
+如果数据库已有业务表但没有 revision，不要直接 upgrade 或 stamp。先停止写入、完成备份，将实际 schema 与 `backend/alembic/versions/20260817_0001_baseline.py` 逐项核对；只有确认完全一致后，才可以执行：
+
+```powershell
+uv run alembic stamp 20260817_0001
+```
+
+`alembic stamp` 只记录版本，不会修复结构差异。核对 baseline 时必须包含 `uq_knowledge_source_user_md5` 和 `uq_user_embedding_config_user_id` 两个唯一约束。revision 落后时应审查待执行 migration，再运行 `uv run alembic upgrade head`；revision 超前或出现分叉时，应停止启动并核对部署的代码版本。
 
 ## Redis
 
@@ -215,7 +233,7 @@ redis-cli -p 18020 ping
 - Django `REDIS_CACHE_URL`。
 - Django Celery URL。
 
-Redis 不可用会影响就绪检查、用户缓存、token 黑名单、限流和高风险 pending action。
+Redis 不可用会影响就绪检查、用户缓存、token 撤销、认证状态短缓存、限流和高风险 pending action。Django `REDIS_CACHE_URL` 与 FastAPI `JWT_REDIS_URL` 必须指向同一撤销存储；该存储异常时认证、refresh 或 logout 可能返回 `503`，这是 fail-closed 行为。
 
 ## Windows 端口绑定错误 10013
 
@@ -252,21 +270,35 @@ Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
 
 检查：
 
-- 请求是否带 `Authorization: Bearer <token>`。
+- 请求是否带 `Authorization: Bearer <access token>`，而不是 refresh token。
 - Django `JWT_SECRET_KEY` 是否等于 FastAPI `SECRET_KEY`。
-- FastAPI `ALGORITHM=HS256`。
-- token 是否超过 24 小时。
-- token 是否已在注销、修改资料或重置密码时加入黑名单。
+- 两端的 `ALGORITHM`、`JWT_ISSUER` 和 `JWT_AUDIENCE` 是否一致。
+- token 是否包含 `token_type=access`、`jti`、`sid`、`ver` 和有效的时间声明。
+- 默认 15 分钟的 access token 是否过期，或是否已在注销、资料更新、密码重置时撤销。
+- Django 用户是否仍为 active，token version 是否仍匹配。
 
-可以在 Django 重新登录获得新 token。不要通过关闭 token 验证解决配置问题。
+普通 Axios 请求会使用 refresh token 自动刷新一次并重试；刷新成功后 access/refresh token 都会轮换。直接 `fetch` 的 SSE 请求不经过 Axios 刷新拦截器，收到 `401` 后应重新登录或先通过普通请求完成刷新。不要通过关闭 token 验证解决配置问题。
+
+### Refresh token 被拒绝或重复使用
+
+refresh token 默认有效期 30 天，但每个 token 只能成功使用一次。成功刷新会撤销旧 refresh token 并返回新 token 对；并发请求由前端合并为一次刷新。如果自定义客户端并发提交同一个 refresh token，只有一个请求能成功，其余会返回 `401`。
+
+旧版单 token 或缺少类型、issuer、audience、JTI 的 JWT 不再兼容，需要重新登录。
+
+### 认证或刷新返回 503
+
+`503` 表示服务无法确认撤销状态或用户状态，不等同于凭据无效。依次检查：
+
+- Django `REDIS_CACHE_URL` 和 FastAPI `JWT_REDIS_URL` 对应的 Redis 是否可用。
+- FastAPI 是否能访问 `DJANGO_API_URL`。
+- Django 用户详情接口是否正常响应。
+- 生产环境是否错误地禁用了 `AUTH_STATE_VALIDATION_ENABLED`。
+
+恢复依赖后再重试。不要把 `503` 当作成功，也不要改成跳过撤销检查。
 
 ### 更新资料或密码后突然退出
 
-这是当前合同：更新资料和重置密码会撤销旧 token，并在响应返回新 token。前端或 API 客户端必须保存新 token。
-
-### 注销未携带 token 仍返回成功
-
-当前 Django 注销视图没有显式 `IsAuthenticated`，无 Authorization 时可能返回成功，但不会撤销任何 token。正常调用必须携带当前 token。该接口需要后续代码修复，不是安全保证。
+资料更新和密码重置会撤销旧 access token 并返回新 access/refresh token 对；密码重置还会递增 token version。当前前端会同时保存两类新 token，自定义客户端也必须这样处理，否则下一次请求会进入刷新或重新登录流程。
 
 ## 聊天模型
 

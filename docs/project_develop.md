@@ -51,6 +51,9 @@ backend/
     schemas/        Pydantic schema
     services/       业务服务和运行准备
     utils/          认证、模型、路径、文件、视觉等辅助
+  alembic/
+    versions/       已审查的 SQLAlchemy schema revision
+  alembic.ini
   tests/
   main.py
 
@@ -86,17 +89,21 @@ benchmarks/
 
 入口是 `backend/main.py`。
 
-启动事件依次执行：
+FastAPI 使用 lifespan 管理启动和关闭，启动时依次执行：
 
-1. 创建缺失的 SQLAlchemy 表，并补充缺失列。
+1. 校验生产安全配置，并确认数据库 Alembic revision 等于代码要求的 revision。
 2. 初始化数据库会话管理器。
 3. 建立 Redis 连接池。
 4. 后台启动聊天模型、Embedding、Chroma NoteService 和 Reranker 初始化。
 5. 刷新 MCP 工具并 reload SkillRegistry。
 
+启动过程不会执行 `create_all`、`ALTER TABLE` 或 Alembic upgrade。revision 缺失或不匹配时直接失败，由部署或开发人员显式运行 migration。
+
+两个后端只接受 `dev/development`、`test/testing`、`prod/production` 环境名。未知值会在启动前失败；FastAPI 的生产异常响应还要求 `DEBUG_MODE=false`，防止向客户端返回原始路径或 traceback。
+
 重型模型在后台初始化，因此 Uvicorn 端口可用不等于 Embedding 或 Reranker 已完成预热。`/health/ready` 当前只检查 MySQL 和 Redis。
 
-关闭事件会关闭 MCP provider、Redis 连接池和 SQLAlchemy engine。
+lifespan 关闭阶段会关闭 MCP provider、Redis 连接池和 SQLAlchemy engine。
 
 ## FastAPI 分层
 
@@ -107,7 +114,7 @@ benchmarks/
 - 接收 HTTP/SSE 参数。
 - 注入 JWT、数据库会话和限流依赖。
 - 调用 service 或 Agent 编排。
-- 返回统一响应或 StreamingResponse。
+- JSON 接口返回经过 Pydantic 验证的 `ApiResponse[T]`，SSE 接口返回声明为 `text/event-stream` 的 `StreamingResponse`。
 
 主要 namespace：
 
@@ -151,7 +158,7 @@ FastAPI 使用 SQLAlchemy async engine 和 MySQL。业务模型包括：
 - `UserModelConfig`。
 - 用户 Embedding 配置记录。Reranker 当前保存到 `backend/data/reranker_config.json`，不在业务表中。
 
-FastAPI 目前没有 Alembic。启动时调用 `create_all`，并通过自定义逻辑增加缺失列；复杂 schema 迁移仍需要正式 migration 方案。
+FastAPI 使用 Alembic 管理 schema，当前 baseline revision 为 `20260817_0001`，并包含知识源 `(user_id, md5)` 与用户 Embedding `user_id` 的唯一约束。migration 合同测试会把 baseline 中的唯一约束与 ORM metadata 对比。新空库或已纳管数据库通过 `uv run alembic upgrade head` 显式升级；已有无版本数据库必须先备份和比对 baseline，确认结构一致后才能 stamp。应用启动只读取 `alembic_version` 并验证 revision。
 
 ## Agent 运行时
 
@@ -208,7 +215,7 @@ Query 和 regenerate 共用 `prepare_agent_run`。二者分别构造新消息上
 | `done` | 完成和 session 信息 |
 | `error` | 运行错误 |
 
-前端合同测试位于 `front/src/features/chat/__tests__/useChatStream.test.ts`，后端合同测试位于 `backend/tests/test_chat_stream_contract.py`。
+所有事件都携带固定的 `schema_version: "1.0"`。前端会拒绝不支持的 schema 版本；前端合同测试位于 `front/src/features/chat/__tests__/useChatStream.test.ts`，后端合同测试位于 `backend/tests/test_chat_stream_contract.py`。
 
 ## Skill 与 Tool
 
@@ -316,7 +323,9 @@ query
 - `/sessions`：会话列表。
 - `/profile`、`/settings`：用户和界面设置。
 
-JWT 保存在 `localStorage.jwt_token`。Axios interceptor 为 HTTP 请求添加 Bearer token，并在 401 时清理 token、跳转登录页。流式请求由 `features/chat/hooks/useChatStream.ts` 处理。
+认证状态由 `useUserStore` 单一管理，并由 Zustand persist 保存在 `localStorage["user-store"]`；其中包含 access token、refresh token、用户资料和登录标志。`jwt_token` 仅作为旧版本一次性兼容读取入口，不是当前状态来源。
+
+Axios interceptor 为 HTTP 请求添加 access token。收到 `401` 时，它使用 refresh token 执行一次刷新并重试原请求；并发 `401` 共用同一个刷新请求，刷新成功后同时保存轮换后的 token 对，失败则完整清理认证状态并跳转登录页。流式请求由 `features/chat/hooks/useChatStream.ts` 处理，从同一 store 读取 access token。
 
 当前只完成聊天功能域拆分的第一阶段：SSE hook、types 和 storage 已移入 `features/chat`，但 `AIChat.tsx`、`NoteEditor.tsx`、`ToolManager.tsx` 和 `KnowledgeBase.tsx` 仍是较大的页面组件。
 
@@ -324,18 +333,23 @@ JWT 保存在 `localStorage.jwt_token`。Axios interceptor 为 HTTP 请求添加
 
 ```text
 React -> Django /user/login/
-      <- JWT with user_id, jti, exp
-React -> FastAPI Authorization: Bearer <token>
-FastAPI -> decode shared-secret JWT -> user_id
+      <- access token + refresh token
+React -> FastAPI Authorization: Bearer <access token>
+React -> Django /user/refresh-token/ {refresh_token}
+      <- rotated access token + refresh token
+FastAPI -> signature/claims/revocation/user-state validation -> user_id
 ```
 
-- Django 签发 HS256 JWT，当前有效期 24 小时。
-- FastAPI 使用 `SECRET_KEY` 和 `ALGORITHM` 解码。
-- 两个服务通过 Redis 黑名单识别已撤销 token。
+- Django 签发 HS256 access/refresh token 对，默认有效期分别为 15 分钟和 30 天。
+- 两类 token 都包含 `token_type`、`iss`、`aud`、`jti`、`sid`、`ver`、`iat`、`nbf` 与 `exp`；access token 不能刷新，refresh token 不能访问业务接口。
+- refresh token 单次使用并原子轮换，重放、过期、已撤销、用户停用或 token version 失配都会被拒绝。
+- FastAPI 使用共享的 `SECRET_KEY`、`ALGORITHM`、issuer 和 audience 校验 access token，并通过确定性 Redis key 检查撤销状态，不扫描 keyspace。
+- FastAPI 通过短 TTL 缓存复核 Django 用户状态；Redis、撤销检查或用户状态服务不可用时 fail closed，返回 `503`。
+- 注销撤销当前 access/refresh token；资料更新与密码重置返回新 token 对，密码重置递增 token version 使旧凭据整体失效。
 - FastAPI 业务数据查询必须携带当前 `user_id`。
 - 管理员来自 `security.local.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`；仓库只跟踪空名单模板 `security.example.yaml`。
 
-当前 refresh 解码会忽略 access token 的 `exp`，FastAPI 只从已签名 payload 提取 `user_id`，不会在每次请求重新检查 Django 用户状态。FastAPI 黑名单检查使用 Redis wildcard `KEYS`，Redis 异常时跳过撤销检查。这些是当前行为描述，不是目标合同；整改见 [安全与可靠性加固计划](./security_hardening_plan.md)。
+旧版缺少 token 类型、issuer、audience 或 JTI 的 JWT 不再有效，升级后需要重新登录。Django 的 `REDIS_CACHE_URL` 与 FastAPI 的 `JWT_REDIS_URL` 必须指向同一撤销存储。
 
 当前权限不是数据库角色模型，也没有完整管理审计。全量重构推荐把用户与认证迁入 FastAPI，完成兼容迁移后退出 Django 运行链路，详见 [全量重构开发计划](./roadmap_next.md)。
 
@@ -345,7 +359,7 @@ FastAPI -> decode shared-secret JWT -> user_id
 |------|------|
 | 用户与认证数据 | Django MySQL database |
 | 会话、笔记、记忆、知识元数据、模型配置 | FastAPI MySQL database |
-| 缓存、token 黑名单、pending action | Redis |
+| 缓存、token 撤销记录、认证状态短缓存、pending action | Redis |
 | 知识库和笔记向量 | `backend/data/chromadb` |
 | 上传源文件和解析图片 | `backend/data/` |
 | Django 头像 | `DjangoUserService/media/` |
@@ -356,15 +370,13 @@ FastAPI -> decode shared-secret JWT -> user_id
 
 ## 当前技术债
 
-- FastAPI 数据库 schema 使用启动期自动补列，没有正式 migration 工具。
-- Django migration 被 Git 忽略，并在开发服务器启动线程中生成和应用。
+- 已有但尚未版本化的数据库仍需要人工备份、schema 审计和接管 runbook，不能直接 upgrade 或 stamp。
 - 管理员权限仍是文件/环境变量名单。
 - MCP 配置写回 Git 忽略的本地 YAML，缺少数据库配置和审计。
-- 部分 FastAPI 路由声明裸 `response_model`，实际返回 `{code,message,data}`，OpenAPI 与响应校验不一致。
 - 用户名允许重复，当前登录查询只取第一条匹配记录。
-- RAG 关键文件仍较大，上传、索引和查询的测试隔离不足。
+- RAG 关键文件仍较大，真实 MySQL/Redis/RAG 集成测试仍需要扩展。
 - 前端多个页面仍承担请求、状态与渲染混合职责。
-- Django 用户流程没有自动测试，前端测试主要集中在聊天 SSE。
+- 浏览器端到端流程尚未纳入持续集成。
 - 生产部署、安全 header、TLS、secret manager 和发布回滚流程尚未定义；仓库已有基础 CI。
 
 这些未完成项在 [全量重构开发计划](./roadmap_next.md) 中按阶段维护。

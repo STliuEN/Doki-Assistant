@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from app.agent.streaming import (
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
+from app.schemas.api import ApiResponse
 from app.schemas.models import (
     ConfirmActionRequest,
     DeleteMessageResponse,
@@ -26,6 +28,7 @@ from app.schemas.models import (
     SessionMessagesResponse,
     SessionResponse,
 )
+from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.services import session_manager as sm
 from app.services.agent_run_service import CHAT_PROMPT_MODES, prepare_agent_run
 from app.services.pending_action_store import take_pending_action
@@ -40,7 +43,7 @@ SSE_HEADERS = {
 }
 
 
-@chat_router.get("/prompt-modes")
+@chat_router.get("/prompt-modes", response_model=ApiResponse[Any])
 async def get_prompt_modes():
     return success_response(data=[
         {"value": value, "label": label}
@@ -48,12 +51,16 @@ async def get_prompt_modes():
     ])
 
 
-@chat_router.get("/skills")
+@chat_router.get("/skills", response_model=ApiResponse[Any])
 async def get_chat_skills():
     return success_response(data=get_skill_catalog())
 
 
-@chat_router.post("/agent/query/stream")
+@chat_router.post(
+    "/agent/query/stream",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def query_stream(
     request: QueryRequest,
     user_id: str = Depends(get_current_user_id),
@@ -87,7 +94,11 @@ async def query_stream(
     )
 
 
-@chat_router.post("/agent/confirm")
+@chat_router.post(
+    "/agent/confirm",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def confirm_agent_action(
     request: ConfirmActionRequest,
     user_id: str = Depends(get_current_user_id),
@@ -109,7 +120,7 @@ async def confirm_agent_action(
     )
 
 
-@chat_router.post("/rag/query", response_model=RAGResponse)
+@chat_router.post("/rag/query", response_model=ApiResponse[RAGResponse])
 async def query_rag(
     request: RAGRequest,
     user_id: str = Depends(get_current_user_id),
@@ -121,7 +132,7 @@ async def query_rag(
     return success_response(data=RAGResponse(response=response))
 
 
-@chat_router.get("/session/{session_id}", response_model=SessionResponse)
+@chat_router.get("/session/{session_id}", response_model=ApiResponse[SessionResponse])
 async def get_session(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -132,7 +143,7 @@ async def get_session(
     return success_response(data=SessionResponse(session_id=session_id, history=history))
 
 
-@chat_router.get("/session/{session_id}/messages", response_model=SessionMessagesResponse)
+@chat_router.get("/session/{session_id}/messages", response_model=ApiResponse[SessionMessagesResponse])
 async def get_session_messages(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -142,7 +153,7 @@ async def get_session_messages(
     return success_response(data=SessionMessagesResponse(session_id=session_id, messages=messages))
 
 
-@chat_router.delete("/session/{session_id}/messages/{message_id}", response_model=DeleteMessageResponse)
+@chat_router.delete("/session/{session_id}/messages/{message_id}", response_model=ApiResponse[DeleteMessageResponse])
 async def delete_session_message(
     session_id: str,
     message_id: int,
@@ -154,7 +165,11 @@ async def delete_session_message(
     return success_response(data=DeleteMessageResponse(**result))
 
 
-@chat_router.post("/session/{session_id}/messages/{message_id}/regenerate/stream")
+@chat_router.post(
+    "/session/{session_id}/messages/{message_id}/regenerate/stream",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def regenerate_session_message_stream(
     session_id: str,
     message_id: int,
@@ -190,7 +205,7 @@ async def regenerate_session_message_stream(
     )
 
 
-@chat_router.delete("/session/{session_id}")
+@chat_router.delete("/session/{session_id}", response_model=ApiResponse[None])
 async def delete_session(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -201,7 +216,7 @@ async def delete_session(
     return success_response(message=f"Session {session_id} deleted successfully")
 
 
-@chat_router.get("/sessions")
+@chat_router.get("/sessions", response_model=ApiResponse[Any])
 async def get_all_sessions(
     user_id: str = Depends(get_current_user_id),
     router_service: SessionQueryService = Depends(get_session_query_service),
@@ -211,7 +226,7 @@ async def get_all_sessions(
     return success_response(data={"sessions": sessions})
 
 
-@chat_router.get("/sessions/{user_id}")
+@chat_router.get("/sessions/{user_id}", response_model=ApiResponse[Any])
 async def get_user_sessions(
     user_id: str,
     current_user_id: str = Depends(get_current_user_id),
@@ -222,7 +237,7 @@ async def get_user_sessions(
     return success_response(data={"sessions": session_ids})
 
 
-@chat_router.post("/reorder", response_model=ReorderResponse)
+@chat_router.post("/reorder", response_model=ApiResponse[ReorderResponse])
 async def reorder_documents(
     request: ReorderRequest,
     user_id: str = Depends(get_current_user_id),

@@ -9,22 +9,21 @@
     - UserDetailView(get): 类视图，返回序列化后的当前用户信息
 
 """
-from drf_spectacular.utils import inline_serializer
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.views import APIView
-
-from .serializers import LoginSerializer, UserSerializer, ResetPasswordSerializer, RegisterSerializer, UserUpdateSerializer
 from datetime import datetime
-from .authentications import JWTAuthentication, JWTTokenGenerator
-from rest_framework.response import Response
-from rest_framework import status
-from .fatherClass import AuthenticatedView
-from drf_yasg.utils import swagger_auto_schema
+
+from drf_spectacular.utils import inline_serializer
 from drf_yasg import openapi
-from rest_framework import serializers
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import serializers, status
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from ..utils.cache_utils import cache_user_info, clear_user_cache
 from ..utils.rate_limit_utils import rate_limit
+from .authentications import JWTAuthentication, JWTTokenGenerator, TokenRevocationUnavailable
+from .fatherClass import AuthenticatedView
+from .serializers import LoginSerializer, RegisterSerializer, ResetPasswordSerializer, UserSerializer, UserUpdateSerializer
 
 # Create your views here.
 
@@ -44,13 +43,17 @@ class LoginView(APIView):
                     {
                         "message": serializers.CharField(),
                         "user": UserSerializer(),
-                        "token": serializers.CharField()
+                        "token": serializers.CharField(help_text="Access token"),
+                        "refresh_token": serializers.CharField(help_text="Refresh token"),
+                        "expire_time": serializers.IntegerField(help_text="Access token Unix 过期时间（秒）"),
+                        "refresh_expire_time": serializers.IntegerField(help_text="Refresh token Unix 过期时间（秒）"),
                     }
                 )
             ),
             400: openapi.Response(description="登录失败")
         }
     )
+    @rate_limit(scope="login", limit=10, window=60)
     def post(self, request) -> Response:
         """
         处理post请求，验证用户登录
@@ -65,8 +68,12 @@ class LoginView(APIView):
                 user.last_login = datetime.now()  # 更新用户最后登录时间
                 user.save()  # 保存用户对象
             # 生成JWT token - 正确处理返回的元组
-            token, expire_time = jwttoken.generate_token(user)
-            return Response({"message": f"{user.username} 登录成功", "user": UserSerializer(user).data, "token": token}, status=status.HTTP_200_OK)
+            token_pair = jwttoken.generate_token_pair(user)
+            return Response({
+                "message": f"{user.username} 登录成功",
+                "user": UserSerializer(user).data,
+                **token_pair,
+            }, status=status.HTTP_200_OK)
         else:
             return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -84,14 +91,17 @@ class RegisterView(APIView):
                         "status": serializers.IntegerField(),
                         "message": serializers.CharField(),
                         "user": UserSerializer(),
-                        "token": serializers.CharField()
+                        "token": serializers.CharField(help_text="Access token"),
+                        "refresh_token": serializers.CharField(help_text="Refresh token"),
+                        "expire_time": serializers.IntegerField(help_text="Access token Unix 过期时间（秒）"),
+                        "refresh_expire_time": serializers.IntegerField(help_text="Refresh token Unix 过期时间（秒）"),
                     }
                 )
             ),
             400: openapi.Response(description="注册失败")
         }
     )
-    # @rate_limit(limit=1, window=60)
+    @rate_limit(scope="register", limit=3, window=300)
     def post(self, request) -> Response:
         """
         处理post请求，用户注册
@@ -102,8 +112,13 @@ class RegisterView(APIView):
         if serializer.is_valid():
             user = serializer.save()  # 调用序列化器的create方法创建用户
             # 生成JWT token
-            token, expire_time = jwttoken.generate_token(user)
-            return Response({"status": 201, "message": f"{user.username} 注册成功", "user": UserSerializer(user).data, "token": token}, status=status.HTTP_201_CREATED)
+            token_pair = jwttoken.generate_token_pair(user)
+            return Response({
+                "status": 201,
+                "message": f"{user.username} 注册成功",
+                "user": UserSerializer(user).data,
+                **token_pair,
+            }, status=status.HTTP_201_CREATED)
         else:
             return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -119,11 +134,23 @@ class ResetPasswordView(AuthenticatedView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "message": openapi.Schema(type=openapi.TYPE_STRING),
-                        "token": openapi.Schema(type=openapi.TYPE_STRING)
+                        "token": openapi.Schema(type=openapi.TYPE_STRING, description="Access token"),
+                        "refresh_token": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
+                        "expire_time": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            format=openapi.FORMAT_INT64,
+                            description="Access token Unix 过期时间（秒）",
+                        ),
+                        "refresh_expire_time": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            format=openapi.FORMAT_INT64,
+                            description="Refresh token Unix 过期时间（秒）",
+                        ),
                     }
                 )
             ),
-            400: openapi.Response(description="密码重置失败")
+            400: openapi.Response(description="密码重置失败"),
+            503: openapi.Response(description="Token 撤销存储不可用"),
         }
     )
     def post(self, request) -> Response:
@@ -144,17 +171,18 @@ class ResetPasswordView(AuthenticatedView):
                         jwttoken.blacklist_token(token)
                 except ValueError:
                     pass
-            
+
             user = serializer.validated_data.get('user')  # 从序列化器中获取用户对象
             user.set_password(serializer.validated_data.get('new_password'))  # 设置新密码
+            user.token_version = int(getattr(user, "token_version", 1)) + 1
             user.save()  # 保存用户对象
             # 清除用户缓存
             clear_user_cache(user.uuid)
             # 生成新token
-            new_token, expire_time = jwttoken.generate_token(user)
+            token_pair = jwttoken.generate_token_pair(user)
             return Response({
                 "message": "密码重置成功",
-                "token": new_token
+                **token_pair,
             }, status=status.HTTP_200_OK)
         else:
             return Response({"detail": serializer.errors},
@@ -166,9 +194,12 @@ class TokenRefreshView(APIView):
     @swagger_auto_schema(
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            required=['token'],
+            required=['refresh_token'],
             properties={
-                'token': openapi.Schema(type=openapi.TYPE_STRING, description="旧Token")
+                'refresh_token': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="一次性 Refresh token；成功使用后立即失效",
+                )
             }
         ),
         responses={
@@ -178,41 +209,54 @@ class TokenRefreshView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "message": openapi.Schema(type=openapi.TYPE_STRING),
-                        "token": openapi.Schema(type=openapi.TYPE_STRING),
-                        "expire_time": openapi.Schema(type=openapi.TYPE_STRING)
+                        "token": openapi.Schema(type=openapi.TYPE_STRING, description="新 Access token"),
+                        "refresh_token": openapi.Schema(type=openapi.TYPE_STRING, description="新 Refresh token"),
+                        "expire_time": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            format=openapi.FORMAT_INT64,
+                            description="新 Access token Unix 过期时间（秒）",
+                        ),
+                        "refresh_expire_time": openapi.Schema(
+                            type=openapi.TYPE_INTEGER,
+                            format=openapi.FORMAT_INT64,
+                            description="新 Refresh token Unix 过期时间（秒）",
+                        ),
                     }
                 )
             ),
             400: openapi.Response(description="Token刷新失败"),
-            401: openapi.Response(description="Token无效")
+            401: openapi.Response(description="Refresh token 无效、过期、已撤销或已被使用"),
+            503: openapi.Response(description="Token 撤销存储不可用"),
         }
     )
+    @rate_limit(scope="refresh", limit=10, window=60)
     def post(self, request) -> Response:
         """
         处理post请求，刷新用户Token
         :param request: post请求，包含旧Token
         :return: Response对象，包含新Token和过期时间
         """
-        token = request.data.get('token')
+        token = request.data.get('refresh_token') or request.data.get('token')
         if not token:
             return Response({
                 "detail": "Token不能为空"
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
-            new_token, expire_time = jwttoken.refresh_token(token)
-            # 将旧token添加到黑名单
-            jwttoken.blacklist_token(token)
+            token_pair = jwttoken.refresh_token(token)
             return Response({
                 "message": "Token刷新成功",
-                "token": new_token,
-                "expire_time": expire_time
+                **token_pair,
             }, status=status.HTTP_200_OK)
         except AuthenticationFailed as e:
             return Response({
                 "detail": str(e)
             }, status=status.HTTP_401_UNAUTHORIZED)
-        except Exception as e:
+        except TokenRevocationUnavailable as e:
+            return Response({
+                "detail": str(e)
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
             return Response({
                 "detail": "Token刷新失败"
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -288,11 +332,15 @@ class UserUpdateView(AuthenticatedView):
                     {
                         "message": serializers.CharField(),
                         "user": UserSerializer(),
-                        "token": serializers.CharField()
+                        "token": serializers.CharField(help_text="Access token"),
+                        "refresh_token": serializers.CharField(help_text="Refresh token"),
+                        "expire_time": serializers.IntegerField(help_text="Access token Unix 过期时间（秒）"),
+                        "refresh_expire_time": serializers.IntegerField(help_text="Refresh token Unix 过期时间（秒）"),
                     }
                 )
             ),
-            400: openapi.Response(description="用户信息更新失败")
+            400: openapi.Response(description="用户信息更新失败"),
+            503: openapi.Response(description="Token 撤销存储不可用"),
         }
     )
     def put(self, request) -> Response:
@@ -312,13 +360,17 @@ class UserUpdateView(AuthenticatedView):
                         jwttoken.blacklist_token(token)
                 except ValueError:
                     pass
-            
+
             user = serializer.save()  # 调用序列化器的update方法更新用户
             # 清除用户缓存
             clear_user_cache(user.uuid)
             # 生成新token
-            new_token, expire_time = jwttoken.generate_token(user)
-            return Response({"message": "用户信息更新成功", "user": UserSerializer(user).data, "token": new_token}, status=status.HTTP_200_OK)
+            token_pair = jwttoken.generate_token_pair(user)
+            return Response({
+                "message": "用户信息更新成功",
+                "user": UserSerializer(user).data,
+                **token_pair,
+            }, status=status.HTTP_200_OK)
         else:
             return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -326,6 +378,16 @@ class UserUpdateView(AuthenticatedView):
 class UserLogOutView(APIView):
     """用户注销"""
     @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['refresh_token'],
+            properties={
+                'refresh_token': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="当前会话的 Refresh token",
+                ),
+            },
+        ),
         responses={
             200: openapi.Response(
                 description="用户注销成功",
@@ -335,7 +397,8 @@ class UserLogOutView(APIView):
                         "message": openapi.Schema(type=openapi.TYPE_STRING)
                     }
                 )
-            )
+            ),
+            503: openapi.Response(description="Token 撤销存储不可用"),
         }
     )
     def post(self, request) -> Response:
@@ -344,6 +407,10 @@ class UserLogOutView(APIView):
         :param request: post请求
         :return: Response对象，包含注销成功信息
         """
+        refresh_token = request.data.get('refresh_token')
+        if refresh_token:
+            jwttoken.blacklist_token(refresh_token)
+
         # 获取旧token并添加到黑名单
         auth_header = request.headers.get('Authorization')
         if auth_header:

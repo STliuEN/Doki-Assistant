@@ -1,12 +1,14 @@
 import client from './client'
 import { endpoints } from './endpoints'
 import type { UserInfo } from '../types/api'
+import { getRefreshToken } from '../stores/useUserStore'
 
 // Actual Django backend response shapes (not wrapped in ApiResponse)
 interface LoginResponseData {
   message: string
   user: UserInfo
   token: string
+  refresh_token: string
 }
 
 interface RegisterResponseData {
@@ -14,6 +16,7 @@ interface RegisterResponseData {
   message: string
   user: UserInfo
   token: string
+  refresh_token: string
 }
 
 interface ProfileResponseData {
@@ -26,6 +29,7 @@ interface ActionResponseData {
   message: string
   user?: UserInfo
   token?: string
+  refresh_token?: string
 }
 
 export const authApi = {
@@ -40,7 +44,9 @@ export const authApi = {
   },
 
   logout: async () => {
-    const res = await client.post<ActionResponseData>(endpoints.logout)
+    const res = await client.post<ActionResponseData>(endpoints.logout, {
+      refresh_token: getRefreshToken(),
+    })
     return res.data
   },
 

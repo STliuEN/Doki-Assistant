@@ -7,7 +7,8 @@ from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-from fastapi import HTTPException, UploadFile
+import aiofiles
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger_handler import logger
@@ -17,6 +18,15 @@ from app.rag.task_queue import TaskQueue
 from app.rag.vector_store import VectorStoreService
 from app.services.embedding_config_service import EmbeddingConfigData, get_embedding_config_service
 from app.services.knowledge_document_service import KnowledgeFileInput, get_knowledge_document_service
+from app.utils.knowledge_image_paths import (
+    IMAGE_MEDIA_TYPES,
+    MAX_BATCH_IMAGE_BYTES,
+    MAX_BATCH_IMAGE_FILES,
+    InvalidKnowledgeImagePath,
+    normalize_md5,
+    resolve_image_storage_dir,
+    resolve_knowledge_image_path,
+)
 
 ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.md', '.pptx', '.docx'}
 ALLOWED_MIME_TYPES = {
@@ -637,34 +647,49 @@ class KnowledgeService:
         这样前端可以一次请求拿到所有图片，然后根据 chunk 中的 image_paths 按需渲染，
         避免了每个图片单独发 HTTP 请求的性能开销（尤其适合移动端或图片较多的场景）。
         """
-        from app.utils.path_tool import get_data_path
-        image_dir = os.path.join(get_data_path(), 'extracted_images', user_id, md5)
-        if not os.path.isdir(image_dir):
+        try:
+            normalized_md5 = normalize_md5(md5)
+            image_dir = resolve_image_storage_dir(user_id, normalized_md5, create=False)
+        except InvalidKnowledgeImagePath as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+        if not image_dir.is_dir():
             logger.warning(f"【知识库】图片目录不存在: {image_dir}")
-            return {"md5": md5, "images": {}}
+            return {"md5": normalized_md5, "images": {}}
 
         images = {}
+        total_bytes = 0
         try:
-            for filename in sorted(os.listdir(image_dir)):
-                filepath = os.path.join(image_dir, filename)
-                if not os.path.isfile(filepath):
+            entries = sorted(image_dir.iterdir(), key=lambda entry: entry.name)
+            if len(entries) > MAX_BATCH_IMAGE_FILES:
+                raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="图片数量超过批量读取上限")
+
+            for entry in entries:
+                if entry.is_symlink() or not entry.is_file():
                     continue
-                _, ext = os.path.splitext(filename)
-                mime_map = {
-                    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-                    '.tiff': 'image/tiff', '.tif': 'image/tiff',
-                    '.bmp': 'image/bmp', '.gif': 'image/gif', '.webp': 'image/webp',
-                }
-                mime = mime_map.get(ext.lower(), 'application/octet-stream')
-                with open(filepath, "rb") as f:
-                    b64 = base64.b64encode(f.read()).decode("utf-8")
-                images[filename] = f"data:{mime};base64,{b64}"
+                if entry.suffix.lower() not in IMAGE_MEDIA_TYPES:
+                    continue
+                try:
+                    image_path = resolve_knowledge_image_path(user_id, normalized_md5, entry.name, must_exist=True)
+                except (InvalidKnowledgeImagePath, FileNotFoundError):
+                    logger.warning(f"【知识库】跳过不安全的图片路径: {entry}")
+                    continue
+
+                total_bytes += image_path.stat().st_size
+                if total_bytes > MAX_BATCH_IMAGE_BYTES:
+                    raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="图片总大小超过批量读取上限")
+
+                async with aiofiles.open(image_path, "rb") as file:
+                    b64 = base64.b64encode(await file.read()).decode("utf-8")
+                images[entry.name] = f"data:{IMAGE_MEDIA_TYPES[entry.suffix.lower()]};base64,{b64}"
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"【知识库】读取批量图片失败: {e}")
             raise HTTPException(status_code=500, detail=f"读取图片失败: {e}")
 
-        logger.info(f"【知识库】读取批量图片: {md5}，共 {len(images)} 张")
-        return {"md5": md5, "images": images}
+        logger.info(f"【知识库】读取批量图片: {normalized_md5}，共 {len(images)} 张")
+        return {"md5": normalized_md5, "images": images}
 
 
 def get_knowledge_service() -> KnowledgeService:

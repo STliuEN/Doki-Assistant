@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "DjangoUserService PyJWT",
+  "algorithm": "HS256",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiY29udHJhY3QtdXNlciIsInRva2VuX3R5cGUiOiJhY2Nlc3MiLCJpc3MiOiJkb2tpLXVzZXItc2VydmljZSIsImF1ZCI6ImRva2ktYXBpIiwiaWF0IjoxNzAwMDAwMDAwLCJuYmYiOjE3MDAwMDAwMDAsImV4cCI6NDEwMjQ0NDgwMCwianRpIjoiZGphbmdvLWNvbnRyYWN0LWp0aSIsInNpZCI6ImRqYW5nby1jb250cmFjdC1zZXNzaW9uIiwidmVyIjoxfQ.aDI0PkWHyqF5ycAFz9fGpvGOSMJ8oAHsH3O3hOLppt0",
+  "claims": {
+    "user_id": "contract-user",
+    "token_type": "access",
+    "iss": "doki-user-service",
+    "aud": "doki-api",
+    "jti": "django-contract-jti",
+    "sid": "django-contract-session",
+    "ver": 1
+  }
+}

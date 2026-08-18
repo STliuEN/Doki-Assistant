@@ -178,10 +178,15 @@ agent_executor.astream_events(inputs, version="v2")
 
 ## SSE 合同
 
+所有 chat、knowledge、note 和 translate SSE 数据帧都包含
+`schema_version: "1.0"`。为保持现有前端兼容，事件专有字段仍位于 JSON 顶层；
+当前没有已落地的统一 `payload`、`sequence` 或 `timestamp` 包装层。
+
 ### response
 
 ```json
 {
+  "schema_version": "1.0",
   "type": "response",
   "content": "token or chunk",
   "session_id": "optional"
@@ -194,6 +199,7 @@ agent_executor.astream_events(inputs, version="v2")
 
 ```json
 {
+  "schema_version": "1.0",
   "type": "thinking",
   "stage": "tool_start",
   "content": "开始调用 search_notes_tool",
@@ -210,6 +216,7 @@ agent_executor.astream_events(inputs, version="v2")
 
 ```json
 {
+  "schema_version": "1.0",
   "type": "waiting_confirmation",
   "stage": "tool_confirmation",
   "content": "操作需要确认",
@@ -224,8 +231,8 @@ agent_executor.astream_events(inputs, version="v2")
 ### error 和 done
 
 ```json
-{"type": "error", "content": "错误信息", "session_id": "..."}
-{"type": "done", "session_id": "..."}
+{"schema_version": "1.0", "type": "error", "content": "错误信息", "session_id": "..."}
+{"schema_version": "1.0", "type": "done", "session_id": "..."}
 ```
 
 前端必须在处理 `thinking`、`waiting_confirmation`、`error` 和 `done` 前 flush 尚未提交的 response buffer。

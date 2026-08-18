@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react'
 import type { SSEMessage, KnowledgeSSEMessage } from '../types/api'
+import { clearAuthState, getAccessToken } from '../stores/useUserStore'
 
 type SSECallback = {
   onThinking?: (stage: string, content?: string, details?: Record<string, unknown>) => void
@@ -21,7 +22,7 @@ export function useSSE() {
       abortRef.current = new AbortController()
 
       try {
-        const token = localStorage.getItem('jwt_token')
+        const token = getAccessToken()
         const isFormData = body instanceof FormData
 
         const response = await fetch(url, {
@@ -35,6 +36,7 @@ export function useSSE() {
         })
 
         if (!response.ok) {
+          if (response.status === 401) clearAuthState()
           callbacks.onError?.(`HTTP ${response.status}`)
           setError(`HTTP ${response.status}`)
           setLoading(false)
@@ -76,6 +78,13 @@ export function useSSE() {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
+                if (data.schema_version && data.schema_version !== '1.0') {
+                  const message = `Unsupported SSE schema: ${data.schema_version}`
+                  callbacks.onError?.(message)
+                  setError(message)
+                  abortRef.current?.abort()
+                  return
+                }
 
                 // Handle knowledge SSE format
                 if (data.event_type) {

@@ -44,7 +44,7 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("密码错误")
 
         # 验证用户状态是否为激活
-        if user.status != UserStatusChoice.ACTIVE:
+        if user.status != UserStatusChoice.ACTIVE or not user.is_active:
             raise serializers.ValidationError("用户状态异常，请检查是否激活或已被锁定")
 
         # 将用户对象添加到验证数据中，便于视图使用，减少SQL语句的查询次数
@@ -134,7 +134,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
             telephone=validated_data.get('telephone'),
-            status=UserStatusChoice.ACTIVE  # 注册后直接激活
+            status=UserStatusChoice.ACTIVE,
+            is_active=True,
         )
         return user
 

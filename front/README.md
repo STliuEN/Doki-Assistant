@@ -16,6 +16,8 @@
 
 Vite 8 要求 Node.js `^20.19.0 || >=22.12.0`。Node.js 18 不受当前依赖支持。
 
+前端完整使用 npm 管理依赖和脚本，`package-lock.json` 是受版本控制的锁文件；安装使用 `npm ci`，不需要 yarn 或 pnpm。
+
 ## 安装与运行
 
 ```powershell
@@ -116,19 +118,23 @@ src/
 
 ## 认证
 
-JWT 保存在：
+`useUserStore` 是认证状态的唯一来源，由 Zustand persist 保存到：
 
 ```text
-localStorage.jwt_token
+localStorage["user-store"]
 ```
+
+持久化状态包含 access token、refresh token、用户资料和登录标志。旧 `localStorage.jwt_token` 只用于升级时的一次性兼容读取，并会在登录或退出时删除，不应再由新代码读写。
 
 `src/api/client.ts` 为 Axios 请求添加：
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <access token>
 ```
 
-后端返回 401 时，client 会删除本地 token 并跳转 `/login`。Agent SSE 不经过 Axios interceptor，流 hook 必须自行携带相同 token。
+后端返回 `401` 时，client 使用 refresh token 刷新一次并重试原请求。并发 `401` 会合并为同一个刷新请求；成功后保存轮换后的 access/refresh token，失败或没有 refresh token 时完整清理认证状态并跳转 `/login`。
+
+Agent 和知识库 SSE 使用原生 `fetch`，不经过 Axios 刷新 interceptor；`useSSE` 从同一 store 读取 access token，并在 `401` 时清理认证状态。退出请求同时发送 Bearer access token 和请求体中的 refresh token，以撤销当前 token 对。认证或撤销依赖不可用时后端可能返回 `503`，前端不能把它当作成功响应。
 
 不要在前端保存模型 API key 明文。用户模型密钥由后端加密保存，前端只处理输入和脱敏结果。
 
@@ -150,7 +156,7 @@ src/features/chat/__tests__/useChatStream.test.ts
 - `error`。
 - `done`。
 
-流处理会缓冲 response chunk，并在 thinking、确认、错误和完成事件前 flush，保证 UI 消息顺序与后端事件顺序一致。
+所有事件都要求 `schema_version: "1.0"`；未知版本会中止当前流并显示错误。流处理会缓冲 response chunk，并在 thinking、确认、错误和完成事件前 flush，保证 UI 消息顺序与后端事件顺序一致。
 
 `done.session_id` 用于新会话导航和状态同步。重新生成使用单独 endpoint，并覆盖已有 assistant 消息，而不是追加重复回答。
 
@@ -172,7 +178,10 @@ npm run test
 
 当前 Vitest 重点验证：
 
+- access/refresh token 同库存储、刷新轮换、并发刷新合并和失败清理。
+- Markdown 危险 URL 与原始 HTML 的安全渲染。
 - SSE 分包和多事件解析。
+- SSE schema version 校验。
 - thinking/error 前的 response flush。
 - regenerate 覆盖语义。
 - `done.session_id` 传递。

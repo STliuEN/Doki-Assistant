@@ -6,6 +6,7 @@ import time
 
 from app.agent.runtime.budget import DEFAULT_RUNTIME_BUDGET
 from app.agent.runtime.sse_driver import drive_sse_stream
+from app.schemas.sse import SSE_SCHEMA_VERSION
 
 
 def _run(coro):
@@ -48,7 +49,11 @@ def test_done_has_session_id_on_agent_error():
         ))
 
     events = _parse_sse(_run(go()))
-    assert events[-1] == {"type": "done", "session_id": "sess-error"}
+    assert events[-1] == {
+        "schema_version": SSE_SCHEMA_VERSION,
+        "type": "done",
+        "session_id": "sess-error",
+    }
 
 
 def test_done_has_session_id_on_driver_exception():
@@ -75,4 +80,8 @@ def test_done_has_session_id_on_driver_exception():
 
     events = _parse_sse(_run(go()))
     assert events[-2]["type"] == "error"
-    assert events[-1] == {"type": "done", "session_id": "sess-driver-error"}
+    assert events[-1] == {
+        "schema_version": SSE_SCHEMA_VERSION,
+        "type": "done",
+        "session_id": "sess-driver-error",
+    }

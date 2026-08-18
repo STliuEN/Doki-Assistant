@@ -2,6 +2,8 @@
 笔记管理 API 路由 —— CRUD、搜索、自动标签、内联补全、写作辅助。
 """
 
+from typing import Any
+
 from fastapi import Depends, Query
 from fastapi.responses import Response, StreamingResponse
 from fastapi.routing import APIRouter
@@ -12,14 +14,17 @@ from app.core.background_init import init_manager
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
+from app.schemas.api import ApiResponse
 from app.schemas.models import (
     BatchCategoryRequest,
     BatchIdsRequest,
     BatchPinRequest,
     NoteCreate,
     NoteListResponse,
+    NoteResponse,
     NoteUpdate,
 )
+from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.utils.auth_utils import get_current_user_id
 
 note_router = APIRouter(prefix="/note", tags=["note"])
@@ -34,7 +39,7 @@ async def ensure_note_service():
 note_router.dependencies = [Depends(ensure_note_service)]
 
 
-@note_router.post("/create")
+@note_router.post("/create", response_model=ApiResponse[NoteResponse])
 async def create_note(
     payload: NoteCreate,
     user_id: str = Depends(get_current_user_id),
@@ -51,7 +56,7 @@ async def create_note(
     return success_response(message="笔记创建成功", data=note)
 
 
-@note_router.get("/list")
+@note_router.get("/list", response_model=ApiResponse[NoteListResponse])
 async def list_notes(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -68,7 +73,7 @@ async def list_notes(
     return success_response(data=NoteListResponse(notes=notes, total_count=total))
 
 
-@note_router.get("/search")
+@note_router.get("/search", response_model=ApiResponse[NoteListResponse])
 async def search_notes(
     q: str = Query(..., description="搜索关键词"),
     user_id: str = Depends(get_current_user_id),
@@ -82,7 +87,7 @@ async def search_notes(
     return success_response(data=NoteListResponse(notes=notes, total_count=len(notes)))
 
 
-@note_router.post("/batch/delete")
+@note_router.post("/batch/delete", response_model=ApiResponse[None])
 async def batch_delete_notes(
     payload: BatchIdsRequest,
     user_id: str = Depends(get_current_user_id),
@@ -121,7 +126,7 @@ async def batch_download_notes(
     )
 
 
-@note_router.put("/batch/category")
+@note_router.put("/batch/category", response_model=ApiResponse[None])
 async def batch_update_category(
     payload: BatchCategoryRequest,
     user_id: str = Depends(get_current_user_id),
@@ -135,7 +140,7 @@ async def batch_update_category(
     return success_response(message=f"成功更新 {updated} 篇笔记的分类")
 
 
-@note_router.put("/batch/pin")
+@note_router.put("/batch/pin", response_model=ApiResponse[None])
 async def batch_pin_notes(
     payload: BatchPinRequest,
     user_id: str = Depends(get_current_user_id),
@@ -149,7 +154,7 @@ async def batch_pin_notes(
     return success_response(message=f"成功更新 {updated} 篇笔记的置顶状态")
 
 
-@note_router.get("/stats")
+@note_router.get("/stats", response_model=ApiResponse[Any])
 async def get_stats(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -162,7 +167,7 @@ async def get_stats(
     return success_response(data=stats)
 
 
-@note_router.delete("/category/{category}")
+@note_router.delete("/category/{category}", response_model=ApiResponse[Any])
 async def delete_category(
     category: str,
     user_id: str = Depends(get_current_user_id),
@@ -182,7 +187,7 @@ class AutocompleteRequest(BaseModel):
     context: str
 
 
-@note_router.post("/autocomplete")
+@note_router.post("/autocomplete", response_model=ApiResponse[Any])
 async def autocomplete(
     payload: AutocompleteRequest,
     user_id: str = Depends(get_current_user_id),
@@ -201,7 +206,11 @@ class AssistRequest(BaseModel):
     action: str = "continue"
 
 
-@note_router.post("/assist/stream")
+@note_router.post(
+    "/assist/stream",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def assist_stream(
     payload: AssistRequest,
     user_id: str = Depends(get_current_user_id),
@@ -223,7 +232,7 @@ async def assist_stream(
     )
 
 
-@note_router.put("/{note_id}")
+@note_router.put("/{note_id}", response_model=ApiResponse[NoteResponse])
 async def update_note(
     note_id: str,
     payload: NoteUpdate,
@@ -240,7 +249,7 @@ async def update_note(
     return success_response(message="笔记更新成功", data=note)
 
 
-@note_router.put("/{note_id}/pin")
+@note_router.put("/{note_id}/pin", response_model=ApiResponse[NoteResponse])
 async def toggle_pin(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -257,7 +266,7 @@ async def toggle_pin(
     return success_response(message="置顶已更新", data=updated)
 
 
-@note_router.delete("/{note_id}")
+@note_router.delete("/{note_id}", response_model=ApiResponse[None])
 async def delete_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -273,7 +282,7 @@ async def delete_note(
     return success_response(message="笔记删除成功")
 
 
-@note_router.get("/{note_id}")
+@note_router.get("/{note_id}", response_model=ApiResponse[NoteResponse])
 async def get_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -288,7 +297,7 @@ async def get_note(
     return success_response(data=note)
 
 
-@note_router.post("/{note_id}/auto-tag")
+@note_router.post("/{note_id}/auto-tag", response_model=ApiResponse[None])
 async def regenerate_tags(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -306,7 +315,7 @@ async def regenerate_tags(
     return success_response(message="标签生成任务已提交")
 
 
-@note_router.get("/{note_id}/related")
+@note_router.get("/{note_id}/related", response_model=ApiResponse[Any])
 async def get_related_notes(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -320,7 +329,7 @@ async def get_related_notes(
     return success_response(data=related)
 
 
-@note_router.get("/{note_id}/export")
+@note_router.get("/{note_id}/export", response_model=ApiResponse[Any])
 async def export_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -335,7 +344,19 @@ async def export_note(
     return success_response(data={"markdown": md, "filename": f"{note_id}.md"})
 
 
-@note_router.get("/{note_id}/download")
+@note_router.get(
+    "/{note_id}/download",
+    response_class=Response,
+    responses={
+        200: {
+            "model": ApiResponse[None],
+            "description": "Markdown download, or a canonical JSON envelope when absent",
+            "content": {
+                "text/markdown": {"schema": {"type": "string", "format": "binary"}},
+            },
+        }
+    },
+)
 async def download_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),

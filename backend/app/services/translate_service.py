@@ -1,5 +1,4 @@
 import asyncio
-import json
 import re
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -8,12 +7,13 @@ from langchain_core.messages import HumanMessage
 
 from app.core.logger_handler import logger
 from app.models.model_config import UserModelConfig
+from app.schemas.sse import encode_sse
 from app.utils.model_provider import create_chat_model_from_config
 from app.utils.prompt_loader import load_prompt
 
 
 def _sse_event(payload: dict[str, Any]) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+    return encode_sse(payload)
 
 
 def _content_to_text(content: Any) -> str:

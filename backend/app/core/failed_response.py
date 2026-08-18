@@ -9,13 +9,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette import status
 
+from app.core.environment import is_production_environment, normalize_environment
+
 
 class Settings(BaseSettings):
     """项目配置类，自动从环境变量读取"""
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
-    # 环境标识：dev(开发) / test(测试) / prod(生产)
+    # 环境标识：dev/development、test/testing、prod/production
     ENV: str = "dev"
     # DEBUG模式：开发环境默认True，生产环境强制False
     DEBUG_MODE: bool = True
@@ -24,8 +26,10 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# 生产环境强制关闭 DEBUG_MODE，双保险防止泄露
-DEBUG_MODE = settings.DEBUG_MODE if settings.ENV != "prod" else False
+ENVIRONMENT = normalize_environment(settings.ENV)
+if is_production_environment(ENVIRONMENT) and settings.DEBUG_MODE:
+    raise RuntimeError("DEBUG_MODE must be false in production")
+DEBUG_MODE = settings.DEBUG_MODE
 
 def setup_logger():
     """初始化项目日志器"""

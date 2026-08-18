@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import rate_limit
 from app.db.db_config import get_db
+from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.schemas.translate import DialogueTranslateRequest
 from app.services.model_config_service import get_model_config_service
 from app.services.translate_service import stream_dialogue_translation
@@ -13,7 +14,11 @@ from app.utils.auth_utils import get_current_user_id
 translate_router = APIRouter(prefix="/translate", tags=["translate"])
 
 
-@translate_router.post("/dialogue/stream")
+@translate_router.post(
+    "/dialogue/stream",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def dialogue_translate_stream(
     request: DialogueTranslateRequest,
     user_id: str = Depends(get_current_user_id),

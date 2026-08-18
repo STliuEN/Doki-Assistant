@@ -2,11 +2,34 @@ import os
 
 from fastapi import HTTPException, Request
 
+from app.core.environment import is_production_environment, normalize_environment
 from app.db.redis_config import connect_redis
 
 # 全局开关：通过环境变量 RATE_LIMIT_ENABLED 控制所有限流是否生效
 # 当设置为 false 时，rate_limit 依赖和 RateLimitMiddleware 均直接放行
-_RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+_ENVIRONMENT = normalize_environment()
+_RATE_LIMIT_DEFAULT = "true" if is_production_environment(_ENVIRONMENT) else "false"
+_RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", _RATE_LIMIT_DEFAULT).lower() == "true"
+
+_FIXED_WINDOW_SCRIPT = """
+local current = redis.call("GET", KEYS[1])
+if not current then
+    redis.call("SET", KEYS[1], 1, "EX", ARGV[1])
+    return 1
+end
+local incremented = redis.call("INCR", KEYS[1])
+if redis.call("TTL", KEYS[1]) < 0 then
+    redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return incremented
+"""
+
+
+async def _consume_rate_limit(key: str, limit: int, window: int) -> bool:
+    """Atomically create or increment a fixed-window counter with a TTL."""
+    redis_client = await connect_redis()
+    current = int(await redis_client.eval(_FIXED_WINDOW_SCRIPT, 1, key, window))
+    return current <= limit
 
 
 def rate_limit(limit: int = 1, window: int = 60):
@@ -29,27 +52,12 @@ def rate_limit(limit: int = 1, window: int = 60):
         # 生成限流键
         key = f"rate_limit:aichat:{client_ip}"
 
-        # 获取Redis连接
-        redis = await connect_redis()
-
-        # 获取当前计数
-        current = await redis.get(key)
-        current = int(current) if current else 0
-
-        if current >= limit:
+        if not await _consume_rate_limit(key, limit, window):
             # 限流触发
             raise HTTPException(
                 status_code=429,
                 detail="请求过于频繁，请稍后再试"
             )
-
-        # 增加计数
-        if current == 0:
-            # 第一次请求，设置过期时间
-            await redis.setex(key, window, 1)
-        else:
-            # 后续请求，增加计数
-            await redis.incr(key)
 
     return dependency
 
@@ -85,14 +93,7 @@ class RateLimitMiddleware:
         # 生成限流键
         key = f"rate_limit:global:{client_ip}"
 
-        # 获取Redis连接
-        redis = await connect_redis()
-
-        # 获取当前计数
-        current = await redis.get(key)
-        current = int(current) if current else 0
-
-        if current >= self.limit:
+        if not await _consume_rate_limit(key, self.limit, self.window):
             # 限流触发
             from starlette.responses import JSONResponse
             response = JSONResponse(
@@ -101,13 +102,5 @@ class RateLimitMiddleware:
             )
             await response(scope, receive, send)
             return
-
-        # 增加计数
-        if current == 0:
-            # 第一次请求，设置过期时间
-            await redis.setex(key, self.window, 1)
-        else:
-            # 后续请求，增加计数
-            await redis.incr(key)
 
         await self.app(scope, receive, send)

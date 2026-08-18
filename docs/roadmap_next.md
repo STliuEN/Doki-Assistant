@@ -1,11 +1,11 @@
 # 全量重构开发计划
 
-状态：待实施
+状态：基础工作包 `1-6` 已完成；长期阶段继续实施
 计划基线：2026-07-16
-最近复核：2026-08-17
+最近复核：2026-08-18
 适用范围：当前 `ai_document_assistant` 分支
 
-本文是后续开发的主计划，只维护目标架构、实施阶段、依赖关系和验收门。下一项工作的序号入口见 [改进执行选择](./improvement_execution_plan.md)，安全问题的实现细节见 [安全与可靠性加固计划](./security_hardening_plan.md)，依赖、OpenAPI、lint 和 CI 的第一轮完整性整改记录见 [仓库更新完整性整改计划](./maintenance_update_plan.md)。`project_changes/` 只保存已经执行的历史记录。
+本文是后续开发的主计划，只维护目标架构、实施阶段、依赖关系和验收门。下一项工作的序号入口见 [改进执行计划](./improvement_execution_plan.md)，安全问题的实现细节见 [安全与可靠性加固计划](./security_hardening_plan.md)，依赖、OpenAPI、lint 和 CI 的第一轮完整性整改记录见 [仓库更新完整性整改计划](./maintenance_update_plan.md)。`project_changes/` 只保存已经执行的历史记录。
 
 本计划采用渐进式重构，不进行一次性重写。每个阶段必须保持现有用户数据可恢复、主流程可运行、验证命令可重复，才能进入下一阶段。
 
@@ -25,7 +25,7 @@
 
 ## 当前基线
 
-### 已保留能力
+### 已验证并保留的能力
 
 - Agent 运行时已经拆为 run preparation、context builder、factory、event pump 和 SSE driver。
 - Query 与 regenerate 共用准备和流式执行链路。
@@ -33,24 +33,24 @@
 - pending action 使用 Redis、TTL、用户隔离和一次性消费。
 - Skill、Tool 和 MCP 已有统一 registry 和管理 API。
 - 笔记、记忆、知识库、会话和模型配置查询大多携带 `user_id` 过滤。
-- Frontend SSE hook 有分包、flush、覆盖和 done event 合同测试。
-- Backend 82 项测试、Frontend 4 项测试、offline smoke 和 121 个正向 regression case 通过。
-- requirements、lock、OpenAPI 和 Markdown 已有 CI 漂移检查。
+- 知识库图片路径已有统一 containment、文件类型校验以及批量数量/字节预算。
+- 聊天流式与历史消息共用安全 Markdown 渲染，不再执行原始 HTML 或危险 URL。
+- Django 签发严格校验、可轮换的 access/refresh token；FastAPI 只接受 access token，前端只有一个认证状态来源。
+- Django migration 和 FastAPI Alembic baseline 已进入版本控制，两个应用启动都不修改 schema。
+- canonical JSON API 使用 `ApiResponse[T]`，OpenAPI 展示真实 envelope；SSE 事件固定携带 `schema_version: "1.0"`。
+- Backend `118 passed`、Django `19 passed`、Frontend `20 passed`；Ruff、lint、build、OpenAPI、migration drift 和 Alembic offline SQL 通过。
+- Offline smoke `4/4`、regression `117/117`，hard veto 为 0。
 
 这些能力属于重构保护面。除非测试证明现有合同错误，不因目录调整而改变行为。
 
-### 需要替换的基础
+### 仍需替换的基础
 
 - Django 只承担用户、JWT 和头像，却引入第二套运行时、依赖、数据库配置、文档和部署边界。
-- Django migration 被 Git 忽略并在 `AppConfig.ready()` 中运行生成/应用逻辑。
-- FastAPI 使用 `create_all` 和自定义补列，没有正式 migration。
-- JWT 生命周期在两个服务中分别实现，refresh、锁定、注销和 Redis 故障语义不一致。
-- API 实际使用 `{code,message,data}`，部分 OpenAPI 却声明裸数据模型。
 - RAG 的 MySQL、Chroma、MD5 文本文件、源文件和图片缺少统一事务/补偿边界。
 - 前端页面直接处理请求、缓存、持久化、流式事件和渲染，组件测试覆盖不足。
-- 前端 JWT 同时写入独立 key 和持久化用户 store，401 只清理其中一个来源。
-- FastAPI 异步鉴权辅助函数仍使用无 timeout 的同步 HTTP 请求访问 Django。
-- 当前仍有目录穿越、原始 HTML、服务端网络出口和固定测试账号风险。
+- 自定义模型与 Embedding 地址仍缺少统一的 DNS、重定向和私网地址 egress 策略。
+- 生产反向代理/TLS、备份恢复、可观测性、依赖扫描和发布回滚仍未完成演练。
+- 用户唯一标识、数据库角色/审计来源和头像完整 UI 流程仍待后续阶段收敛。
 
 ## 架构决策
 
@@ -149,7 +149,20 @@ front/src/
 5. 第三方模型、向量库和 MCP 通过 adapter 隔离，业务 service 不直接依赖 SDK response 类型。
 6. 不以代码行数或目录数量作为完成标准，以合同、故障恢复和测试通过为准。
 7. 安全修复不等待大重构；P0 问题直接在现有结构中修复并保留到新结构。
-8. `project_changes/` 每个实施批次记录 plan、change log 和 test record，但活文档只更新当前事实。
+8. `project_changes/<日期-主题>/` 每个实施批次记录 `plan.md`、`change-log.md` 和 `test-record.md`，但活文档只更新当前事实。
+
+## 2026-08-17 基础迭代结果
+
+| 工作包 | 对应阶段切片 | 状态 | 结果 |
+|--------|--------------|------|------|
+| 1 知识库路径 containment | R0/R2 storage | 已完成 | 文件根目录、用户边界、符号链接与批量预算有自动测试 |
+| 2 聊天安全渲染 | R0/R6 chat | 已完成 | 移除原始 HTML，流式/历史消息统一安全渲染 |
+| 3 Token 生命周期 | R0/R3 auth | 已完成 | access/refresh、轮换、撤销、严格 claim 和前端单一状态来源落地 |
+| 4 部署与鉴权可靠性 | R0/R2/R7 | 已完成 | 固定账号和启动副作用移除；生产配置、CORS 与限流 fail fast |
+| 5 版本化数据库迁移 | R2 database | 已完成 | Django migration 与 Alembic baseline 入库，启动只校验 revision |
+| 6 API/SSE 合同与特征测试 | R1/R7 | 已完成 | 泛型 envelope、版本化 SSE、真实响应/认证/迁移合同测试落地 |
+
+这六项只完成了各阶段的基础切片，不等于 R0-R8 全部结束。尤其是服务端 egress、用户域收敛、模块化重组、长任务、完整前端重构和生产发布仍按下文阶段推进。认证合同为破坏性升级，旧的无类型 JWT 不兼容，部署后用户必须重新登录。数据库验证只使用临时 SQLite、revision 检查和 Alembic offline SQL，没有连接或修改现有 MySQL。
 
 ## 阶段依赖
 
@@ -171,24 +184,31 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 目标：先消除会使重构环境、测试数据或用户凭据失去可信度的问题。
 
-工作：
+状态：工作包 `1-4` 覆盖的路径、渲染、token、固定账号、CORS、限流和异步鉴权已完成；统一服务端 egress 策略保留为本阶段剩余项。
+
+已完成：
 
 - 修复知识库图片单文件和批量接口的路径 containment。
-- 移除或净化聊天消息原始 HTML。
-- 限制过期 token 刷新，检查用户状态，替换 Redis `KEYS` 黑名单查询。
+- 移除聊天消息原始 HTML，并过滤危险 URL。
+- 使用 access/refresh token、严格过期与用户状态校验、确定性 Redis 撤销键和 fail-closed 故障语义。
 - 统一前端认证来源，确保 401、注销和 refresh 失败完整清理认证状态。
 - 把异步鉴权链中的同步 HTTP 请求替换为有 timeout、取消和故障合同的异步 client。
 - 停止默认创建固定密码账号，启用登录/注册/refresh 限流。
-- 为自定义模型和 Embedding 地址增加部署模式相关的 egress 策略。
 - 补充上述问题的单元、API 和前端回归测试。
+
+剩余：
+
+- 为自定义模型和 Embedding 地址增加部署模式相关的 DNS、重定向和私网地址 egress 策略。
+- 完成反向代理/TLS、依赖扫描、secret scanning 和生产回滚演练。
 
 详细要求见 [安全与可靠性加固计划](./security_hardening_plan.md)。
 
-退出门：
+当前验收：
 
-- `SEC-01`、`SEC-02`、`AUTH-01`、`AUTH-03`、`DEPLOY-01` 和 `REL-01` 有自动测试。
-- 受控恶意输入不能读取项目文件、执行 HTML 或刷新锁定用户 token。
-- Backend、Frontend 和 Benchmark 现有 gate 继续通过。
+- `SEC-01`、`SEC-02`、`AUTH-01`、`AUTH-02`、`AUTH-03`、`DEPLOY-01`、`DEPLOY-02` 和 `REL-01` 已有自动测试。
+- 受控恶意输入不能读取项目文件、执行 HTML 或重放 refresh token。
+- Backend、Django、Frontend 和 Benchmark 门禁通过。
+- R0 只有在 egress 和生产演练完成后才整体关闭。
 
 相对工作量：M。
 
@@ -196,14 +216,17 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 目标：在移动代码前固定系统真正需要保持的外部和数据行为。
 
+状态：工作包 `6` 已完成 HTTP/SSE 与认证合同基线；完整数据清单、性能基线和所有待迁移路由的 characterization test 仍未完成。
+
 工作：
 
 ### HTTP 与 SSE
 
-- 定义泛型 `ApiResponse[T]`，修正全部成功和错误响应的 OpenAPI。
-- 明确文件下载、SSE 和普通 JSON 不使用同一个 response model。
-- 为聊天事件定义版本化 schema：`type/run_id/session_id/sequence/timestamp/payload`。
-- 记录认证、权限、404、冲突、限流和外部服务错误的状态码合同。
+- 已定义泛型 `ApiResponse[T]`，canonical JSON handler 的 OpenAPI 与真实 envelope 一致。
+- 文件下载、SSE 和普通 JSON 已分别声明；SSE 路由发布 `text/event-stream`。
+- chat、knowledge、note 和 translate 事件固定携带 `schema_version: "1.0"`，并有合同测试。
+- 认证、refresh、logout、撤销存储故障和限流状态码已有跨服务合同测试。
+- 后续如统一 `run_id/session_id/sequence/timestamp/payload` 事件 envelope，必须升级 schema version 并定义兼容窗口。
 
 ### 数据与文件
 
@@ -214,8 +237,8 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ### Characterization tests
 
-- 对用户注册、登录、refresh、注销、改密、锁定和头像建立 Django 测试。
-- 对笔记、记忆、会话、知识库、模型配置和管理 API 建立 FastAPI TestClient 测试。
+- Django 已覆盖注册、登录、refresh、注销、改密/版本失效、锁定及 Redis 故障；头像完整流程仍待补充。
+- FastAPI 已覆盖认证、知识路径、canonical JSON 响应、SSE、迁移与限流合同；其余业务路由继续补齐 TestClient 测试。
 - 对跨用户访问建立 hard veto 测试。
 - 记录关键页面和 API 的初始性能、bundle 与响应大小基线。
 
@@ -234,18 +257,22 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 目标：建立后续模块共享且不会反复改写的基础设施。
 
+状态：工作包 `4-5` 已完成生产配置校验、CORS/限流基础和两套版本化 migration；统一 settings、transaction、storage、egress 与日志平台仍待实施。
+
 工作：
 
 ### 配置
 
+- 已为 Django/FastAPI 增加 dev/test/prod 边界和生产 fail-fast 校验。
 - 使用单一 Pydantic Settings 入口，按 dev/test/prod profile 校验。
 - 删除模块内散落的 `load_dotenv()` 和 import-time 配置快照。
 - 把 secret、路径、外部 URL 和运行预算按命名空间组织。
 
 ### 数据库
 
-- 引入 Alembic，为 FastAPI 现有表生成 baseline。
-- 跟踪 Django user migration，移除启动期 `makemigrations/migrate`。
+- 已引入 Alembic baseline `20260817_0001`，应用启动只验证 revision。
+- 已跟踪 Django user migration，并移除启动期 migration 生成和执行逻辑。
+- CI 已加入 Alembic、Django migration drift 和 Django tests；当前验证未连接或修改现有 MySQL。
 - 定义 transaction helper；router 不直接管理 commit/rollback。
 - 补齐关键唯一约束、组合索引和删除策略。
 
@@ -256,7 +283,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 定义受根目录约束的 storage interface。
 - 统一 HTTP client timeout、重试、重定向和 egress policy。
 
-退出门：
+最终退出门：
 
 - 空数据库可应用全部 migration；已有数据库可从 baseline 升级。
 - 应用启动不再执行 schema 修改。
@@ -361,7 +388,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 退出门：
 
-- Agent 现有 121 个正向 regression case 不回退。
+- Agent 现有 117 个 offline regression case 不回退。
 - 重复上传/重试不会产生重复向量或孤立文件。
 - API 进程不因模型初始化或大文档处理失去 readiness。
 - 客户端取消和 worker 失败有确定状态。
@@ -371,6 +398,8 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 ## R6 前端功能域重构
 
 目标：让页面只组合功能，API、服务端状态、流式状态、表单和渲染可以独立测试。
+
+状态：聊天安全渲染、前端单一认证 store、并发刷新和注册/注销浏览器验收已完成；页面功能域拆分、头像、知识上传及完整 E2E 仍待实施。
 
 ### 基础层
 
@@ -391,7 +420,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ### 前端安全与性能
 
-- 消息 Markdown 使用安全 schema，禁止任意原始 HTML。
+- 消息 Markdown 已统一使用安全渲染，禁止任意原始 HTML 和危险 URL。
 - 外部链接统一 `rel="noopener noreferrer"`，图片和下载来源受约束。
 - 清理 blob URL、AbortController 和流式 reader，避免页面切换后泄漏。
 - 对当前大 chunk 建立不回退预算，按编辑器和 Markdown 能力延迟加载。
@@ -407,16 +436,16 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## 产品迭代队列
 
-以下功能不绕过前置安全和合同阶段。具体可选择的工作包、依赖和验收条件见 [改进执行选择](./improvement_execution_plan.md)。
+以下功能均为保留项，尚未执行。具体可选择的工作包、依赖和验收条件见 [改进执行计划](./improvement_execution_plan.md)：工作包 `7` 对应 F1/F2，`8` 对应 F3，`9` 对应 F4，`10` 对应 F5/F6。
 
-| 顺序 | 功能 | 用户价值 | 主要依赖 |
-|------|------|----------|----------|
-| F1 | 回答引用与来源抽屉 | 让知识库回答可核验并可返回原文 | R0 安全渲染、R1 SSE/API 合同 |
-| F2 | 回答一键沉淀为笔记或记忆 | 打通聊天、笔记、记忆，保留来源关系 | R1 合同、R4 notes/memory/chat 边界 |
-| F3 | 知识处理任务中心 | 提供持久进度、取消、失败诊断和重试 | R2 migration、R4 knowledge 状态、R5 worker 决策 |
-| F4 | 跨域统一搜索 | 统一检索笔记、记忆、会话和知识文档 | R2/R4 数据边界和用户隔离测试 |
-| F5 | Agent 运行记录 | 展示模型、Skill、Tool、耗时、错误和停止原因 | R1 event schema、R5 run context、R7 可观测性 |
-| F6 | 版本化导出与恢复 | 让个人知识资产可迁移、可校验、可恢复 | R2 migration/storage、R7/R8 恢复演练 |
+| 顺序 | 功能 | 状态 | 用户价值 | 主要依赖 |
+|------|------|------|----------|----------|
+| F1 | 回答引用与来源抽屉 | 保留，未执行 | 让知识库回答可核验并可返回原文 | R0 安全渲染、R1 SSE/API 合同 |
+| F2 | 回答一键沉淀为笔记或记忆 | 保留，未执行 | 打通聊天、笔记、记忆，保留来源关系 | R1 合同、R4 notes/memory/chat 边界 |
+| F3 | 知识处理任务中心 | 保留，未执行 | 提供持久进度、取消、失败诊断和重试 | R2 migration、R4 knowledge 状态、R5 worker 决策 |
+| F4 | 跨域统一搜索 | 保留，未执行 | 统一检索笔记、记忆、会话和知识文档 | R2/R4 数据边界和用户隔离测试 |
+| F5 | Agent 运行记录 | 保留，未执行 | 展示模型、Skill、Tool、耗时、错误和停止原因 | R1 event schema、R5 run context、R7 可观测性 |
+| F6 | 版本化导出与恢复 | 保留，未执行 | 让个人知识资产可迁移、可校验、可恢复 | R2 migration/storage、R7/R8 恢复演练 |
 
 产品功能应按 F1、F2、F3、F4、F5、F6 推进。F1 与 F2 可形成第一个用户可见增量；F3 和 F4 在数据状态未版本化前不启动。
 
@@ -482,16 +511,16 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## 工作包与里程碑
 
-| 里程碑 | 包含阶段 | 对外结果 | 规模 |
-|--------|----------|----------|------|
-| M0 安全可信基线 | R0 | 已知高风险输入被阻断 | M |
-| M1 合同冻结 | R1 | API、SSE、数据和旧行为可验证 | M |
-| M2 平台可迁移 | R2 | 配置、migration、storage、Redis/HTTP 基础稳定 | L |
-| M3 单一身份源 | R3 | FastAPI 承载用户认证，Django 可下线 | XL |
-| M4 模块化后端 | R4 | 功能域边界和数据补偿明确 | XL |
-| M5 稳定运行时 | R5 | Agent/RAG 可取消、可重试、可观测 | L |
-| M6 可测试前端 | R6 | 功能域 UI 和 E2E 主流程稳定 | XL |
-| M7 发布就绪 | R7-R8 | required gates、单一运行方式和回滚流程 | L |
+| 里程碑 | 包含阶段 | 状态 | 对外结果 | 规模 |
+|--------|----------|------|----------|------|
+| M0 安全可信基线 | R0 | 基础切片完成，egress 保留 | 已知文件、渲染、凭据和 token 高风险输入被阻断 | M |
+| M1 合同冻结 | R1 | 部分完成 | API/SSE/认证合同已验证，数据清单与全路由特征测试待补 | M |
+| M2 平台可迁移 | R2 | 部分完成 | migration 与生产配置基础完成，storage/egress 平台待补 | L |
+| M3 单一身份源 | R3 | 未执行 | FastAPI 承载用户认证，Django 可下线 | XL |
+| M4 模块化后端 | R4 | 未执行 | 功能域边界和数据补偿明确 | XL |
+| M5 稳定运行时 | R5 | 未执行 | Agent/RAG 可取消、可重试、可观测 | L |
+| M6 可测试前端 | R6 | 部分完成 | 安全渲染与认证基础完成，功能域 UI 和完整 E2E 待补 | XL |
+| M7 发布就绪 | R7-R8 | 未执行 | required gates、单一运行方式和回滚流程 | L |
 
 规模只表示相对复杂度。没有团队容量、发布窗口和数据规模前，不把它换算为承诺日期。每个里程碑应再拆成不超过一个功能域的独立 change plan。
 
@@ -516,4 +545,4 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## 下一步
 
-实施从 R0 开始，默认执行顺序为 [改进执行选择](./improvement_execution_plan.md) 中的 `1 -> 2 -> 3 -> 4 -> 5 -> 6`；完成安全、迁移和合同基础后，再选择 `7-10` 的产品工作包。第一个 change plan 只处理知识库文件路径 containment 及其回归测试，不与消息渲染、认证或 migration 混在同一提交。
+基础工作包 `1-6` 已完成。下一轮可从 [改进执行计划](./improvement_execution_plan.md) 选择 `7-10`，默认优先 `7`；所有四项目前都只是保留计划，选择后仍需在对应 `project_changes/<日期-主题>/` 目录建立 `plan.md`、`change-log.md` 和 `test-record.md`。长期架构工作继续从 R0 的 egress 剩余项、R1 数据清单和 R2 platform API 向 R3-R8 推进，不能把基础切片完成等同于 Django 下线、模块化重构或生产发布完成。

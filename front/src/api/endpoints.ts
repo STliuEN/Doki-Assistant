@@ -1,6 +1,7 @@
 export const endpoints = {
   // Auth
   login: '/user/login/',
+  refreshToken: '/user/refresh-token/',
   logout: '/user/logout/',
   register: '/user/register/',
   profile: '/user/detail/',

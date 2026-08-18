@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logger_handler import logger
 from app.models.note import Note
 from app.schemas.models import NoteCreate, NoteResponse, NoteUpdate
+from app.schemas.sse import encode_sse
 from app.services.memory_service import memory_service
 from app.utils.config import chroma_config
 from app.utils.path_tool import get_abstract_path
@@ -483,11 +484,11 @@ class NoteService:
         try:
             async for chunk in chat_model.astream([HumanMessage(content=prompt)]):
                 if chunk.content:
-                    yield f"data: {chunk.content}\n\n"
-            yield "data: [DONE]\n\n"
+                    yield encode_sse({"type": "response", "content": str(chunk.content)})
+            yield encode_sse({"type": "done"})
         except Exception as e:
             logger.error(f"写作辅助流式输出失败: {e}")
-            yield f"data: [ERROR: {str(e)}]\n\n"
+            yield encode_sse({"type": "error", "content": str(e)})
 
     async def get_category_stats(self, db: AsyncSession, user_id: str) -> dict:
         """

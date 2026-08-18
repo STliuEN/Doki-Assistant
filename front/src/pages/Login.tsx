@@ -24,7 +24,7 @@ export default function Login() {
     setError('')
     try {
       const res = await authApi.login(username, password)
-      login(res.token, res.user)
+      login(res.token, res.user, res.refresh_token)
       i18n.changeLanguage(useLanguageStore.getState().lang)
       navigate('/notes')
     } catch (err: unknown) {
@@ -40,11 +40,6 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fillTestAccount = () => {
-    setUsername('admin')
-    setPassword('admin1234')
   }
 
   return (
@@ -105,9 +100,6 @@ export default function Login() {
       </form>
 
       <div className="flex flex-col items-center gap-3">
-        <button onClick={fillTestAccount} className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors">
-          {t('auth.testAccount')}
-        </button>
         <p className="text-sm text-[var(--color-text-secondary)]">
           {t('auth.noAccount')}{' '}
           <Link to="/register" className="text-[var(--color-accent)] hover:underline">{t('auth.register')}</Link>

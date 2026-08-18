@@ -1,4 +1,4 @@
-import os
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import Depends, File, HTTPException, UploadFile
@@ -11,6 +11,7 @@ from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
 from app.router.knowledge_service import KnowledgeService, get_knowledge_service
+from app.schemas.api import ApiResponse
 from app.schemas.models import (
     DocumentChunksResponse,
     KnowledgeDocumentDetail,
@@ -18,12 +19,15 @@ from app.schemas.models import (
     MD5ListResponse,
     MD5Record,
 )
+from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.services.embedding_config_service import get_embedding_config_service
 from app.services.reranker_config_service import get_reranker_config_service
 from app.utils.auth_utils import get_current_user_id
-
-# 图片相关工具：定位存储目录，构建文件路径
-from app.utils.image_extractor import get_image_storage_dir
+from app.utils.knowledge_image_paths import (
+    InvalidKnowledgeImagePath,
+    get_image_media_type,
+    resolve_knowledge_image_path,
+)
 
 knowledge_router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -48,7 +52,7 @@ class RerankerSwitchRequest(BaseModel):
     trust_remote_code: bool = False
 
 
-@knowledge_router.post("/add/single")
+@knowledge_router.post("/add/single", response_model=ApiResponse[None])
 async def add_vector_single(
         file: UploadFile = File(...),
         user_id: str = Depends(get_current_user_id),
@@ -61,7 +65,7 @@ async def add_vector_single(
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
 
 
-@knowledge_router.post("/add/multiple")
+@knowledge_router.post("/add/multiple", response_model=ApiResponse[None])
 async def add_vector_multiple(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"),
         user_id: str = Depends(get_current_user_id),
@@ -74,7 +78,11 @@ async def add_vector_multiple(
     return success_response(message=f"文件 {filenames} 已成功上传并存储到向量数据库")
 
 
-@knowledge_router.post("/add/multiple/stream")
+@knowledge_router.post(
+    "/add/multiple/stream",
+    response_class=StreamingResponse,
+    responses=SSE_OPENAPI_RESPONSE,
+)
 async def add_vector_multiple_stream(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF、TXT、MD、PPTX、DOCX格式"),
         user_id: str = Depends(get_current_user_id),
@@ -89,12 +97,11 @@ async def add_vector_multiple_stream(
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*"
         }
     )
 
 
-@knowledge_router.delete("/clean")
+@knowledge_router.delete("/clean", response_model=ApiResponse[None])
 async def clean_user_vectors(
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
@@ -105,7 +112,7 @@ async def clean_user_vectors(
     return success_response(message="已成功删除用户上传的所有向量")
 
 
-@knowledge_router.delete("/md5/clear")
+@knowledge_router.delete("/md5/clear", response_model=ApiResponse[None])
 async def clear_user_md5(
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
@@ -122,7 +129,7 @@ async def clear_user_md5(
         return success_response(message="已成功清空用户的MD5记录（保留知识库文档）")
 
 
-@knowledge_router.delete("/md5/delete/{md5_value}")
+@knowledge_router.delete("/md5/delete/{md5_value}", response_model=ApiResponse[None])
 async def delete_single_md5(
         md5_value: str,
         delete_documents: bool = True,
@@ -144,7 +151,7 @@ async def delete_single_md5(
         raise HTTPException(status_code=404, detail=f"MD5记录 {md5_value} 不存在")
 
 
-@knowledge_router.delete("/delete/filename")
+@knowledge_router.delete("/delete/filename", response_model=ApiResponse[None])
 async def delete_by_filename(
         filename: str,
         delete_documents: bool = True,
@@ -167,7 +174,7 @@ async def delete_by_filename(
         raise HTTPException(status_code=404, detail=f"文件 {filename} 不存在")
 
 
-@knowledge_router.get("/md5/list", response_model=MD5ListResponse)
+@knowledge_router.get("/md5/list", response_model=ApiResponse[MD5ListResponse])
 async def get_all_md5_records(
         user_id: str = Depends(get_current_user_id),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
@@ -181,7 +188,7 @@ async def get_all_md5_records(
     ))
 
 
-@knowledge_router.get("/md5/{md5_value}", response_model=MD5Record)
+@knowledge_router.get("/md5/{md5_value}", response_model=ApiResponse[MD5Record])
 async def get_md5_info(
         md5_value: str,
         user_id: str = Depends(get_current_user_id),
@@ -199,7 +206,7 @@ async def get_md5_info(
         raise HTTPException(status_code=404, detail=f"MD5记录 {md5_value} 不存在")
 
 
-@knowledge_router.get("/list", response_model=KnowledgeListResponse)
+@knowledge_router.get("/list", response_model=ApiResponse[KnowledgeListResponse])
 async def get_user_knowledge_list(
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
@@ -214,7 +221,7 @@ async def get_user_knowledge_list(
     ))
 
 
-@knowledge_router.get("/embedding/current")
+@knowledge_router.get("/embedding/current", response_model=ApiResponse[Any])
 async def get_current_embedding_config(
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
@@ -224,7 +231,7 @@ async def get_current_embedding_config(
     return success_response(data=config.to_dict())
 
 
-@knowledge_router.get("/embedding/ollama/models")
+@knowledge_router.get("/embedding/ollama/models", response_model=ApiResponse[Any])
 async def list_embedding_ollama_models(
         base_url: str = "http://localhost:11434",
         user_id: str = Depends(get_current_user_id),
@@ -235,7 +242,7 @@ async def list_embedding_ollama_models(
     return success_response(message="embedding models fetched", data={**result, "user_id": user_id})
 
 
-@knowledge_router.post("/embedding/switch")
+@knowledge_router.post("/embedding/switch", response_model=ApiResponse[Any])
 async def switch_embedding_and_rebuild(
         payload: EmbeddingSwitchRequest,
         user_id: str = Depends(get_current_user_id),
@@ -256,7 +263,7 @@ async def switch_embedding_and_rebuild(
     return success_response(message="embedding switched and indexes rebuilt", data={**result, "embedding": config.to_dict()})
 
 
-@knowledge_router.get("/reranker/current")
+@knowledge_router.get("/reranker/current", response_model=ApiResponse[Any])
 async def get_current_reranker_config(
         user_id: str = Depends(get_current_user_id),
 ):
@@ -264,7 +271,7 @@ async def get_current_reranker_config(
     return success_response(data={**svc.get_config().to_dict(), "user_id": user_id})
 
 
-@knowledge_router.get("/reranker/local-models")
+@knowledge_router.get("/reranker/local-models", response_model=ApiResponse[Any])
 async def list_local_reranker_models(
         user_id: str = Depends(get_current_user_id),
         _: None = Depends(rate_limit(limit=20, window=60)),
@@ -273,7 +280,7 @@ async def list_local_reranker_models(
     return success_response(data={"models": svc.list_local_models(), "user_id": user_id})
 
 
-@knowledge_router.post("/reranker/switch")
+@knowledge_router.post("/reranker/switch", response_model=ApiResponse[Any])
 async def switch_reranker(
         payload: RerankerSwitchRequest,
         user_id: str = Depends(get_current_user_id),
@@ -290,7 +297,7 @@ async def switch_reranker(
     return success_response(message="reranker switched", data={**config.to_dict(), "user_id": user_id})
 
 
-@knowledge_router.get("/detail", response_model=KnowledgeDocumentDetail)
+@knowledge_router.get("/detail", response_model=ApiResponse[KnowledgeDocumentDetail])
 async def get_document_detail(
         filename: str,
         user_id: str = Depends(get_current_user_id),
@@ -302,7 +309,7 @@ async def get_document_detail(
     return success_response(data=document)
 
 
-@knowledge_router.get("/chunks", response_model=DocumentChunksResponse)
+@knowledge_router.get("/chunks", response_model=ApiResponse[DocumentChunksResponse])
 async def get_document_chunks(
         filename: str,
         user_id: str = Depends(get_current_user_id),
@@ -345,31 +352,20 @@ async def serve_knowledge_image(
     返回PDF中提取的原始图片（需JWT鉴权）
     图片存储在 data/extracted_images/{user_id}/{md5}/{filename}
     """
-    image_dir = get_image_storage_dir(user_id, md5)
-    image_path = os.path.join(image_dir, filename)
-
-    if not os.path.exists(image_path):
+    try:
+        image_path = resolve_knowledge_image_path(user_id, md5, filename, must_exist=True)
+        media_type = get_image_media_type(filename)
+    except InvalidKnowledgeImagePath as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail="图片不存在")
 
-    # 根据文件扩展名设置正确的 Content-Type，确保浏览器正确渲染图片
-    ext = os.path.splitext(filename)[1].lower()
-    media_type_map = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.tiff': 'image/tiff',
-        '.tif': 'image/tiff',
-        '.bmp': 'image/bmp',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp',
-    }
-    media_type = media_type_map.get(ext, 'application/octet-stream')
     return FileResponse(image_path, media_type=media_type)
 
 
 # 批量图片获取接口：一次性拿到某个文档的所有图片，前端缓存后按需展示。
 # 使用 base64 编码嵌入 JSON 中，减少前端的 HTTP 请求次数（尤其适合移动端）。
-@knowledge_router.get("/images/all/{md5}")
+@knowledge_router.get("/images/all/{md5}", response_model=ApiResponse[Any])
 async def serve_batch_images(
         md5: str,
         user_id: str = Depends(get_current_user_id),

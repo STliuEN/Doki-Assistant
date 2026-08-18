@@ -4,6 +4,8 @@ Doki 助手是一个面向个人知识管理和日常任务的 AI Agent 工作�
 
 当前仓库是开发版单体仓库，由 React 前端、Django 用户服务和 FastAPI 业务后端三个进程组成。项目仍以本地开发为主，尚未提供生产部署编排。
 
+2026-08-18 复核确认安全、认证、部署可靠性、版本化 migration 和 API/SSE 合同基础工作包 `1-6` 已完成。工作包 `7-10`（回答引用/沉淀、知识任务中心、统一搜索、运行追踪与恢复）仅保留在 [改进执行计划](./docs/improvement_execution_plan.md)，尚未实施。
+
 ## 当前能力
 
 - Agent 对话：支持模型选择、回答风格、Skill 预路由、显式 Tool、上下文策略和 SSE 流式响应。
@@ -64,7 +66,7 @@ POST /chat/agent/query/stream
   -> MySQL 保存或覆盖消息
 ```
 
-SSE 事件类型包括 `thinking`、`waiting_confirmation`、`response`、`done` 和 `error`。运行预算来自 `backend/app/config/agent.yaml`。
+SSE 事件类型包括 `thinking`、`waiting_confirmation`、`response`、`done` 和 `error`，事件固定携带 `schema_version: "1.0"`。运行预算来自 `backend/app/config/agent.yaml`。
 
 ## 环境要求
 
@@ -103,7 +105,7 @@ Copy-Item DjangoUserService\.env.example DjangoUserService\.env
 
 至少完成以下配置：
 
-- `backend/.env`：LLM、Embedding、MySQL、Redis、`SECRET_KEY`、`MODEL_CONFIG_ENCRYPTION_KEY`。
+- `backend/.env`：`ENV`、`DEBUG_MODE`、LLM、Embedding、MySQL、Redis、`SECRET_KEY`、`MODEL_CONFIG_ENCRYPTION_KEY`；生产必须设置 `DEBUG_MODE=false`。
 - `DjangoUserService/.env`：MySQL、Redis、`JWT_SECRET_KEY`。
 - `backend/.env` 的 `SECRET_KEY` 必须与 Django 的 `JWT_SECRET_KEY` 相同。
 - 新安装可为 `MODEL_CONFIG_ENCRYPTION_KEY` 使用独立强密钥；已有模型配置密文的环境必须先使用当前 `SECRET_KEY` 的相同值，再按开发文档执行轮换。
@@ -114,6 +116,7 @@ Copy-Item DjangoUserService\.env.example DjangoUserService\.env
 ```powershell
 cd backend
 uv sync --extra dev
+uv run alembic upgrade head
 
 cd ..\DjangoUserService
 uv sync
@@ -122,6 +125,8 @@ uv run python manage.py migrate
 cd ..\front
 npm ci
 ```
+
+`alembic upgrade head` 适用于空库或已经由 Alembic 管理的数据库。已有但没有 `alembic_version` 的 FastAPI 数据库必须先备份并核对 baseline；只有结构完全一致时才可由运维人员显式执行 `alembic stamp 20260817_0001`。应用启动不会代替 migration 命令修改 schema。
 
 ### 3. 启动
 
@@ -224,6 +229,8 @@ npm run dev -- --host 127.0.0.1 --port 18080
 # 后端测试
 cd backend
 uv run pytest
+uv run ruff check main.py app tests scripts
+uv run python scripts/export_openapi.py --check
 
 # 离线 smoke benchmark
 uv run python ..\benchmarks\runners\run_benchmarks.py --suite smoke --offline --fail-under 0.9
@@ -234,8 +241,11 @@ uv run python ..\benchmarks\runners\run_benchmarks.py --mode offline --tag regre
 # 前端测试与构建
 cd ..\front
 npm run test
+npm run lint -- --max-warnings 0
 npm run build
 ```
+
+本轮最终基线为 Backend `118 passed`、Django `19 passed`、Frontend `20 passed`；OpenAPI、migration drift、Alembic offline SQL、lint/build 均通过，offline smoke 为 `4/4`、regression 为 `117/117` 且 hard veto 为 0。数据库验证没有连接或修改现有 MySQL。
 
 ## 文档
 
@@ -246,7 +256,7 @@ npm run build
 - [Agent 运行时](./docs/agent_runtime_improvements.md)
 - [MCP 接入与管理](./docs/mcp_integration_plan.md)
 - [Benchmark 开发者指南](./docs/benchmark_engineering_plan.md)
-- [改进执行选择](./docs/improvement_execution_plan.md)
+- [改进执行计划](./docs/improvement_execution_plan.md)
 - [全量重构开发计划](./docs/roadmap_next.md)
 - [安全与可靠性加固计划](./docs/security_hardening_plan.md)
 - [故障排除](./docs/troubleshooting.md)
@@ -254,13 +264,13 @@ npm run build
 
 ## 当前限制
 
-- 当前只支持受信任机器上的本地开发，不应直接向公网或不受信任用户开放。Django 使用 `DEBUG=True` 和宽松 CORS，FastAPI 也使用宽松 CORS。
-- 已确认的路径、消息渲染、JWT 生命周期、默认测试账号和服务端网络出口风险正在 [安全与可靠性加固计划](./docs/security_hardening_plan.md) 中跟踪；完成 P0/P1 验收前不能宣称生产就绪。
-- Django migration 未进入版本控制，FastAPI 仍在启动时创建表和补列；当前 schema 演进不具备可靠回滚能力。
-- 仓库已有基础 CI，但没有 Docker Compose、反向代理、TLS、production profile、正式部署与回滚清单。
+- 当前仍以受信任机器上的本地开发为主，不应在未完成部署演练时直接向公网或不受信任用户开放。Django/FastAPI 只接受明确的 `ENV` 枚举并使用 CORS allowlist；production profile 对 DEBUG、host/origin、Redis 和弱密钥 fail fast，但这不等于已有生产部署方案。
+- 路径 containment、安全 Markdown、access/refresh 生命周期、固定账号移除和 API/SSE 合同已完成。统一服务端 egress 策略、反向代理/TLS、依赖与 secret scanning、监控告警及恢复演练仍在 [安全与可靠性加固计划](./docs/security_hardening_plan.md) 中跟踪。
+- Django migration 与 FastAPI Alembic baseline 已进入版本控制；应用启动只验证 revision，不生成 migration 或执行通用 schema DDL。现有数据库接管仍必须先备份、核对并由运维人员显式执行。
+- 仓库已有基础 CI 和 production profile 校验，但没有完整 Docker Compose、反向代理、TLS、正式部署与回滚清单。
 - 管理员权限仍以配置文件和环境变量为主，尚未迁移到数据库角色与审计表。
 - MCP 配置写回 YAML，不是数据库配置中心。
-- 前端部分页面仍较大，聊天页面只完成了 SSE hook 等第一阶段拆分。
+- 前端部分页面仍较大；聊天已完成 SSE hook 和安全 Markdown，认证已统一到单一 Zustand store，但完整功能域拆分、头像及业务 E2E 仍待实施。
 - 后续目标架构、Django 退出路径、功能域拆分和阶段验收统一以 [全量重构开发计划](./docs/roadmap_next.md) 为准。
 
 ## License

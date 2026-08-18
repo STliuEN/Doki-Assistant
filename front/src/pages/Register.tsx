@@ -29,7 +29,7 @@ export default function Register() {
         telephone: form.phone || undefined,
         confirm_password: form.confirmPassword,
       })
-      login(res.token, res.user)
+      login(res.token, res.user, res.refresh_token)
       navigate('/notes')
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
