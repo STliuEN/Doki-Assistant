@@ -1,27 +1,32 @@
 # 全量重构开发计划
 
-状态：基础工作包 `1-6` 已完成；长期阶段继续实施
+状态：基础工作包 `1-6` 已完成；工作包 `11` 标准 Skill 单轨重构为当前最高优先级必做项；工作包 `7-10` 冻结
 计划基线：2026-07-16
-最近复核：2026-08-18
+最近复核：2026-08-24
 适用范围：当前 `ai_document_assistant` 分支
 
-本文是后续开发的主计划，只维护目标架构、实施阶段、依赖关系和验收门。下一项工作的序号入口见 [改进执行计划](./improvement_execution_plan.md)，安全问题的实现细节见 [安全与可靠性加固计划](./security_hardening_plan.md)，依赖、OpenAPI、lint 和 CI 的第一轮完整性整改记录见 [仓库更新完整性整改计划](./maintenance_update_plan.md)。`project_changes/` 只保存已经执行的历史记录。
+本文是后续开发的主计划，只维护目标架构、架构重写阶段、依赖关系和验收门。当前运行事实见[当前架构](./project_develop.md)；架构重写的细化执行入口见[架构重写计划](./architecture_rewrite_plan.md)；标准 Skill 核心合同见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)；工作包序号入口见[改进执行计划](./improvement_execution_plan.md)；安全问题的实现细节见[安全与可靠性加固计划](./security_hardening_plan.md)。`project_changes/` 只保存已经执行的历史记录。
 
-本计划采用渐进式重构，不进行一次性重写。每个阶段必须保持现有用户数据可恢复、主流程可运行、验证命令可重复，才能进入下一阶段。
+本计划采用可靠性优先、分阶段、可回滚的架构重写，不是一次性大爆炸发布。先完成 SLO/RPO/RTO、故障隔离、持久任务、备份恢复和迁移回滚基础，再迁移身份、关系数据和业务模块。详细阶段、数值门槛和 `ARCH-GATE` 以 [架构重写计划](./architecture_rewrite_plan.md) 为唯一事实源；本文只维护目标态与 R0-R8 映射。
 
-## 重构结果
+## 目标架构（`ARCH-GATE` 通过后）
 
-完成后，项目应从当前 React + Django + FastAPI 三进程开发仓库，收敛为一个边界清楚、可迁移、可测试的模块化应用：
+以下内容是目标态，当前尚未完成。项目应从当前 React + Django + FastAPI 三进程开发仓库，收敛为一个边界清楚、可迁移、可测试的模块化应用：
 
 - 浏览器只面向一个同源 API 入口。
-- FastAPI 承载用户、认证和现有业务 API；Django 用户服务完成兼容迁移后退出运行链路。
+- FastAPI API runtime 承载用户、认证和现有业务 API；同一代码库的 worker runtime 独立运行并承担可恢复的长任务；Django 用户服务完成兼容迁移后退出运行链路。
 - MySQL schema 全部由版本化 migration 管理，不在应用启动阶段生成 migration 或执行通用 DDL。
-- Redis 只承载明确有 TTL 和一致性策略的缓存、会话、限流与短期运行状态。
-- Chroma 和源文件操作通过受约束的存储接口访问，文件路径和用户边界统一校验。
+- MySQL 是关系事实和认证撤销/审计的权威；部署拓扑具备 primary/replica、PITR 或明确的单实例限制。
+- Redis 只承载明确有 TTL、容量和故障策略的缓存、限流与短期运行状态，不承担不可恢复的认证事实。
+- Chroma 是带版本 manifest 的可重建 projection；源文件通过不可变对象和 checksum/atomic finalize 的 Storage 接口访问。
+- API、worker、模型、Storage 和向量索引分别有资源上限、降级语义和 readiness 状态。
 - Agent、RAG、模型和 MCP 都通过显式 adapter 接入，不让第三方 SDK 类型扩散到业务层。
+- Skill 全面采用标准 `SKILL.md` package、统一版本/安装/授权领域和可视化管理；不存在内置私有格式、双 Registry 或 API 进程脚本执行。
 - 前端按功能域组织；服务端状态、客户端状态和持久化偏好不再混在页面组件中。
 - OpenAPI、SSE event schema、数据库 migration 和前端类型成为自动校验的合同。
 - 本地开发和 production profile 使用相同代码路径，只在配置、基础设施和安全策略上区分。
+
+在 `ARCH-GATE` 通过前，README 和开发说明中的三进程启动方式仍是过渡基线，不能视为目标运行方式。
 
 ## 当前基线
 
@@ -31,7 +36,7 @@
 - Query 与 regenerate 共用准备和流式执行链路。
 - GuardedTool 已统一工具调用次数、确认、超时和输出截断。
 - pending action 使用 Redis、TTL、用户隔离和一次性消费。
-- Skill、Tool 和 MCP 已有统一 registry 和管理 API。
+- Skill、Tool 和 MCP 当前已有 Doki 私有 registry 和管理 API；这是迁移保护面，不是目标标准兼容实现。
 - 笔记、记忆、知识库、会话和模型配置查询大多携带 `user_id` 过滤。
 - 知识库图片路径已有统一 containment、文件类型校验以及批量数量/字节预算。
 - 聊天流式与历史消息共用安全 Markdown 渲染，不再执行原始 HTML 或危险 URL。
@@ -41,7 +46,7 @@
 - Backend `118 passed`、Django `19 passed`、Frontend `20 passed`；Ruff、lint、build、OpenAPI、migration drift 和 Alembic offline SQL 通过。
 - Offline smoke `4/4`、regression `117/117`，hard veto 为 0。
 
-这些能力属于重构保护面。除非测试证明现有合同错误，不因目录调整而改变行为。
+这些能力属于重构保护面。除非测试证明现有合同错误，不因目录调整而改变行为。它们是迁移基线，不等于架构重写完成。
 
 ### 仍需替换的基础
 
@@ -51,6 +56,7 @@
 - 自定义模型与 Embedding 地址仍缺少统一的 DNS、重定向和私网地址 egress 策略。
 - 生产反向代理/TLS、备份恢复、可观测性、依赖扫描和发布回滚仍未完成演练。
 - 用户唯一标识、数据库角色/审计来源和头像完整 UI 流程仍待后续阶段收敛。
+- Skill 仍依赖 `skill.yaml + SKILL.md` 源码目录、进程内 reload 和同进程 Tool import，缺少标准 package、版本、授权、隔离执行和故障恢复；必须由工作包 `11` 单轨替换。
 
 ## 架构决策
 
@@ -82,11 +88,11 @@ Browser
   -> MySQL
   -> Redis
   -> Chroma / source files
-  -> optional worker process
+  -> worker runtime (same codebase, separate process/resource pool)
   -> approved model and MCP endpoints
 ```
 
-worker 是同一代码库的可选进程，不是新的业务服务。只有 PDF 解析、Embedding、重建索引等任务证明会阻塞 API 或需要可靠重试时才引入；队列实现通过 ADR 选择，不能同时维护 Celery、临时 thread 和多套 background task。
+worker 是同一代码库的独立运行时，不是新的业务服务。AR-1 必须先落地最小 durable job runner（可先用 MySQL polling）；队列产品选型可以后置，但不能继续依赖请求内线程、`asyncio.create_task` 或进程内队列承载事实状态。
 
 ### 目标代码布局
 
@@ -148,8 +154,9 @@ front/src/
 4. 所有 destructive migration 先备份、dry-run、校验数量，再切换读取路径。
 5. 第三方模型、向量库和 MCP 通过 adapter 隔离，业务 service 不直接依赖 SDK response 类型。
 6. 不以代码行数或目录数量作为完成标准，以合同、故障恢复和测试通过为准。
-7. 安全修复不等待大重构；P0 问题直接在现有结构中修复并保留到新结构。
+7. 架构重写前冻结新增产品功能和非必要结构扩展；仅允许 P0 安全、数据完整性、服务启动阻断修复，并要求同步验证其在目标结构中的落点。
 8. `project_changes/<日期-主题>/` 每个实施批次记录 `plan.md`、`change-log.md` 和 `test-record.md`，但活文档只更新当前事实。
+9. “一个单体”指一个业务代码库和关系写权威，不指一个进程；API 与 worker 必须按故障域和资源预算隔离。
 
 ## 2026-08-17 基础迭代结果
 
@@ -164,27 +171,45 @@ front/src/
 
 这六项只完成了各阶段的基础切片，不等于 R0-R8 全部结束。尤其是服务端 egress、用户域收敛、模块化重组、长任务、完整前端重构和生产发布仍按下文阶段推进。认证合同为破坏性升级，旧的无类型 JWT 不兼容，部署后用户必须重新登录。数据库验证只使用临时 SQLite、revision 检查和 Alembic offline SQL，没有连接或修改现有 MySQL。
 
-## 阶段依赖
+## 架构重写前置门禁
+
+在开始工作包 `7-10` 或任何新的普通产品改进前，必须完成[架构重写计划](./architecture_rewrite_plan.md)的 `AR-0` 至 `AR-6`、标准 Skill `SK-0` 至 `SK-5`，并依次通过 `SKILL-GATE` 和 `ARCH-GATE`。工作包 `11` 是当前核心重构，不等待 `ARCH-GATE`；但它不能绕过所依赖的 AR 安全与可靠性基础。
 
 ```text
-R0 safety freeze
-  -> R1 contracts and characterization
-  -> R2 platform and migration foundation
-  -> R3 users/auth consolidation
-  -> R4 backend domain modularization
-       -> R5 agent, RAG and async work
-       -> R6 frontend feature refactor
-  -> R7 quality, performance and operations gates
-  -> R8 cutover and legacy removal
+AR-0 可靠性契约/P0止血 + SK-0
+  -> AR-1 API/worker隔离与持久任务 + SK-1
+  -> AR-2 身份迁移与认证回滚
+  -> AR-3 可恢复关系数据迁移
+  -> AR-4 Storage canonical 与索引投影 + SK-2
+  -> AR-5 首域 skills/tools/mcp + SK-3
+  -> SK-4 C级隔离执行
+  -> AR-6 灰度切换/HA/停用 + SK-5
+  -> SKILL-GATE
+  -> ARCH-GATE -> 7-10 / 新功能
 ```
 
-R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段功能稳定后才能设置最终门槛。R8 不能提前执行。
+重写期间允许并要求完成标准 Skill 单轨改造及其可视化管理；除此之外只允许 P0 安全、数据完整性、启动阻断修复和门禁底座，不允许借机新增其他用户功能。
 
-## R0 安全冻结
+## 现有 R0-R8 阶段依赖（映射维度）
 
-目标：先消除会使重构环境、测试数据或用户凭据失去可信度的问题。
+```text
+R0/R1 reliability contract and characterization
+  -> R2 platform, durable jobs and migration foundation
+  -> R3 users/auth consolidation
+  -> R5 storage, agent/RAG and async projection foundation
+  -> R4 backend domain modularization
+       -> R6 frontend feature refactor
+  -> R7 quality, SLO and fault gates
+  -> R8 canary cutover, HA and legacy removal
+```
 
-状态：工作包 `1-4` 覆盖的路径、渲染、token、固定账号、CORS、限流和异步鉴权已完成；统一服务端 egress 策略保留为本阶段剩余项。
+R5 的可靠性底座不能等待产品工作包 8 解锁；durable job、SSE replay、索引状态和 readiness 属于 AR-1/AR-4 的前置基础。Skill package 是 Storage 和 worker 的首个业务 consumer，`skills/tools/mcp` 是 R4 的首个后端域，Skill 管理是前端共享基础后的首个功能域。R7 是持续工作，但最终门槛只能在 AR-6/SK-5 前完成。R8 不能提前执行。
+
+## R0 可靠性与安全冻结
+
+目标：先消除会使重构环境、测试数据或用户凭据失去可信度的问题，并冻结可量化的可靠性合同。
+
+状态：工作包 `1-4` 覆盖的路径、渲染、token、固定账号、CORS、限流和异步鉴权已完成；统一 egress、SLO/RPO/RTO、故障矩阵、备份 manifest、分层 readiness 和 Chroma 破坏性 reset 止血仍待 AR-0。
 
 已完成：
 
@@ -199,6 +224,9 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 剩余：
 
 - 为自定义模型和 Embedding 地址增加部署模式相关的 DNS、重定向和私网地址 egress 策略。
+- 明确 API/worker/模型/Storage/Chroma 的故障域、timeout/retry/circuit breaker/bulkhead/fallback 和资源预算。
+- 为关系库、认证审计、源文件和索引生成同一 generation manifest，完成隔离恢复抽样和组合故障演练。
+- 禁止 Chroma 初始化异常递归删除持久目录，改为隔离、只读降级和可审计重建。
 - 完成反向代理/TLS、依赖扫描、secret scanning 和生产回滚演练。
 
 详细要求见 [安全与可靠性加固计划](./security_hardening_plan.md)。
@@ -212,7 +240,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 相对工作量：M。
 
-## R1 合同与特征测试
+## R1 合同、特征测试与恢复语义
 
 目标：在移动代码前固定系统真正需要保持的外部和数据行为。
 
@@ -225,6 +253,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 已定义泛型 `ApiResponse[T]`，canonical JSON handler 的 OpenAPI 与真实 envelope 一致。
 - 文件下载、SSE 和普通 JSON 已分别声明；SSE 路由发布 `text/event-stream`。
 - chat、knowledge、note 和 translate 事件固定携带 `schema_version: "1.0"`，并有合同测试。
+- 后续 SSE 合同必须加入 `event_id`、`run_id`、序号和 cursor；断线支持 `Last-Event-ID` 重放或 polling fallback，不能只保证 schema version。
 - 认证、refresh、logout、撤销存储故障和限流状态码已有跨服务合同测试。
 - 后续如统一 `run_id/session_id/sequence/timestamp/payload` 事件 envelope，必须升级 schema version 并定义兼容窗口。
 
@@ -241,6 +270,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - FastAPI 已覆盖认证、知识路径、canonical JSON 响应、SSE、迁移与限流合同；其余业务路由继续补齐 TestClient 测试。
 - 对跨用户访问建立 hard veto 测试。
 - 记录关键页面和 API 的初始性能、bundle 与响应大小基线。
+- 记录普通 API p95/p99、SSE 首事件和重连、队列积压、索引新鲜度、RPO/RTO 及告警阈值基线。
 
 产物：
 
@@ -253,35 +283,38 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 相对工作量：M。
 
-## R2 平台与 migration 基础
+## R2 平台、持久任务与 migration 基础
 
-目标：建立后续模块共享且不会反复改写的基础设施。
+目标：建立后续模块共享且不会反复改写的基础设施，并先提供可恢复的 API/worker 任务底座。
 
-状态：工作包 `4-5` 已完成生产配置校验、CORS/限流基础和两套版本化 migration；统一 settings、transaction、storage、egress 与日志平台仍待实施。
+状态：工作包 `4-5` 已完成生产配置校验、CORS/限流基础和两套版本化 migration；统一 settings、transaction、storage、egress、日志、API/worker 隔离和 durable job 仍待实施，属于 `AR-1` 的交付内容。
 
 工作：
 
-### 配置
+### 配置（部分已完成；统一平台待 `AR-1`）
 
 - 已为 Django/FastAPI 增加 dev/test/prod 边界和生产 fail-fast 校验。
-- 使用单一 Pydantic Settings 入口，按 dev/test/prod profile 校验。
-- 删除模块内散落的 `load_dotenv()` 和 import-time 配置快照。
-- 把 secret、路径、外部 URL 和运行预算按命名空间组织。
+- 目标是使用单一 Pydantic Settings 入口，按 dev/test/prod profile 校验（待 `AR-1`）。
+- 目标是删除模块内散落的 `load_dotenv()` 和 import-time 配置快照（待 `AR-1`）。
+- 目标是把 secret、路径、外部 URL 和运行预算按命名空间组织（待 `AR-1`）。
 
 ### 数据库
 
 - 已引入 Alembic baseline `20260817_0001`，应用启动只验证 revision。
 - 已跟踪 Django user migration，并移除启动期 migration 生成和执行逻辑。
 - CI 已加入 Alembic、Django migration drift 和 Django tests；当前验证未连接或修改现有 MySQL。
-- 定义 transaction helper；router 不直接管理 commit/rollback。
-- 补齐关键唯一约束、组合索引和删除策略。
+- 目标是定义 transaction helper；router 不直接管理 commit/rollback（待 `AR-1`）。
+- 目标是规定只有 application/use-case 层可以 commit；outbox 与业务事实同一事务，并用静态检查阻止 service/repository 直写提交（待 `AR-1`）。
+- 目标是补齐关键唯一约束、组合索引和删除策略（待 `AR-1`/`AR-3`）。
 
 ### 通用平台
 
-- 统一错误类型、request/run ID、结构化日志和敏感字段脱敏。
-- 定义 Redis key builder，禁止业务代码手写不一致前缀。
-- 定义受根目录约束的 storage interface。
-- 统一 HTTP client timeout、重试、重定向和 egress policy。
+- 目标是统一错误类型、request/run ID、结构化日志和敏感字段脱敏（待 `AR-1`）。
+- 目标是定义 Redis key builder，禁止业务代码手写不一致前缀（待 `AR-1`）。
+- 目标是定义受根目录约束的 storage interface（待 `AR-1`）。
+- 目标是统一 HTTP client timeout、重试、重定向和 egress policy（待 `AR-1`）。
+- 目标是 API 与 worker 独立进程/资源池，落地 lease/heartbeat/fencing、幂等、重试、DLQ、取消、背压和配额（待 `AR-1`）。
+- 目标是 readiness 分层为 live/core/auth/model/index/worker，并让后台初始化失败反映为可见降级（待 `AR-0`/`AR-1`）。
 
 最终退出门：
 
@@ -289,12 +322,13 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 应用启动不再执行 schema 修改。
 - 配置缺失在启动阶段给出确定错误。
 - 所有文件和 Redis 操作通过共享 platform API。
+- 进程重启、重复投递和 worker 崩溃不会丢失 job 状态或留下未解释的 outbox。
 
 相对工作量：L。
 
 ## R3 用户与认证收敛
 
-目标：把用户、认证、角色和头像迁入 FastAPI，同时保留可回滚兼容期。
+目标：把用户、认证、角色和头像迁入 FastAPI，同时保留可证明的增量同步和 restore-forward 兼容期。
 
 ### 新模型
 
@@ -314,13 +348,13 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 ### 兼容切换
 
 1. FastAPI 新增与现有 `/user/*`、`/file/*` 兼容的路由。
-2. 离线导入用户并比对数量、UUID、状态和 hash 类型。
-3. 在测试环境用旧 token、新 token、注销和锁定场景交叉验证。
-4. 前端代理切到 FastAPI，但保持请求路径和响应短期兼容。
-5. 观察期内 Django 只读或停止签发新 token；不长期双写用户。
-6. 完成备份恢复演练后下线 Django 进程。
+2. 建立 snapshot、change capture 和 watermark，离线导入用户并比对数量、UUID、状态、hash、权限和审计。
+3. 在测试环境用旧 token、新 token、注销、锁定、改密、refresh、Redis 丢失和 key rotation 场景交叉验证。
+4. 先 shadow read，再执行写入栅栏、请求 drain 和 watermark barrier；前端代理按 canary 切到 FastAPI。
+5. 观察期内明确唯一写入者、冲突合并和增量重放顺序；不以“只切代理”作为回滚证明。
+6. 完成 restore-forward、备份恢复和 token/session 兼容演练后，才停止 Django 签发并下线进程。
 
-回滚：保留迁移前数据库备份和代理切换开关；回滚时恢复路由，不反向覆盖旧用户库。
+回滚：保留迁移前 snapshot、增量日志和旧只读入口；回滚先重放切换后的确认写入，再按差异阈值执行 restore-forward 或经演练的 quiesce 回切，不反向覆盖新权威库。
 
 退出门：
 
@@ -333,15 +367,17 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## R4 后端功能域模块化
 
-目标：按业务能力重组 FastAPI，消除 router、service、全局 init manager 和存储实现之间的隐式耦合。
+目标：在 AR-0 至 AR-4 的可靠性、事务、任务、存储和投影合同完成后，按业务能力重组 FastAPI，消除 router、service、全局 init manager 和存储实现之间的隐式耦合。
+
+状态：产品模块化尚未开始；本节不得被解释为可以绕过 AR-4 先移动 knowledge、notes 或 chat。模块迁移对应架构阶段 `AR-5`，这里保留 R4 追踪标签。
 
 迁移顺序：
 
-1. `notes` 与 `memory`：数据关系清楚，适合作为模块模板。
-2. `chat` 与 sessions：统一消息、摘要和 regenerate transaction。
-3. `models`：统一系统配置、用户配置、加密和 provider adapter。
-4. `skills/tools/mcp`：统一 catalog、权限、配置和审计。
-5. `knowledge`：最后迁移复杂的文件、数据库和向量状态。
+1. `skills/tools/mcp`：当前最高优先级域；统一标准 package、catalog、版本、安装、权限、配置、审计和隔离执行，并删除私有内置 Skill runtime。
+2. `notes` 与 `memory`：在 Skill 首域门通过后复用模块模板。
+3. `chat` 与 sessions：统一消息、摘要和 regenerate transaction。
+4. `models`：统一系统配置、用户配置、加密和 provider adapter。
+5. `knowledge`：只能在 `AR-4` canonical Storage、projection manifest 和 durable job 合同通过后迁移复杂的文件、数据库和向量状态。
 
 每个模块包含：
 
@@ -352,6 +388,8 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - adapter 负责 MySQL、Chroma、文件或第三方 SDK。
 - tests 覆盖正常、越权、冲突、部分失败和重试。
 
+Skill 首域还必须完成[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)的 `SK-1` 至 `SK-5`：所有来源使用同一标准 validator/Storage/Registry/runtime；前端保存生成标准可导出版本；现有 Skill 只经一次性迁移器转换；观察期后删除 `skill.yaml` loader、源码目录 CRUD、双 Registry 和硬编码业务路由。
+
 知识库额外要求：
 
 - MySQL source document 是状态主记录，包含 `queued/processing/ready/failed/deleting`。
@@ -359,13 +397,13 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 不再把文本 MD5 文件作为唯一事实来源；迁移后由数据库唯一约束防重。
 - 删除先标记状态，再执行向量/文件清理，失败可重试而不丢主记录。
 
-退出门：模块间只能通过公开 service/schema 或 event 合同调用；不得跨模块直接查询私有表或拼接私有文件路径。
+退出门：模块间只能通过公开 service/schema 或 event 合同调用；不得跨模块直接查询私有表或拼接私有文件路径；跨模块调用必须遵守 UoW、job、权限和资源预算合同。
 
 相对工作量：XL。
 
-## R5 Agent、RAG 与异步工作
+## R5 Agent、RAG 与异步投影
 
-目标：保留已验证 Agent 核心，收敛模型/工具 adapter、运行状态、取消和长任务执行。
+目标：保留已验证 Agent 核心，收敛模型/工具 adapter、运行状态、取消和长任务执行；可靠任务底座属于 `AR-1`，Storage/Vector 投影属于 `AR-4`，不得等产品工作包 8 解锁。
 
 ### Agent runtime
 
@@ -373,7 +411,9 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 把模型、retriever、Tool registry、pending action 和 session store 定义为显式 ports。
 - 使用 request-scoped run context，减少可变全局 `init_manager`。
 - 持久化 run 状态、停止原因、模型、Skill/Tool 摘要和耗时。
+- 每次 Run 固定标准 Skill version、digest、registry revision 和 effective grants；正文/资源渐进加载，无信号不得回退全部 Skill。
 - 客户端断开时传播 cancellation 到模型、retriever 和 MCP 调用。
+- run/job/event 使用可关联 ID；事件持久化后才能通过 SSE replay 或 polling 返回。
 
 ### RAG
 
@@ -381,10 +421,11 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 统一用户 Embedding/Reranker 配置的解析和实例缓存失效。
 - 文件解析设置页数、解压后大小、图片数、总像素和处理时间预算。
 - 将视觉模型和本地 reranker 的重资源初始化从 API startup 解耦。
+- API 与 worker 使用独立资源池；Embedding、解析和重建任务有全局/用户级并发上限、磁盘配额和 admission control。
 
 ### 异步队列决策
 
-先用测量证明任务需要 worker，再通过 ADR 选择一种队列。要求支持幂等 key、重试上限、超时、取消、进度和 dead-letter 诊断。旧的 thread、`asyncio.create_task` 和队列实现随迁移删除，不能叠加。
+AR-1 先落地最小 durable job runner（可用 MySQL polling），再通过 ADR 决定是否替换为专用队列。无论实现选型，都必须支持幂等 key、原子 claim、lease/heartbeat、fencing token、重试退避、超时、取消、进度、DLQ、重启恢复和背压。Skill validation/runner 是首个正式 conformance workload；package 只读挂载，脚本在独立进程限制 CPU/内存/PID/磁盘/输出/网络/secret，并能终止进程树。旧的 thread、`asyncio.create_task` 和进程内队列只能作为迁移兼容层，不能继续承载权威任务状态。
 
 退出门：
 
@@ -392,6 +433,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 重复上传/重试不会产生重复向量或孤立文件。
 - API 进程不因模型初始化或大文档处理失去 readiness。
 - 客户端取消和 worker 失败有确定状态。
+- 进程 kill、网络中断、重复投递和旧版本 worker 不能覆盖新 projection；索引落后和失败状态对用户可见。
 
 相对工作量：L。
 
@@ -411,12 +453,12 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ### 迁移顺序
 
-1. `auth/profile`：配合 R3 完成 token、401 和头像流程。
-2. `chat`：拆出 message renderer、composer、catalog、settings、confirmation 和 history。
-3. `knowledge`：拆出 upload job、document list/detail、Embedding 和 Reranker settings。
-4. `notes`：拆出 editor、autocomplete、AI assist、related、template 和 batch actions。
-5. `tools/integrations`：拆出 Skill、Tool、MCP 权限和配置表单。
-6. `memory/models/translate/sessions`：迁移剩余页面并清理旧 API 层。
+1. `auth/shared foundation`：完成 token、401、权限动作和 OpenAPI client 基础。
+2. `skills/tools/integrations`：优先交付标准 package 新建/导入/编辑/资源/设置/版本/权限/诊断/回滚/导出，删除内置 Skill 页面分支。
+3. `chat`：拆出 message renderer、composer、catalog、settings、confirmation 和 history。
+4. `knowledge`：拆出 upload job、document list/detail、Embedding 和 Reranker settings。
+5. `notes`：拆出 editor、autocomplete、AI assist、related、template 和 batch actions。
+6. `profile/memory/models/translate/sessions`：迁移剩余页面并清理旧 API 层。
 
 ### 前端安全与性能
 
@@ -436,18 +478,20 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## 产品迭代队列
 
-以下功能均为保留项，尚未执行。具体可选择的工作包、依赖和验收条件见 [改进执行计划](./improvement_execution_plan.md)：工作包 `7` 对应 F1/F2，`8` 对应 F3，`9` 对应 F4，`10` 对应 F5/F6。
+标准 Skill 工作包 `11` 不在本产品迭代队列中；它是当前核心架构主线，必须先按 `SK-0` 至 `SK-5` 完成并通过 `SKILL-GATE`。
+
+以下工作包 `7-10` 均为保留项，尚未执行。它们的产品 UI/API 在 `SKILL-GATE` 和 `ARCH-GATE` 通过前冻结。可靠性底座（AR-1 的 durable job、AR-4 的投影状态、SSE replay、readiness 和恢复工具）不属于产品工作包，必须提前实施并验收。具体工作包、依赖和验收条件见[改进执行计划](./improvement_execution_plan.md)：工作包 `7` 对应 F1/F2，`8` 对应 F3，`9` 对应 F4，`10` 对应 F5/F6。
 
 | 顺序 | 功能 | 状态 | 用户价值 | 主要依赖 |
 |------|------|------|----------|----------|
-| F1 | 回答引用与来源抽屉 | 保留，未执行 | 让知识库回答可核验并可返回原文 | R0 安全渲染、R1 SSE/API 合同 |
-| F2 | 回答一键沉淀为笔记或记忆 | 保留，未执行 | 打通聊天、笔记、记忆，保留来源关系 | R1 合同、R4 notes/memory/chat 边界 |
-| F3 | 知识处理任务中心 | 保留，未执行 | 提供持久进度、取消、失败诊断和重试 | R2 migration、R4 knowledge 状态、R5 worker 决策 |
-| F4 | 跨域统一搜索 | 保留，未执行 | 统一检索笔记、记忆、会话和知识文档 | R2/R4 数据边界和用户隔离测试 |
-| F5 | Agent 运行记录 | 保留，未执行 | 展示模型、Skill、Tool、耗时、错误和停止原因 | R1 event schema、R5 run context、R7 可观测性 |
-| F6 | 版本化导出与恢复 | 保留，未执行 | 让个人知识资产可迁移、可校验、可恢复 | R2 migration/storage、R7/R8 恢复演练 |
+| F1 | 回答引用与来源抽屉 | 冻结，待 `ARCH-GATE` | 让知识库回答可核验并可返回原文 | `ARCH-GATE`、R0 安全渲染、R1 SSE/API 合同 |
+| F2 | 回答一键沉淀为笔记或记忆 | 冻结，待 `ARCH-GATE` | 打通聊天、笔记、记忆，保留来源关系 | `ARCH-GATE`、R1 合同、R4 模块边界 |
+| F3 | 知识处理任务中心 | UI/API 冻结；底层任务基础由 AR-1/AR-4 前置实施 | 提供持久进度、取消、失败诊断和重试 | `ARCH-GATE`、AR-1 durable job、AR-4 projection |
+| F4 | 跨域统一搜索 | 冻结，待 `ARCH-GATE` | 统一检索笔记、记忆、会话和知识文档 | `ARCH-GATE`、AR-3/AR-4 数据边界和隔离测试 |
+| F5 | Agent 运行记录 | 冻结，待 `ARCH-GATE` | 展示模型、Skill、Tool、耗时、错误和停止原因 | `ARCH-GATE`、R1 event schema、R5 run context |
+| F6 | 版本化导出与恢复 | UI/API 冻结；恢复底座由 AR-0/AR-6 前置实施 | 让个人知识资产可迁移、可校验、可恢复 | `ARCH-GATE`、AR-3/AR-4、AR-6 恢复演练 |
 
-产品功能应按 F1、F2、F3、F4、F5、F6 推进。F1 与 F2 可形成第一个用户可见增量；F3 和 F4 在数据状态未版本化前不启动。
+`SKILL-GATE` 和 `ARCH-GATE` 均通过后，产品功能才按 F1、F2、F3、F4、F5、F6 推进。解锁后的第一批仍建议 F1/F2；F3 和 F4 还必须满足任务状态与统一数据边界的专项验收。
 
 ## R7 质量、性能与运维门禁
 
@@ -475,20 +519,21 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 增加依赖漏洞、secret 和许可证检查；扫描结果使用可审阅例外，不静默忽略。
 - generated artifacts 和测试结果使用临时目录，结束后不污染工作树。
 
-### 可观测与性能
+### 可观测、SLO 与故障门
 
 - 为 HTTP、Agent run、Tool、MCP、RAG job 添加结构化 duration/status/error_type。
-- 定义 readiness 与 liveness；readiness 不触发昂贵模型调用。
-- 记录数据库慢查询、Redis 命令、队列积压和外部调用超时。
-- 建立上传大小、解析时间、SSE 首 token、普通 API p95 和 bundle 大小预算。
+- 定义 process/core/auth/model/index/worker readiness 与 liveness；readiness 不触发昂贵模型调用，但必须反映后台初始化失败和可用降级能力。
+- 记录数据库慢查询、Redis 命令/淘汰、outbox/队列积压、投影版本差异、外部调用超时和恢复耗时。
+- 使用架构计划中的数值合同：普通 API p95/p99、SSE 首事件/重放、任务队列年龄、索引新鲜度、RPO/RTO、资源水位和 bundle 大小预算。
+- 故障注入覆盖 MySQL failover/PITR、Redis 丢失/分区、Storage/Chroma 损坏、磁盘满、进程 kill、时钟偏移、模型/MCP 超时和重复投递；每项必须验证告警与数据一致性断言。
 
-退出门：所有主分支 required checks 稳定通过，故障注入能验证 Redis、模型、MCP 和 worker 不可用时的降级策略。
+退出门：所有主分支 required checks 稳定通过；组合故障下 core API、认证、任务和索引均符合降级合同；实测 SLO/RPO/RTO 和告警阈值达到 AR-0 批准值。
 
 相对工作量：L，贯穿 R0-R8。
 
 ## R8 切换、清理与部署
 
-目标：删除兼容期代码，形成单一运行方式和可恢复部署流程。
+目标：在 canary、HA、恢复和观察期证据完成后删除兼容期代码，形成单一入口、分运行时和可恢复部署流程。
 
 工作：
 
@@ -497,7 +542,8 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 删除旧 JWT、黑名单兼容、双配置、无效 `rag.yaml` 和未使用 Celery/数据库驱动。
 - 删除已经迁移的旧 router/service/helper，不保留同名 v1/v2 无限并存。
 - 提供一键本地启动、基础设施启动和 production deployment/runbook。
-- 演练数据库、Redis、Chroma 和文件备份恢复，以及应用版本回滚。
+- 演练数据库故障转移/PITR、Redis 丢失、Storage/Chroma 重建、API/worker 版本回滚、SSE 连接 drain 和 restore-forward。
+- 观察期保留旧镜像、旧路由、增量日志和快照；确认零请求、零积压和零未解释差异后再归档旧组件。
 - 更新根 README、架构、API、环境变量和故障排除文档。
 
 退出门：
@@ -506,6 +552,7 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 - 干净环境可按文档完成 install、migrate、seed、start、test 和 rollback。
 - 旧数据校验报告、迁移记录和回滚演练可追溯。
 - [安全与可靠性加固计划](./security_hardening_plan.md) 的公网就绪条件全部满足，或 README 继续明确只支持本地使用。
+- API 与 worker 资源隔离、canary 自动 abort、告警和恢复演练记录齐全。
 
 相对工作量：M。
 
@@ -513,12 +560,22 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 | 里程碑 | 包含阶段 | 状态 | 对外结果 | 规模 |
 |--------|----------|------|----------|------|
+| A0 可靠性冻结 | AR-0 | 未执行 | SLO/RPO/RTO、故障矩阵、备份 manifest、readiness 和 P0 止血 | L |
+| A1 运行时与任务平台 | AR-1 | 未执行 | API/worker 隔离、事务/UoW、durable job、SSE replay 和依赖故障合同 | XL |
+| A2 身份收敛 | AR-2 | 未执行 | FastAPI 成为用户与认证唯一入口 | XL |
+| A3 关系数据收敛 | AR-3 | 未执行 | 可 checkpoint、增量重放和 restore-forward 的权威 schema 迁移 | XL |
+| A4 存储与索引投影 | AR-4 | 未执行 | canonical Storage、版本化 projection、对账和重建 | XL |
+| A5 模块化重组 | AR-5 | 未执行 | 后端/前端功能域边界可测试 | XL |
+| A6 灰度切换与 HA | AR-6 | 未执行 | canary、故障恢复、单一入口和旧运行时停用 | XL |
+| S0-S5 标准 Skill 单轨 | SK-0 至 SK-5 | 需求已定义，未实施 | 标准 A/B/C package、可视化管理、隔离执行和旧内置能力退出 | XL |
+| SG Skill 门禁 | SKILL-GATE | 未通过 | 标准 Skill 迁移、安全、恢复和跨平台证据齐全 | - |
+| AG 架构解锁门 | ARCH-GATE | 未通过 | 在 SG 通过后解锁工作包 7-10 和后续非 P0 功能 | - |
 | M0 安全可信基线 | R0 | 基础切片完成，egress 保留 | 已知文件、渲染、凭据和 token 高风险输入被阻断 | M |
 | M1 合同冻结 | R1 | 部分完成 | API/SSE/认证合同已验证，数据清单与全路由特征测试待补 | M |
-| M2 平台可迁移 | R2 | 部分完成 | migration 与生产配置基础完成，storage/egress 平台待补 | L |
+| M2 平台与任务可迁移 | R2 | 部分完成 | migration 与生产配置基础完成，durable job、storage/egress 和运行时隔离待补 | XL |
 | M3 单一身份源 | R3 | 未执行 | FastAPI 承载用户认证，Django 可下线 | XL |
-| M4 模块化后端 | R4 | 未执行 | 功能域边界和数据补偿明确 | XL |
-| M5 稳定运行时 | R5 | 未执行 | Agent/RAG 可取消、可重试、可观测 | L |
+| M4 存储/投影稳定性 | R5 | 未执行 | Agent/RAG 可取消、可重试、可对账、可重建 | XL |
+| M5 模块化后端 | R4 | 未执行 | 功能域边界和数据补偿明确 | XL |
 | M6 可测试前端 | R6 | 部分完成 | 安全渲染与认证基础完成，功能域 UI 和完整 E2E 待补 | XL |
 | M7 发布就绪 | R7-R8 | 未执行 | required gates、单一运行方式和回滚流程 | L |
 
@@ -545,4 +602,4 @@ R5 与 R6 可在 R3 稳定后并行。R7 是持续工作，但只有前置阶段
 
 ## 下一步
 
-基础工作包 `1-6` 已完成。下一轮可从 [改进执行计划](./improvement_execution_plan.md) 选择 `7-10`，默认优先 `7`；所有四项目前都只是保留计划，选择后仍需在对应 `project_changes/<日期-主题>/` 目录建立 `plan.md`、`change-log.md` 和 `test-record.md`。长期架构工作继续从 R0 的 egress 剩余项、R1 数据清单和 R2 platform API 向 R3-R8 推进，不能把基础切片完成等同于 Django 下线、模块化重构或生产发布完成。
+基础工作包 `1-6` 已完成，但架构重写和标准 Skill 重构尚未开始。当前下一项是与 AR-0 同步执行 `SK-0`，随后按依赖推进 `SK-1 -> SK-5`；Skill 在 Storage、worker、后端域和前端域中均优先成为第一个落地消费者。只有 `SKILL-GATE` 和 `ARCH-GATE` 都通过后，才可从[改进执行计划](./improvement_execution_plan.md)选择 `7-10`。每个 `AR-*`/`SK-*` 阶段必须在对应 `project_changes/<日期-主题>/` 建立 `plan.md`、`change-log.md` 和 `test-record.md`。不能把需求文档完成等同于标准 Skill、Django 下线、模块化重构或生产发布已经完成。

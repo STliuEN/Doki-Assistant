@@ -1,10 +1,10 @@
 # 开发与运行说明
 
-本文是 Doki 助手本地开发环境的操作基线。架构说明见 [当前架构](./project_develop.md)，常见故障见 [故障排除](./troubleshooting.md)。
+本文是 `ARCH-GATE` 前 Doki 助手本地开发环境的操作基线。当前架构见[当前架构](./project_develop.md)，架构重写入口见[架构重写计划](./architecture_rewrite_plan.md)，当前最高优先级的 Skill 重构见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)，常见故障见[故障排除](./troubleshooting.md)。
 
 ## 运行组成
 
-本地开发需要三个应用进程和外部基础设施：
+本地开发当前需要三个应用进程和外部基础设施。三进程启动方式是过渡基线；架构重写完成后，启动方式以 `AR-6` 的单一入口 runbook 为准。
 
 | 组件 | 默认地址 | 是否必需 |
 |------|----------|----------|
@@ -15,7 +15,7 @@
 | Redis | `127.0.0.1:18020` | 是 |
 | Ollama | `127.0.0.1:11434` | 使用 Ollama 聊天模型或本地 Embedding 时需要 |
 
-应用启动不会创建 database、表或列，也不会生成或执行 migration、创建开发账号。Django schema 由已提交的 migration 管理；FastAPI schema 由 Alembic 管理，启动时只校验数据库 revision，不匹配时直接失败。
+应用启动不会创建 database、表或列，也不会生成或执行 migration、创建开发账号。Django schema 由已提交的 migration 管理；FastAPI schema 由 Alembic 管理，启动时只校验数据库 revision，不匹配时直接失败。架构重写阶段不会自动连接、迁移或删除现有 MySQL；数据接管必须遵循 [架构重写计划](./architecture_rewrite_plan.md) 的备份、dry-run、对账和恢复门禁。
 
 ## 工具链版本
 
@@ -48,7 +48,7 @@ Node.js 18 不满足当前前端依赖要求。
 
 ## 首次初始化
 
-以下命令均从仓库根目录开始。
+以下命令均从仓库根目录开始，适用于当前过渡运行方式。
 
 ### 1. 创建 MySQL database
 
@@ -186,7 +186,7 @@ uv run python manage.py seed_dev_user --username dev --email dev@example.invalid
 
 该命令在 `ENV=prod` 或 `ENV=production` 时拒绝执行。正常注册流程不需要 seed。
 
-## 启动方式
+## 启动方式（过渡基线）
 
 ### Windows 一键启动
 
@@ -377,4 +377,4 @@ npm run lint
 
 仍未交付的生产能力包括反向代理、TLS、静态资源部署、进程守护、secret manager、备份与回滚 runbook，以及用户可配置模型/Embedding 地址的 egress policy。完成这些部署层能力前，不应直接向公网开放。
 
-具体风险和验收见 [安全与可靠性加固计划](./security_hardening_plan.md)，目标架构与实施顺序见 [全量重构开发计划](./roadmap_next.md)。只有安全计划中的“公网就绪条件”全部满足后，才能新增生产部署说明或放宽本节限制。
+具体风险和验收见 [安全与可靠性加固计划](./security_hardening_plan.md)，架构重写与 `ARCH-GATE` 见 [架构重写计划](./architecture_rewrite_plan.md)，R0-R8 追踪见 [全量重构开发计划](./roadmap_next.md)。只有安全计划中的“公网就绪条件”全部满足后，才能新增生产部署说明或放宽本节限制。

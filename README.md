@@ -2,9 +2,9 @@
 
 Doki 助手是一个面向个人知识管理和日常任务的 AI Agent 工作台。系统以聊天为入口，将模型配置、Skill/Tool、知识库、笔记、记忆中心、翻译和 MCP 外部工具组织在同一套用户上下文中。
 
-当前仓库是开发版单体仓库，由 React 前端、Django 用户服务和 FastAPI 业务后端三个进程组成。项目仍以本地开发为主，尚未提供生产部署编排。
+当前仓库是开发版单仓库、多进程系统，由 React 前端、Django 用户服务和 FastAPI 业务后端三个进程组成。项目仍以本地开发为主，尚未提供生产部署编排；三进程是当前态，不是目标架构。
 
-2026-08-18 复核确认安全、认证、部署可靠性、版本化 migration 和 API/SSE 合同基础工作包 `1-6` 已完成。工作包 `7-10`（回答引用/沉淀、知识任务中心、统一搜索、运行追踪与恢复）仅保留在 [改进执行计划](./docs/improvement_execution_plan.md)，尚未实施。
+2026-08-24 计划复核确认：安全、认证、部署可靠性、版本化 migration 和 API/SSE 合同基础工作包 `1-6` 已完成；继续增加普通产品功能前必须执行[架构重写计划](./docs/architecture_rewrite_plan.md)的 `AR-0` 至 `AR-6`。标准 Skill 单轨改造是当前阶段最高优先级核心工作，按 `SK-0` 至 `SK-5` 执行并通过 `SKILL-GATE`；工作包 `7-10` 在 `SKILL-GATE` 与 `ARCH-GATE` 前继续冻结。
 
 ## 当前能力
 
@@ -13,14 +13,14 @@ Doki 助手是一个面向个人知识管理和日常任务的 AI Agent 工作�
 - 知识库：上传并解析 `txt/pdf/md/pptx/docx`，使用 ChromaDB 检索，可切换 Embedding 和 Reranker。
 - 笔记：编辑、分类、标签、置顶、批处理、AI 辅助写作和相关片段推荐。
 - 记忆中心：管理 `review/todo/reminder/long_term/memo` 五类事项，并向 Agent 暴露受控工具。
-- Skill/Tool：通过目录配置注册本地能力，管理员可以在界面中维护配置。
+- Skill/Tool：当前通过 Doki 目录格式注册本地能力，管理员可以在界面中创建和编辑；标准 `SKILL.md` 包接入已完成[需求规格](./docs/standard_skill_integration_requirements.md)，尚未实施。
 - MCP：支持 stdio、SSE 和 streamable HTTP server；发现的工具进入统一 ToolRegistry。
 - 工具保护：统一限制调用次数、执行超时和输出长度；高风险工具需要用户确认。
 - 模型配置：支持系统默认模型、用户 OpenAI-compatible 配置和 Ollama 本地模型。
 - 实时翻译：提供对话式流式翻译。
 - 多语言与主题：前端支持中英文和明暗主题。
 
-## 系统架构
+## 当前系统架构（过渡态）
 
 ```mermaid
 flowchart LR
@@ -33,6 +33,7 @@ flowchart LR
 
   FastAPI --> AppDB[(MySQL business database)]
   FastAPI --> Redis
+  FastAPI -. cache miss: user state check .-> Django
   FastAPI --> Chroma[(ChromaDB files)]
   FastAPI --> Agent[Agent runtime]
   Agent --> LocalTools[Local Tools]
@@ -49,6 +50,8 @@ flowchart LR
 | FastAPI 业务后端 | `backend/` | Agent、RAG、笔记、记忆、模型、Skill/Tool、MCP、翻译 |
 
 开发环境由 Vite proxy 按路径把请求转发给两个后端。代理定义见 `front/vite.config.ts`。
+
+目标是通过 `ARCH-GATE` 后收敛为一个代码库、一个关系数据写权威和一个 FastAPI 模块化业务单体，同时保留 API 与 worker 的独立故障域、受约束的 Storage adapter 和可重建的 Chroma projection。当前图中的 Django 鉴权依赖、双 MySQL 和三进程启动方式在重写完成前仍保留，差异和阶段见 [当前架构](./docs/project_develop.md) 与 [架构重写计划](./docs/architecture_rewrite_plan.md)。
 
 ## Agent 运行链路
 
@@ -87,6 +90,8 @@ SSE 事件类型包括 `thinking`、`waiting_confirmation`、`response`、`done`
 完整说明见 [开发与运行说明](./docs/development_setup.md)。
 
 ### 1. 准备数据库和环境变量
+
+以下双 MySQL、Django 环境变量和三进程启动命令是 `ARCH-GATE` 前的过渡开发基线。架构重写阶段不会自动连接或迁移现有 MySQL；任何接管、迁移或删除都必须按 [架构重写计划](./docs/architecture_rewrite_plan.md) 的备份、dry-run、对账和恢复门执行。
 
 先创建两个 MySQL database，例如：
 
@@ -253,8 +258,10 @@ npm run build
 
 - [开发与运行说明](./docs/development_setup.md)
 - [当前架构](./docs/project_develop.md)
+- [架构重写计划](./docs/architecture_rewrite_plan.md)
 - [Agent 运行时](./docs/agent_runtime_improvements.md)
 - [MCP 接入与管理](./docs/mcp_integration_plan.md)
+- [标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)
 - [Benchmark 开发者指南](./docs/benchmark_engineering_plan.md)
 - [改进执行计划](./docs/improvement_execution_plan.md)
 - [全量重构开发计划](./docs/roadmap_next.md)
@@ -270,8 +277,9 @@ npm run build
 - 仓库已有基础 CI 和 production profile 校验，但没有完整 Docker Compose、反向代理、TLS、正式部署与回滚清单。
 - 管理员权限仍以配置文件和环境变量为主，尚未迁移到数据库角色与审计表。
 - MCP 配置写回 YAML，不是数据库配置中心。
+- 当前 Skill 仍要求 Doki `skill.yaml + SKILL.md`，不支持直接导入标准 package、资源或脚本；目标兼容等级、旧内置能力退出、统一可视化管理和安全边界见[标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)。
 - 前端部分页面仍较大；聊天已完成 SSE hook 和安全 Markdown，认证已统一到单一 Zustand store，但完整功能域拆分、头像及业务 E2E 仍待实施。
-- 后续目标架构、Django 退出路径、功能域拆分和阶段验收统一以 [全量重构开发计划](./docs/roadmap_next.md) 为准。
+- 标准 Skill 单轨改造不属于冻结项，而是当前架构重写必须交付的核心修改；除该专项、P0 安全、数据完整性、启动阻断修复及门禁底座外，在 `ARCH-GATE` 前暂停其他产品功能。目标架构、Skill 退出旧能力的路径和阶段验收以[架构重写计划](./docs/architecture_rewrite_plan.md)、[标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)与[全量重构开发计划](./docs/roadmap_next.md)为准。
 
 ## License
 

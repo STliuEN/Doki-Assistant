@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Doki Assistant 目标系统架构",
+    "output": "system_architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "同步请求链路",
+        "focus": ["browser", "entry", "api", "mysql", "redis"],
+        "note": "浏览器通过同源入口访问 API，MySQL 是关系数据权威，Redis 仅保存有界短期状态。"
+      },
+      {
+        "id": "async-path",
+        "label": "可靠异步链路",
+        "focus": ["api", "outbox", "worker", "storage", "chroma"],
+        "note": "API 事务内记录任务，独立 Worker 可重试地从源文件生成版本化向量投影。"
+      },
+      {
+        "id": "migration-boundary",
+        "label": "迁移与外部边界",
+        "focus": ["django", "worker", "model"],
+        "note": "Django 仅保留迁移兼容路径；模型、Embedding 和 MCP 通过受控依赖边界访问。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "frontend",
+      "label": "浏览器客户端",
+      "sublabel": "React + Vite",
+      "pos": [40, 150],
+      "size": [160, 76]
+    },
+    {
+      "id": "entry",
+      "type": "cloud",
+      "label": "同源入口",
+      "sublabel": "Reverse Proxy / 静态资源",
+      "pos": [250, 150],
+      "size": [185, 76],
+      "tag": "单一入口"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI API Runtime",
+      "sublabel": "同步请求与 SSE",
+      "pos": [500, 150],
+      "size": [200, 84],
+      "tag": "API 故障域"
+    },
+    {
+      "id": "mysql",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": "关系数据、会话与审计权威",
+      "pos": [780, 150],
+      "size": [190, 84],
+      "tag": "权威"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "缓存、限流、短期状态",
+      "pos": [505, 0],
+      "size": [190, 82],
+      "tag": "非权威"
+    },
+    {
+      "id": "outbox",
+      "type": "messagebus",
+      "label": "Durable Outbox / Job",
+      "sublabel": "事务内可靠投递",
+      "pos": [505, 425],
+      "size": [190, 84],
+      "tag": "可重试"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Worker Runtime",
+      "sublabel": "可续跑的异步任务",
+      "pos": [780, 425],
+      "size": [200, 84],
+      "tag": "Worker 故障域"
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Canonical Storage",
+      "sublabel": "不可变源文件权威",
+      "pos": [1060, 200],
+      "size": [195, 84],
+      "tag": "源数据"
+    },
+    {
+      "id": "chroma",
+      "type": "database",
+      "label": "Chroma / Vector Projection",
+      "sublabel": "版本化、可丢失、可重建",
+      "pos": [1060, 0],
+      "size": [205, 84],
+      "tag": "派生投影"
+    },
+    {
+      "id": "model",
+      "type": "external",
+      "label": "模型 / Embedding / MCP",
+      "sublabel": "有界外部依赖",
+      "pos": [1060, 425],
+      "size": [195, 84]
+    },
+    {
+      "id": "django",
+      "type": "backend",
+      "label": "Django Legacy",
+      "sublabel": "迁移观察期兼容路径",
+      "pos": [250, 425],
+      "size": [185, 78],
+      "tag": "待停用"
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-entry",
+      "from": "browser",
+      "to": "entry",
+      "label": "同源 HTTPS",
+      "variant": "emphasis",
+      "labelAt": [225, 256]
+    },
+    {
+      "id": "entry-api",
+      "from": "entry",
+      "to": "api",
+      "label": "JSON API / SSE",
+      "variant": "emphasis",
+      "labelAt": [468, 256]
+    },
+    {
+      "id": "api-mysql",
+      "from": "api",
+      "to": "mysql",
+      "label": "事务查询与写入",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-redis",
+      "from": "api",
+      "to": "redis",
+      "label": "TTL 缓存 / 限流"
+    },
+    {
+      "id": "api-outbox",
+      "from": "api",
+      "to": "outbox",
+      "label": "事务内记录任务",
+      "variant": "emphasis",
+      "labelAt": [600, 248]
+    },
+    {
+      "id": "outbox-worker",
+      "from": "outbox",
+      "to": "worker",
+      "label": "租约 / 重试 / 幂等",
+      "variant": "emphasis",
+      "labelAt": [738, 523]
+    },
+    {
+      "id": "worker-storage",
+      "from": "worker",
+      "to": "storage",
+      "label": "校验后读取源文件"
+    },
+    {
+      "id": "storage-chroma",
+      "from": "storage",
+      "to": "chroma",
+      "label": "生成版本化投影",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "worker-model",
+      "from": "worker",
+      "to": "model",
+      "label": "超时 / 熔断 / 隔离",
+      "variant": "dashed",
+      "labelAt": [1120, 523]
+    },
+    {
+      "id": "entry-django",
+      "from": "entry",
+      "to": "django",
+      "label": "迁移兼容窗口",
+      "variant": "dashed",
+      "labelAt": [343, 248]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "故障域与投递",
+      "items": [
+        "API 与 Worker 同代码库、不同进程和资源池",
+        "Durable Outbox 保持业务提交与任务投递一致"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "数据权威",
+      "items": [
+        "MySQL 负责关系事实，Canonical Storage 负责源文件",
+        "Redis 是有界短期状态，Chroma 是可重建投影"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "迁移约束",
+      "items": [
+        "Django 仅在兼容窗口内保留，完成 AR-6 后停用",
+        "AR-0 至 AR-6 与 ARCH-GATE 完成前，产品工作包 7-10 保持冻结"
+      ]
+    }
+  ]
+}

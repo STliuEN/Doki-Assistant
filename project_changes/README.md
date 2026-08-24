@@ -10,6 +10,23 @@
 - [文档索引](../docs/README.md)
 - [当前架构](../docs/project_develop.md)
 - [下一阶段路线图](../docs/roadmap_next.md)
+- [架构重写计划](../docs/architecture_rewrite_plan.md)
+
+## 2026-08-24 标准 Skill 核心重构需求
+
+本批次只细化需求和执行门禁，不代表标准 Skill 已经实现。方案弃用当前内置 `skill.yaml` runtime，目标只保留标准 package 与统一可视化管理；工作包 `11` 按 `SK-0` 至 `SK-5` 作为当前最高优先级核心重构执行，工作包 `7-10` 继续保留并冻结。
+
+| 主题 | 方案 | 变更记录 | 验证记录 |
+|------|------|----------|----------|
+| 标准兼容 Skill 单轨重构需求 | [plan](./2026-08-24-standard-skill-core-rewrite/plan.md) | [change log](./2026-08-24-standard-skill-core-rewrite/change-log.md) | [test record](./2026-08-24-standard-skill-core-rewrite/test-record.md) |
+
+## 2026-08-20 架构重写计划
+
+本批次只更新活文档和计划，不代表架构重写已经开始。可靠性优先的 `AR-0` 至 `AR-6` 和 `ARCH-GATE` 说明见[架构重写计划](./2026-08-20-architecture-rewrite-plan/plan.md)；工作包 7-10 的产品 UI/API 在门禁通过前冻结，但任务、观测、投影和恢复底座属于门禁前置基础。
+
+| 主题 | 方案 | 变更记录 | 验证记录 |
+|------|------|----------|----------|
+| 架构重写计划文档化 | [plan](./2026-08-20-architecture-rewrite-plan/plan.md) | [change log](./2026-08-20-architecture-rewrite-plan/change-log.md) | [test record](./2026-08-20-architecture-rewrite-plan/test-record.md) |
 
 ## 2026-08-17 大版本改进批次
 

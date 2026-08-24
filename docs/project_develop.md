@@ -1,6 +1,6 @@
 # 当前架构
 
-本文描述当前仓库中的服务、模块和运行边界。历史设计过程位于 `project_changes/`；尚未完成的工作位于 [全量重构开发计划](./roadmap_next.md)。
+本文只描述当前仓库中的服务、模块和运行边界，不代表目标架构。历史设计过程位于 `project_changes/`；架构重写和未完成工作位于 [架构重写计划](./architecture_rewrite_plan.md) 与 [全量重构开发计划](./roadmap_next.md)。
 
 ## 系统边界
 
@@ -17,6 +17,7 @@ flowchart TD
 
   API --> BusinessDB[(MySQL business database)]
   API --> Redis
+  API -. cache miss: user-state validation .-> Django
   API --> Chroma[(ChromaDB)]
   API --> Files[(Local files)]
 
@@ -32,7 +33,7 @@ flowchart TD
 | Django | 用户、JWT、用户资料、头像文件 | Agent、RAG、笔记和记忆 |
 | FastAPI | Agent 和全部业务模块 | 登录注册、JWT 签发 |
 
-开发环境由 Vite proxy 聚合两个后端。生产环境目前没有对应的反向代理或部署定义。
+开发环境由 Vite proxy 聚合两个后端。虚线是当前 FastAPI 在认证状态缓存失效时对 Django 的临时依赖，计划在 `AR-2` 移除。生产环境目前没有对应的反向代理或部署定义。当前三进程拓扑是过渡态，目标拓扑见 [架构重写计划](./architecture_rewrite_plan.md)。
 
 ## 仓库结构
 
@@ -229,6 +230,8 @@ backend/app/agent/skills/<skill_id>/
 
 `skill.yaml` 定义 ID、标签、绑定工具、默认状态、可见性、`always_on`、`routable` 和路由样例。`SKILL.md` 作为本轮 system prompt 的能力说明。
 
+这是当前过渡实现，不是目标 Skill 架构：它不解析标准 frontmatter，不管理 `references/assets/scripts`，管理 API 还会直接写源码目录。工作包 `11` 将弃用这套内置能力，把全部 Skill 一次性迁移到标准 package、统一版本/授权/Registry 和可视化管理；具体见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+
 前端传入的 `skill_ids` 是候选上界：未显式指定 Tool 时，意图路由只在候选 Skill 中收窄。显式 `tool_ids` 表示精确工具控制，会跳过 Skill 收窄。
 
 ### 本地 Tool
@@ -344,27 +347,27 @@ FastAPI -> signature/claims/revocation/user-state validation -> user_id
 - 两类 token 都包含 `token_type`、`iss`、`aud`、`jti`、`sid`、`ver`、`iat`、`nbf` 与 `exp`；access token 不能刷新，refresh token 不能访问业务接口。
 - refresh token 单次使用并原子轮换，重放、过期、已撤销、用户停用或 token version 失配都会被拒绝。
 - FastAPI 使用共享的 `SECRET_KEY`、`ALGORITHM`、issuer 和 audience 校验 access token，并通过确定性 Redis key 检查撤销状态，不扫描 keyspace。
-- FastAPI 通过短 TTL 缓存复核 Django 用户状态；Redis、撤销检查或用户状态服务不可用时 fail closed，返回 `503`。
+- FastAPI 当前通过短 TTL 缓存复核 Django 用户状态；Redis、撤销检查或用户状态服务不可用时 fail closed，返回 `503`。这是迁移前的临时跨进程依赖，`AR-2` 完成后移除。
 - 注销撤销当前 access/refresh token；资料更新与密码重置返回新 token 对，密码重置递增 token version 使旧凭据整体失效。
 - FastAPI 业务数据查询必须携带当前 `user_id`。
 - 管理员来自 `security.local.yaml` 与 `ADMIN_USER_IDS/ADMIN_USERNAMES`；仓库只跟踪空名单模板 `security.example.yaml`。
 
 旧版缺少 token 类型、issuer、audience 或 JTI 的 JWT 不再有效，升级后需要重新登录。Django 的 `REDIS_CACHE_URL` 与 FastAPI 的 `JWT_REDIS_URL` 必须指向同一撤销存储。
 
-当前权限不是数据库角色模型，也没有完整管理审计。全量重构推荐把用户与认证迁入 FastAPI，完成兼容迁移后退出 Django 运行链路，详见 [全量重构开发计划](./roadmap_next.md)。
+当前权限不是数据库角色模型，也没有完整管理审计。架构重写要求把用户与认证迁入 FastAPI，完成兼容迁移后退出 Django 运行链路；在 `ARCH-GATE` 前不得以新增产品功能绕过该迁移，详见 [架构重写计划](./architecture_rewrite_plan.md)。
 
 ## 数据位置
 
-| 数据 | 位置 |
-|------|------|
-| 用户与认证数据 | Django MySQL database |
-| 会话、笔记、记忆、知识元数据、模型配置 | FastAPI MySQL database |
-| 缓存、token 撤销记录、认证状态短缓存、pending action | Redis |
-| 知识库和笔记向量 | `backend/data/chromadb` |
-| 上传源文件和解析图片 | `backend/data/` |
-| Django 头像 | `DjangoUserService/media/` |
-| Reranker 权重 | `backend/models/` |
-| Benchmark 结果 | `benchmarks/results/` |
+| 数据 | 当前位置/角色 | 重写目标 |
+|------|---------------|----------|
+| 用户与认证数据 | Django MySQL，当前权威 | 统一关系库 `users/auth_sessions/roles` |
+| 会话、笔记、记忆、知识元数据、模型配置 | FastAPI MySQL，当前业务权威 | 同一关系库 schema，由统一 migration 管理 |
+| 缓存、token 撤销记录、认证状态短缓存、pending action | Redis，短期状态 | Redis namespace/TTL 明确，不能作为业务事实 |
+| 知识库和笔记向量 | `backend/data/chromadb`，派生索引 | Chroma adapter projection，可按版本重建 |
+| 上传源文件和解析图片 | `backend/data/` 与 MySQL Blob 多路状态 | 一个 Storage canonical object，MySQL 保存元数据 |
+| Django 头像 | `DjangoUserService/media/` | 统一 Storage object key |
+| MD5、Reranker、路由/MCP 可写配置 | 本地 JSON/YAML 或环境变量 | 唯一约束、版本化配置表或明确只读部署配置 |
+| Benchmark 结果 | `benchmarks/results/` | 测试产物，不属于业务事实 |
 
 这些运行数据大多被 `.gitignore` 排除，不应作为可复现配置提交。
 
@@ -379,4 +382,4 @@ FastAPI -> signature/claims/revocation/user-state validation -> user_id
 - 浏览器端到端流程尚未纳入持续集成。
 - 生产部署、安全 header、TLS、secret manager 和发布回滚流程尚未定义；仓库已有基础 CI。
 
-这些未完成项在 [全量重构开发计划](./roadmap_next.md) 中按阶段维护。
+这些未完成项在[架构重写计划](./architecture_rewrite_plan.md)和[全量重构开发计划](./roadmap_next.md)中按阶段维护。标准 Skill `SK-0` 至 `SK-5` 是当前最高优先级核心重构，必须随 AR 底座执行并通过 `SKILL-GATE`；产品工作包 `7-10` 在 `SKILL-GATE` 与 `ARCH-GATE` 前仍冻结。

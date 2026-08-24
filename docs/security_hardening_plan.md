@@ -4,11 +4,11 @@
 
 审查日期：2026-07-16
 
-最近复核：2026-08-18
+最近复核：2026-08-24
 
 适用范围：当前 `ai_document_assistant` 分支
 
-本文记录安全、认证、数据库演进和接口合同的当前事实与剩余风险。[改进执行计划](./improvement_execution_plan.md) 维护可选工作包和完成状态，[全量重构开发计划](./roadmap_next.md) 维护长期阶段与依赖，[开发与运行说明](./development_setup.md) 维护实际命令和部署边界。历史实施证据位于 `project_changes/`。
+本文记录安全、认证、数据库演进和接口合同的当前事实与剩余风险。[架构重写计划](./architecture_rewrite_plan.md)规定后续改进门禁，[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)规定当前最高优先级 Skill 改造的 package/权限/runner 安全边界，[改进执行计划](./improvement_execution_plan.md)维护工作包和完成状态，[开发与运行说明](./development_setup.md)维护实际命令和部署边界。历史实施证据位于 `project_changes/`。
 
 工作包 `1-6` 已关闭最初审查中的路径穿越、原始 HTML 渲染、token 生命周期、固定测试账号、宽松生产 CORS、启动期 schema 修改和 API/SSE 合同漂移等问题。项目仍缺少生产部署编排、TLS/反向代理演练、统一服务端网络出口策略和完整备份恢复演练，因此不能仅凭本轮完成状态宣称公网就绪。
 
@@ -47,6 +47,7 @@
 | API-01 | P1 | 已关闭 | canonical JSON 路由使用 `ApiResponse[T]`；OpenAPI 与真实 envelope 一致；SSE 固定 `schema_version: "1.0"` |
 | REL-01 | P1 | 已关闭 | FastAPI 用户状态复核使用带 timeout 的异步 HTTP client，并有确定的依赖失败语义 |
 | TEST-01 | P1 | 基础门禁已关闭 | 认证、路径、响应、SSE、迁移与限流合同已进入测试；更广的业务 E2E 继续由 R7 扩展 |
+| SKILL-01 | P0 | 当前核心必做 | 当前 Skill 写源码目录、Registry/Tool 同进程且无标准 package 安装、权限交集、版本回滚或脚本沙箱；按 `SK-0` 至 `SK-5` 单轨替换并通过 `SKILL-GATE` |
 | NET-01 | P1 | 保留 | 自定义模型/Embedding 地址仍需统一 DNS、重定向和私网地址 egress 策略 |
 | USER-01 | P1 | 保留 | 登录主标识及 username/email 唯一性仍需结合后续用户域收敛确认 |
 | UI-01 | P2 | 保留 | 头像选择、上传、失败反馈与组件测试仍不是完整浏览器主流程 |
@@ -94,11 +95,12 @@
 
 ## 剩余加固顺序
 
-1. 完成 `NET-01`：为所有用户可配置外部地址统一 DNS 解析、重定向、loopback/private/link-local/cloud metadata 阻断和管理员 allowlist。
-2. 完成生产反向代理、TLS、可信代理 header、日志脱敏、依赖漏洞与 secret scanning 演练。
-3. 在不触碰现有数据的前提下制定 MySQL 备份、Alembic/Django migration dry-run、校验和恢复演练。
-4. 随 R3 确认用户唯一标识、角色和审计模型；随 R6 完成头像及其浏览器测试。
-5. 随 R7 扩展真实 MySQL/Redis/Chroma integration job 和注册、登录、聊天、上传、笔记、注销的完整 E2E。
+1. 完成 `SKILL-01`：按 `SK-0` 至 `SK-5` 落地标准 validator、canonical package、capability grant、隔离 runner、可视化管理、一次性迁移和旧能力退出。
+2. 完成 `NET-01`：为所有用户可配置外部地址统一 DNS 解析、重定向、loopback/private/link-local/cloud metadata 阻断和管理员 allowlist；该策略同时供 Skill runner egress 使用。
+3. 完成生产反向代理、TLS、可信代理 header、日志脱敏、依赖漏洞与 secret scanning 演练。
+4. 在不触碰现有数据的前提下制定 MySQL 备份、Alembic/Django migration dry-run、校验和恢复演练。
+5. 随 R3 确认用户唯一标识、角色和审计模型；随 R6 完成头像及其浏览器测试。
+6. 随 R7 扩展真实 MySQL/Redis/Chroma integration job 和注册、登录、聊天、上传、笔记、注销的完整 E2E。
 
 ## 公网就绪条件
 
@@ -108,6 +110,7 @@
 - production profile 和反向代理/TLS 流程在干净环境演练通过。
 - migration 可从空库执行，并对现有数据完成只读盘点、备份与恢复演练。
 - 任意用户输入不能突破文件根目录或服务端网络出口策略。
+- `SKILL-GATE` 已通过；标准 package、权限、依赖和脚本不能突破 worker 文件/网络/资源边界，旧内置 Skill runtime 已退出。
 - token 锁定、改密、注销、过期和刷新在 Django/FastAPI 间一致。
 - Django、前端和跨服务认证测试进入稳定 CI required checks。
 - 依赖漏洞扫描、secret scanning、监控告警和部署回滚清单已接入。

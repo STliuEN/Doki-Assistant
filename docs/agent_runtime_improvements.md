@@ -62,6 +62,8 @@ Prompt 模式目前有：
 
 ## Skill 预路由
 
+本节描述当前 Doki 私有 Skill runtime。该实现将在工作包 `11` 中由标准 package、版本化 Registry、渐进加载和 capability grant 单轨替换；旧 `skill.yaml` loader 不作为长期兼容层。目标合同见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+
 前端传入的 `skill_ids` 是本轮候选允许集：
 
 - 未传时使用 registry 中的默认 Skill。

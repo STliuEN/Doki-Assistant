@@ -8,7 +8,7 @@
 
 本文保留第一轮依赖、生成文件、配置、前端质量门禁和 CI 整改的决策与验收记录。后续开发以 [全量重构开发计划](./roadmap_next.md) 为主计划；路径、认证、部署和数据库风险的细节见 [安全与可靠性加固计划](./security_hardening_plan.md)。
 
-> 2026-08-18 复核更新：主计划工作包 1-6 已完成，当前实现与验收结果以 [改进执行计划](./improvement_execution_plan.md) 和 `project_changes/` 中对应记录为准。下方 `82 passed`、`4 tests`、`0 tests` 等数字仅是 2026-07-16 的历史快照，不代表当前基线；工作包 7-10 仍保留且未执行。
+> 2026-08-20 复核更新：主计划工作包 1-6 已完成，当前实现与验收结果以 [改进执行计划](./improvement_execution_plan.md) 和 `project_changes/` 中对应记录为准。下方 `82 passed`、`4 tests`、`0 tests` 等数字仅是 2026-07-16 的历史快照，不代表当前基线；工作包 7-10 仍保留且未执行，并在 [架构重写计划](./architecture_rewrite_plan.md) 的 `ARCH-GATE` 通过前冻结。
 
 ## 实施结果
 
@@ -86,7 +86,7 @@
 - MCP 配置数据库化和完整审计系统。
 - 生产部署基础设施。
 
-这些事项继续保留在 [全量重构开发计划](./roadmap_next.md)。
+这些事项继续保留在 [架构重写计划](./architecture_rewrite_plan.md) 和 [全量重构开发计划](./roadmap_next.md)；在 `ARCH-GATE` 通过前不解锁新的产品功能。
 
 ## 实施顺序
 

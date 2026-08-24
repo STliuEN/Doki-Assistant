@@ -2,7 +2,7 @@
 
 本目录只维护与当前代码一致的活文档。`project_changes/` 保存历史方案、变更日志和测试记录，用于追溯，不作为当前架构或操作方式的事实来源。
 
-2026-08-18 复核确认基础工作包 `1-6` 已完成并通过 Backend `118`、Django `19`、Frontend `20` 项测试及相关 lint、build、OpenAPI、migration 和 Benchmark 门禁；`7-10` 保留、未执行。认证升级后旧 token 需要重新登录，数据库验证没有连接或修改现有 MySQL。
+2026-08-24 计划复核确认：基础工作包 `1-6` 已完成并通过既有 Backend `118`、Django `19`、Frontend `20` 项测试及相关 lint、build、OpenAPI、migration 和 Benchmark 门禁；架构重写 `AR-0` 至 `AR-6` 尚未执行，`ARCH-GATE` 未通过。工作包 `7-10` 继续冻结，标准 Skill 单轨改造列为当前最高优先级核心工作，必须按 `SK-0` 至 `SK-5` 执行并通过 `SKILL-GATE`。认证升级后旧 token 需要重新登录，数据库验证没有连接或修改现有 MySQL。
 
 ## 阅读顺序
 
@@ -12,13 +12,15 @@
 | 理解服务和模块边界 | [当前架构](./project_develop.md) |
 | 修改聊天、SSE 或上下文 | [Agent 运行时](./agent_runtime_improvements.md) |
 | 接入或管理 MCP | [MCP 接入与管理](./mcp_integration_plan.md) |
+| 规划全面标准兼容 Skill 与统一可视化管理 | [标准 Skill 接入需求规格](./standard_skill_integration_requirements.md) |
 | 修改记忆中心 | [记忆中心](./memory_center_implementation.md) |
 | 配置本地 Reranker | [本地模型配置](./modelscope_model.md) |
 | 排查运行问题 | [故障排除](./troubleshooting.md) |
 | 运行或扩展 Benchmark | [Benchmark 开发者指南](./benchmark_engineering_plan.md) |
 | 第一次理解 Benchmark | [Benchmark 新手指南](./benchmark_starter_guide.md) |
-| 查看 `1-6` 完成状态或选择下一项 `7-10` | [改进执行计划](./improvement_execution_plan.md) |
-| 查看目标架构、阶段依赖和全部重构工作 | [全量重构开发计划](./roadmap_next.md) |
+| 查看架构重写阶段、数据权威和 `ARCH-GATE` | [架构重写计划](./architecture_rewrite_plan.md) |
+| 查看 `1-6`、`SK-0` 至 `SK-5` 和 `7-10` 状态 | [改进执行计划](./improvement_execution_plan.md) |
+| 查看目标架构、R0-R8 映射和全部重构工作 | [全量重构开发计划](./roadmap_next.md) |
 | 查看已落地控制和剩余安全、部署与恢复风险 | [安全与可靠性加固计划](./security_hardening_plan.md) |
 | 修复依赖、OpenAPI、配置、lint 与 CI 漂移 | [仓库更新完整性整改计划](./maintenance_update_plan.md) |
 
@@ -39,6 +41,7 @@
 ## 维护约定
 
 - 已完成的工作包应在活计划中标记状态，并在历史记录中保留 plan、change log 和 test record；未执行项不得提前标记完成。
+- 架构重写门禁未通过前，不得把 `7-10` 或其他新产品功能标记为可执行；标准 Skill `SK-0` 至 `SK-5` 是明确的核心重构例外，但仍必须遵守 AR 依赖和门禁。
 - 不再使用的配置文件必须明确标记为 legacy，不能继续列为有效入口。
 - `README.md` 保持概览；实现细节写入对应专题文档。
 - 变更 API、环境变量、启动命令、SSE 事件或目录结构时，同一提交更新相关文档。
