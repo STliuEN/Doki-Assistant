@@ -14,20 +14,20 @@
 
 ## 已验证基线
 
-| 检查 | 2026-08-18 最终复跑结果 |
+| 检查 | 2026-08-24 最终复跑结果 |
 |------|--------------------|
-| Backend pytest | `118 passed` |
+| Backend pytest | `216 passed` |
 | Backend Ruff | passed |
 | FastAPI OpenAPI | current |
-| Alembic | `20260817_0001 (head)`；offline SQL 生成通过 |
-| Django system check / migration drift | passed；`No changes detected` |
+| Alembic | `20260824_0002 (head)`；upgrade/downgrade offline SQL 通过 |
 | Django tests | 隔离 SQLite 与 LocMemCache，`19 passed` |
-| Frontend Vitest | `20 passed` |
+| Frontend Vitest | `6 files / 28 tests passed` |
 | Frontend lint / build | passed |
 | Offline Benchmark | smoke `4/4`；regression `117/117`，无 hard veto |
-| 浏览器认证流程 | 注册 `201`、资料读取 `200`、注销 `200`；注销后认证状态清空；桌面/移动端无重叠 |
+| 静态/依赖 | compileall、`uv lock` 和 requirements 检查通过 |
+| 文档/差异 | `143 files / 132 local links`；`git diff --check` 通过 |
 
-2026-08-18 复跑补记：离线 smoke `4/4`、regression `117/117`（hard veto `0`），OpenAPI、Ruff 与 Alembic offline SQL 再次通过；未连接或修改现有 MySQL。
+2026-08-24 复跑确认：OpenAPI、Ruff、compileall、lock/requirements、Alembic 双向 offline SQL、前后端测试和离线 Benchmark 均通过；未连接或修改现有 MySQL。
 
 数据库验证仅使用临时 SQLite、Alembic offline SQL 和 revision 检查，没有连接或修改现有 MySQL。浏览器验收也未启动 FastAPI，未读取业务 MySQL。
 
@@ -47,7 +47,7 @@
 | API-01 | P1 | 已关闭 | canonical JSON 路由使用 `ApiResponse[T]`；OpenAPI 与真实 envelope 一致；SSE 固定 `schema_version: "1.0"` |
 | REL-01 | P1 | 已关闭 | FastAPI 用户状态复核使用带 timeout 的异步 HTTP client，并有确定的依赖失败语义 |
 | TEST-01 | P1 | 基础门禁已关闭 | 认证、路径、响应、SSE、迁移与限流合同已进入测试；更广的业务 E2E 继续由 R7 扩展 |
-| SKILL-01 | P0 | 当前核心必做 | 当前 Skill 写源码目录、Registry/Tool 同进程且无标准 package 安装、权限交集、版本回滚或脚本沙箱；按 `SK-0` 至 `SK-5` 单轨替换并通过 `SKILL-GATE` |
+| SKILL-01 | P0 | 部分关闭，门禁未通过 | 标准 package/Storage、版本回滚、CapabilityGrant、SkillRunBinding、private 过滤、多实例 reconcile、资源编辑和旧目录退出已完成；仍缺 durable import、per-user scope、累计 token 预算、C runner/沙箱和完整真实 E2E |
 | NET-01 | P1 | 保留 | 自定义模型/Embedding 地址仍需统一 DNS、重定向和私网地址 egress 策略 |
 | USER-01 | P1 | 保留 | 登录主标识及 username/email 唯一性仍需结合后续用户域收敛确认 |
 | UI-01 | P2 | 保留 | 头像选择、上传、失败反馈与组件测试仍不是完整浏览器主流程 |
@@ -89,13 +89,13 @@
 ### 版本化迁移与 API/SSE 合同
 
 - Django migration 源文件进入版本控制；CI 执行 system check、migration drift 和隔离测试。
-- FastAPI schema 由 Alembic 管理，baseline revision 为 `20260817_0001`，唯一约束与 ORM metadata 由合同测试比对。应用启动只检查 revision；实际升级必须显式执行 migration 命令。
+- FastAPI schema 由 Alembic 管理，当前 head 为 `20260824_0002`；baseline 与 Skill domain revision、唯一约束及 ORM metadata 均由合同测试比对。应用启动只检查 revision；实际升级必须显式执行 migration 命令。
 - canonical JSON handler 通过泛型 envelope 发布真实 OpenAPI；成功响应不再用未验证的 `JSONResponse` 绕过模型。
 - chat、knowledge、note 和 translate 的 SSE 都声明 `text/event-stream`，事件携带固定 `schema_version: "1.0"`。
 
 ## 剩余加固顺序
 
-1. 完成 `SKILL-01`：按 `SK-0` 至 `SK-5` 落地标准 validator、canonical package、capability grant、隔离 runner、可视化管理、一次性迁移和旧能力退出。
+1. 完成 `SKILL-01` 剩余门禁：durable import、per-user scope、资源累计 token 预算、真实 MySQL/API/第三方聊天 E2E，以及 C 级独立 runner/沙箱和恢复演练。
 2. 完成 `NET-01`：为所有用户可配置外部地址统一 DNS 解析、重定向、loopback/private/link-local/cloud metadata 阻断和管理员 allowlist；该策略同时供 Skill runner egress 使用。
 3. 完成生产反向代理、TLS、可信代理 header、日志脱敏、依赖漏洞与 secret scanning 演练。
 4. 在不触碰现有数据的前提下制定 MySQL 备份、Alembic/Django migration dry-run、校验和恢复演练。
@@ -110,7 +110,7 @@
 - production profile 和反向代理/TLS 流程在干净环境演练通过。
 - migration 可从空库执行，并对现有数据完成只读盘点、备份与恢复演练。
 - 任意用户输入不能突破文件根目录或服务端网络出口策略。
-- `SKILL-GATE` 已通过；标准 package、权限、依赖和脚本不能突破 worker 文件/网络/资源边界，旧内置 Skill runtime 已退出。
+- 公网就绪退出条件：届时 `SKILL-GATE` 必须已通过；标准 package、权限、依赖和脚本不得突破 worker 文件/网络/资源边界，旧内置 Skill runtime 必须已退出。
 - token 锁定、改密、注销、过期和刷新在 Django/FastAPI 间一致。
 - Django、前端和跨服务认证测试进入稳定 CI required checks。
 - 依赖漏洞扫描、secret scanning、监控告警和部署回滚清单已接入。

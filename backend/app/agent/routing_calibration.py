@@ -8,8 +8,9 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent.skill_registry import SkillDefinition, skill_registry
 from app.core.logger_handler import logger
+from app.skills.registry import RuntimeSkill as SkillDefinition
+from app.skills.registry import SkillRegistrySnapshot
 
 DEFAULT_SIM_FLOOR = 0.35
 DEFAULT_SIM_GAP = 0.10
@@ -122,11 +123,18 @@ def embedding_identity(model: Any, vector_dim: int | None = None) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def skills_signature(skill_ids: list[str]) -> str:
+def skills_signature(
+    skill_ids: list[str],
+    snapshot: SkillRegistrySnapshot | None = None,
+) -> str:
     payload = []
     for sid in sorted(skill_ids):
-        skill = skill_registry.get(sid)
-        if not skill:
+        skill = snapshot.get(sid) if snapshot is not None else None
+        if skill is None and snapshot is not None:
+            continue
+        if skill is None:
+            # Backward-compatible signatures for callers that only have IDs.
+            payload.append({"id": sid})
             continue
         payload.append({
             "id": skill.id,
@@ -142,11 +150,16 @@ def skills_signature(skill_ids: list[str]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def calibration_signature(skill_ids: list[str], model: Any, vector_dim: int | None = None) -> str:
+def calibration_signature(
+    skill_ids: list[str],
+    model: Any,
+    vector_dim: int | None = None,
+    snapshot: SkillRegistrySnapshot | None = None,
+) -> str:
     payload = {
         "calibration_version": CALIBRATION_VERSION,
         "embedding": embedding_identity(model, vector_dim),
-        "skills": skills_signature(skill_ids),
+        "skills": skills_signature(skill_ids, snapshot),
     }
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -265,8 +278,9 @@ async def calibrate_thresholds(
     skill_ids: list[str],
     skill_vectors: dict[str, list[float]],
     vector_dim: int | None = None,
+    snapshot: SkillRegistrySnapshot | None = None,
 ) -> RoutingCalibration:
-    signature = calibration_signature(skill_ids, model, vector_dim)
+    signature = calibration_signature(skill_ids, model, vector_dim, snapshot)
     if signature in _calibration_cache:
         return _calibration_cache[signature]
 
@@ -289,7 +303,10 @@ async def calibrate_thresholds(
         routable_skills = [
             skill
             for sid in skill_ids
-            if (skill := skill_registry.get(sid)) and skill.routable and sid in skill_vectors
+            if snapshot is not None
+            and (skill := snapshot.get(sid))
+            and skill.routable
+            and sid in skill_vectors
         ]
         if len(routable_skills) <= 1:
             result = RoutingCalibration(signature=signature)

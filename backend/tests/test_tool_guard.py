@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 
 from app.agent.tool_context import (
     set_confirmed_action,
+    set_current_run_binding,
     set_current_session_id,
     set_current_user_id,
     set_runtime_state,
@@ -40,12 +41,14 @@ def _reset_tool_context():
     set_runtime_state(None)
     set_confirmed_action(False)
     set_thinking_callback(None)
+    set_current_run_binding(None, None)
     yield
     set_current_user_id(None)
     set_current_session_id(None)
     set_runtime_state(None)
     set_confirmed_action(False)
     set_thinking_callback(None)
+    set_current_run_binding(None, None)
 
 
 def test_truncate_preserves_short_output_and_marks_long_output():
@@ -108,16 +111,46 @@ def test_confirmation_saves_action_emits_event_and_skips_inner(monkeypatch):
     monkeypatch.setattr("app.agent.tool_guard.save_pending_action", fake_save)
     set_current_user_id("user-1")
     set_current_session_id("session-1")
+    set_current_run_binding("run-1", 7)
     set_thinking_callback(capture)
 
-    result = _run(_wrapped(inner, requires_confirmation=True, risk_level="high").ainvoke({"value": "x"}))
+    result = _run(
+        _wrapped(
+            inner,
+            requires_confirmation=True,
+            risk_level="high",
+            definition_digest="a" * 64,
+        ).ainvoke({"value": "x"})
+    )
 
     assert calls == []
     assert saved[0]["user_id"] == "user-1"
     assert saved[0]["session_id"] == "session-1"
+    assert saved[0]["run_id"] == "run-1"
+    assert saved[0]["registry_revision"] == 7
+    assert saved[0]["tool_digest"] == "a" * 64
+    assert saved[0]["provider_config_digest"] is None
     assert events[0]["type"] == "waiting_confirmation"
     assert events[0]["details"]["pending_action_id"] == "pending-1"
     assert "未执行" in result
+
+
+def test_confirmation_without_run_binding_fails_closed():
+    @tool("fixture_tool")
+    async def inner(value: str) -> str:
+        """Fixture tool."""
+        return value
+
+    set_current_user_id("user-1")
+    result = _run(
+        _wrapped(
+            inner,
+            requires_confirmation=True,
+            definition_digest="a" * 64,
+        ).ainvoke({"value": "x"})
+    )
+
+    assert "运行授权快照" in result
 
 
 def test_confirmed_action_executes_inner_tool():

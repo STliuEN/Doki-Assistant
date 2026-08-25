@@ -12,13 +12,13 @@
 - [下一阶段路线图](../docs/roadmap_next.md)
 - [架构重写计划](../docs/architecture_rewrite_plan.md)
 
-## 2026-08-24 标准 Skill 核心重构需求
+## 2026-08-24 标准 Skill 核心重构
 
-本批次只细化需求和执行门禁，不代表标准 Skill 已经实现。方案弃用当前内置 `skill.yaml` runtime，目标只保留标准 package 与统一可视化管理；工作包 `11` 按 `SK-0` 至 `SK-5` 作为当前最高优先级核心重构执行，工作包 `7-10` 继续保留并冻结。
+本目录先记录需求与门禁，随后持续记录同主题实现。当前已形成标准 package 的 A 级和有限 B 级开发支持，包含 parser/Storage/领域/API/UI/seed、资源编辑、CapabilityGrant、SkillRunBinding、private 过滤、多实例 reconcile、OpenAPI 和旧运行目录退出。durable import、per-user scope、累计 token 预算、C 级隔离执行和完整真实 E2E 仍未完成；`SKILL-GATE` 与 `ARCH-GATE` 均未通过，工作包 `7-10` 继续保留并冻结。
 
 | 主题 | 方案 | 变更记录 | 验证记录 |
 |------|------|----------|----------|
-| 标准兼容 Skill 单轨重构需求 | [plan](./2026-08-24-standard-skill-core-rewrite/plan.md) | [change log](./2026-08-24-standard-skill-core-rewrite/change-log.md) | [test record](./2026-08-24-standard-skill-core-rewrite/test-record.md) |
+| 标准兼容 Skill 单轨重构 | [plan](./2026-08-24-standard-skill-core-rewrite/plan.md) | [change log](./2026-08-24-standard-skill-core-rewrite/change-log.md) | [test record](./2026-08-24-standard-skill-core-rewrite/test-record.md) |
 
 ## 2026-08-20 架构重写计划
 

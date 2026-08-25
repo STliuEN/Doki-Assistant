@@ -11,10 +11,19 @@ from app.core.failed_response import (
     sqlalchemy_error_handler,
     validation_exception_handler,
 )
+from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, SkillRegistryStaleError
+
+
+async def skill_registry_stale_exception_handler(request, exc):
+    return await http_exception_handler(
+        request,
+        HTTPException(status_code=503, detail=SKILL_REGISTRY_STALE_MESSAGE),
+    )
 
 
 def register_exception_handlers(app):
-    """注册全局异常处理器"""
+    """Register application exception handlers."""
+    app.add_exception_handler(SkillRegistryStaleError, skill_registry_stale_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)  # 使用正确的HTTPException类
     app.add_exception_handler(IntegrityError, integrity_error_handler)  # 处理数据库完整性错误
     app.add_exception_handler(SQLAlchemyError, sqlalchemy_error_handler)  # 处理SQLAlchemy异常

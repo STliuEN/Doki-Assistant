@@ -27,6 +27,20 @@ class FakeRedis:
         self.deleted.append(key)
         self.values.pop(key, None)
 
+    async def eval(self, _script, _numkeys, key, user_id):
+        raw = self.values.get(key)
+        if raw is None:
+            return None
+        try:
+            payload = json.loads(raw)
+        except (TypeError, ValueError):
+            await self.delete(key)
+            return None
+        if payload.get("user_id") != user_id:
+            return None
+        await self.delete(key)
+        return raw
+
 
 def test_save_pending_action_uses_ttl_and_complete_identity(monkeypatch):
     redis = FakeRedis()
@@ -37,6 +51,9 @@ def test_save_pending_action_uses_ttl_and_complete_identity(monkeypatch):
         session_id="s1",
         tool_id="delete_memory",
         args={"memory_id": "m1"},
+        run_id="run-1",
+        registry_revision=7,
+        tool_digest="a" * 64,
         ttl_seconds=42,
     ))
 
@@ -47,6 +64,10 @@ def test_save_pending_action_uses_ttl_and_complete_identity(monkeypatch):
     assert payload["user_id"] == "u1"
     assert payload["session_id"] == "s1"
     assert payload["tool_id"] == "delete_memory"
+    assert payload["run_id"] == "run-1"
+    assert payload["registry_revision"] == 7
+    assert payload["tool_digest"] == "a" * 64
+    assert payload["provider_config_digest"] is None
 
 
 def test_cross_user_take_is_rejected_without_consuming_action(monkeypatch):
@@ -74,6 +95,24 @@ def test_owner_take_consumes_action_once(monkeypatch):
     assert first == {"id": "a1", "user_id": "owner"}
     assert second is None
     assert redis.deleted == [key]
+
+
+def test_concurrent_owner_take_returns_action_once(monkeypatch):
+    redis = FakeRedis()
+    key = pending_action_store._key("a1")
+    redis.values[key] = json.dumps({"id": "a1", "user_id": "owner"})
+    monkeypatch.setattr(pending_action_store, "connect_redis", lambda: _async_value(redis))
+
+    async def take_twice():
+        return await asyncio.gather(
+            pending_action_store.take_pending_action("a1", "owner"),
+            pending_action_store.take_pending_action("a1", "owner"),
+        )
+
+    results = _run(take_twice())
+
+    assert sum(result is not None for result in results) == 1
+    assert key not in redis.values
 
 
 def test_malformed_pending_action_is_deleted(monkeypatch):

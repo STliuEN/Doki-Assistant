@@ -1,6 +1,6 @@
 # 标准兼容 Skill 管理需求规格
 
-状态：需求已更正并细化，尚未实施
+状态：A 级和有限 B 级开发支持已形成，尚未通过 `SKILL-GATE`；C 级未实现
 
 版本：1.1
 
@@ -8,9 +8,25 @@
 
 适用范围：Skill package、Tool/MCP capability、Agent runtime、worker、管理 API 和 Skill 管理前端
 
-本文定义 Doki 全面采用标准兼容 Skill 管理的目标合同。该改造是当前架构重写阶段必须执行的最高优先级业务域重构，不再等待 `ARCH-GATE` 后实施；它必须先通过 `SKILL-GATE`，而 `SKILL-GATE` 是 `ARCH-GATE` 的组成条件。架构底座、依赖顺序和总门禁仍以[架构重写计划](./architecture_rewrite_plan.md)为唯一事实源；本文不表示当前代码已经支持标准 Skill。
+本文定义 Doki 全面采用标准兼容 Skill 管理的目标合同。该改造是当前架构重写阶段必须执行的最高优先级业务域重构，不再等待 `ARCH-GATE` 后实施；它必须先通过 `SKILL-GATE`，而 `SKILL-GATE` 是 `ARCH-GATE` 的组成条件。架构底座、依赖顺序和总门禁仍以[架构重写计划](./architecture_rewrite_plan.md)为唯一事实源。当前代码已经具备 A 级和有限 B 级开发支持，但未满足本文完成定义，不能据此声明通用或可执行 Skill 已完整支持。
 
 本文中的“必须”“不得”是发布阻断要求，“应该”需要在实现偏离时提交 ADR，“可以”是非阻断扩展。
+
+## 0. 当前实现判定
+
+截至 2026-08-24，对“Doki 是否已经支持通用 Skill”的结论是：**部分满足标准包管理和 A/B 级运行条件，不满足完整通用执行条件，也未达到发布门禁。**
+
+| 能力层 | 当前状态 | 已有实现 | 主要阻断项 |
+|--------|----------|----------|------------|
+| 标准格式与 A Prompt | 开发支持已实现，发布门未通过 | 标准 frontmatter `SKILL.md` 解析、未知字段保留、ZIP/目录统一校验、不可变版本、Prompt 注入、路由样例和 OpenAPI 合同 | 真实 MySQL/API/第三方聊天 E2E 与跨平台发布证据仍缺失 |
+| B Resources | 有限支持 | 资源 manifest、不可变对象存储、版本绑定的按需读取、统一调用预算，以及前端上传/替换/删除/撤销和增量 `resource_changes` | 尚无跨多次读取的累计 token 预算和真实第三方 B 包聊天 E2E |
+| C Executable | 未实现 | 能识别并保留 `scripts/`；前端允许 `format_compatible=true`、`runtime_ready=false` 的 C 包禁用安装和管理 | 安装后仍禁止启用或执行；无独立 runner/沙箱、Node/npm/Python 构建、lockfile、网络/文件/secret grant、取消和进程树强制终止 |
+| 单轨生命周期 | 主要开发链路已实现，发布门未通过 | MySQL 领域、content-addressed Storage、draft/import/publish/rollback/export、`target_revision`、多实例 revision/outbox reconcile、统一 stale `503`；旧运行目录已删除并有静态禁回归测试 | import 校验/发布仍不是 durable worker；真实数据库、恢复、GC 和跨实例故障演练未完成 |
+| 授权与可复现运行 | 系统级闭环已实现，scope 未完整 | CapabilityGrant、持久 SkillRunBinding、版本/digest/revision/effective grants 固定，以及 private Skill/Tool 和显式 ID 过滤 | 只有 system/global 安装，per-user scope 尚未实现；真实安全 E2E 未完成 |
+
+旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader/写入路径；标准 seed package 保留在 `backend/app/skills/seed_packages`，不依赖旧运行目录。管理员 catalog 可以查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
+
+因此当前准确表述是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持”，不是“任意第三方 Skill 均可安装并安全执行”。`scripts/` 存在不代表 C 级兼容，本机安装 Node/npm 也不能替代独立 runner 和 capability enforcement。
 
 ## 1. 已确认决策
 
@@ -136,6 +152,8 @@ Doki 可以识别可选扩展 metadata，但标准 A/B 级导入不得依赖扩�
 
 不得把“成功解析”“本机检测到 Node/npm”或“已经安装”展示为“可以安全执行”。
 
+当前前端对 `format_compatible=true` 但 `runtime_ready=false` 的 C 包保留“批准并安装”入口，审批请求强制 `enabled=false`、`default=false`，并明确显示它只能禁用安装和管理。该状态不得显示启用或执行入口；含 `scripts/` 不会因安装成功而获得运行能力。
+
 ## 4. 单一领域模型
 
 ### 4.1 核心实体
@@ -198,7 +216,7 @@ Skill 不得引入第四种数据库模型。Redis 丢失后必须可从 MySQL �
 - `name`、`description` 和受支持的 frontmatter 字段。
 - 完整 Markdown 指令正文。
 - `references/`、`assets/` 的文件上传、替换、删除和受控预览。
-- `scripts/` 和依赖/lockfile 的文件树、差异和兼容诊断；是否允许在线编辑脚本可后置，但必须支持包替换。
+- `scripts/` 和依赖/lockfile 的文件树、差异和兼容诊断；是否允许在线编辑脚本可后置，但必须支持包替换。格式兼容但 runtime 未就绪的 C 包允许禁用安装，不允许启用或执行。
 - 未识别 frontmatter/文件的保留提示，保存时不得静默丢弃。
 - 保存前结构化预览最终 `SKILL.md` 和 package diff。
 - 每次保存创建新 version，支持版本说明、比较、激活和回滚。
@@ -428,6 +446,8 @@ Validator 必须在发布前拒绝：
 
 迁移器不是长期 Adapter，也不得在正常启动时运行。回滚只切换已演练的 Registry/active pointer 和只读快照，不恢复双写。
 
+当前代码状态已经完成运行权威切换、旧 loader/CRUD 退出和静态禁回归：`backend/app/agent/skills` 的 20 个运行文件已删除，标准 seed package 位于 `backend/app/skills/seed_packages`。完整迁移对账、真实环境恢复和跨平台观察证据仍属于 `SK-5` 未完成门禁。
+
 ### 12.3 必须删除的旧行为
 
 - 启动时扫描 `backend/app/agent/skills/*/skill.yaml`。
@@ -461,7 +481,7 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 - AR-5 的后端第一个业务域是 `skills/tools/mcp`，前端在 auth/shared 基础后首先迁移 Skill 管理。
 - AR-6 必须包含 SK-5 的 revision、runner、Storage、权限撤销和 legacy removal 演练。
 
-`SK-0` 是当前下一执行项；`SK-1` 至 `SK-5` 按依赖推进。工作包 `7-10` 在 `SKILL-GATE` 和 `ARCH-GATE` 均通过前继续冻结。
+当前实现已经覆盖 `SK-1` 至 `SK-3` 的主要开发链路，并提前关闭 `SK-5` 中旧运行目录退出、静态禁回归和多实例 revision/outbox 对账切片；CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、资源统一调用预算和 OpenAPI 也已进入门禁。没有任何一个阶段因此自动通过完整退出门：仍须补齐 durable import、per-user scope、累计 token 预算、真实数据库/API/第三方聊天 E2E 与恢复证据。`SK-4` 的 C 级独立 runner/沙箱未实现，`SK-5` 整体也未完成。工作包 `7-10` 在 `SKILL-GATE` 和 `ARCH-GATE` 均通过前继续冻结。
 
 ## 14. 验收矩阵
 
@@ -520,10 +540,10 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 - SK-3 的 A 级验收完成时只能声明“A 级标准 Skill 支持”。
 - SK-3 的 B 级验收完成时可以声明“标准 Skill 指令和资源支持”。
 - SK-4、跨平台和安全验收全部通过后，才能声明“标准 Skill 可执行支持”。
-- `SKILL-GATE` 已通过并成为 `ARCH-GATE` 的有效证据。
+- 完成退出条件：届时 `SKILL-GATE` 必须已通过，并成为 `ARCH-GATE` 的有效证据。
 - 当前内置 Skill runtime、旧写入 API 和源码目录 Registry 已退出，不存在长期双轨。
 - 可视化管理覆盖内容、安装、版本、授权和诊断，并能导出标准 package。
 - 兼容矩阵公开列出未支持的 runtime、权限和 package 结构。
 - 主 README、开发文档、OpenAPI、管理员指南、Security threat model、变更记录和测试记录已同步。
 
-在此之前，当前能力的准确表述仍是“Doki 私有 Skill 配置、Prompt 注入及预注册 Tool/MCP 编排”。
+在此之前，当前能力的准确表述是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持，以及经 CapabilityGrant 约束的预注册 Tool/MCP 编排”；不得表述为“通用可执行 Skill 支持”。

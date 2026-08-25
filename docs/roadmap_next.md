@@ -36,14 +36,14 @@
 - Query 与 regenerate 共用准备和流式执行链路。
 - GuardedTool 已统一工具调用次数、确认、超时和输出截断。
 - pending action 使用 Redis、TTL、用户隔离和一次性消费。
-- Skill、Tool 和 MCP 当前已有 Doki 私有 registry 和管理 API；这是迁移保护面，不是目标标准兼容实现。
+- Skill 已有标准 package parser、版本领域、对象存储、管理 API/UI、资源编辑和 A/有限 B 运行桥接；CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、多实例 revision/outbox reconcile、stale `503` 和旧运行目录静态禁回归已经落地。前端允许格式兼容但 runtime 未就绪的 C 包禁用安装和管理，仍禁止启用或执行。Tool/MCP 仍是 Doki host capability provider；该实现尚未通过完整可靠性、真实 E2E 和跨平台门禁，不是目标完成态。
 - 笔记、记忆、知识库、会话和模型配置查询大多携带 `user_id` 过滤。
 - 知识库图片路径已有统一 containment、文件类型校验以及批量数量/字节预算。
 - 聊天流式与历史消息共用安全 Markdown 渲染，不再执行原始 HTML 或危险 URL。
 - Django 签发严格校验、可轮换的 access/refresh token；FastAPI 只接受 access token，前端只有一个认证状态来源。
 - Django migration 和 FastAPI Alembic baseline 已进入版本控制，两个应用启动都不修改 schema。
 - canonical JSON API 使用 `ApiResponse[T]`，OpenAPI 展示真实 envelope；SSE 事件固定携带 `schema_version: "1.0"`。
-- Backend `118 passed`、Django `19 passed`、Frontend `20 passed`；Ruff、lint、build、OpenAPI、migration drift 和 Alembic offline SQL 通过。
+- Backend `216 passed`、Django `19 passed`、Frontend `6 files / 28 tests passed`；Ruff、compileall、`uv lock`、requirements、lint/build 和 OpenAPI 通过。Alembic head 为 `20260824_0002`，upgrade/downgrade offline SQL 通过。
 - Offline smoke `4/4`、regression `117/117`，hard veto 为 0。
 
 这些能力属于重构保护面。除非测试证明现有合同错误，不因目录调整而改变行为。它们是迁移基线，不等于架构重写完成。
@@ -56,7 +56,7 @@
 - 自定义模型与 Embedding 地址仍缺少统一的 DNS、重定向和私网地址 egress 策略。
 - 生产反向代理/TLS、备份恢复、可观测性、依赖扫描和发布回滚仍未完成演练。
 - 用户唯一标识、数据库角色/审计来源和头像完整 UI 流程仍待后续阶段收敛。
-- Skill 仍依赖 `skill.yaml + SKILL.md` 源码目录、进程内 reload 和同进程 Tool import，缺少标准 package、版本、授权、隔离执行和故障恢复；必须由工作包 `11` 单轨替换。
+- Skill 数据权威已切到 MySQL + 不可变 package Storage；旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，标准 seed package 保留在 `backend/app/skills/seed_packages`。系统级 grant/RunBinding、private 过滤和多实例 reconcile 已完成；仍缺 durable import worker、per-user scope、累计资源 token 预算、C 级隔离执行和完整真实 E2E/故障恢复，必须在工作包 `11` 后续阶段补齐。
 
 ## 架构决策
 
@@ -388,7 +388,7 @@ R5 的可靠性底座不能等待产品工作包 8 解锁；durable job、SSE re
 - adapter 负责 MySQL、Chroma、文件或第三方 SDK。
 - tests 覆盖正常、越权、冲突、部分失败和重试。
 
-Skill 首域还必须完成[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)的 `SK-1` 至 `SK-5`：所有来源使用同一标准 validator/Storage/Registry/runtime；前端保存生成标准可导出版本；现有 Skill 只经一次性迁移器转换；观察期后删除 `skill.yaml` loader、源码目录 CRUD、双 Registry 和硬编码业务路由。
+Skill 首域还必须完成[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)的剩余 `SK-1` 至 `SK-5` 门禁。所有来源已经使用同一标准 validator/Storage/Registry/runtime，前端可生成标准可导出版本并增量编辑资源，`skill.yaml` loader、源码目录 CRUD 和旧运行文件也已删除并受静态测试保护；后续重点是 durable import、per-user scope、累计 token 预算、C runner/沙箱和真实环境验收。
 
 知识库额外要求：
 
@@ -567,7 +567,7 @@ AR-1 先落地最小 durable job runner（可用 MySQL polling），再通过 AD
 | A4 存储与索引投影 | AR-4 | 未执行 | canonical Storage、版本化 projection、对账和重建 | XL |
 | A5 模块化重组 | AR-5 | 未执行 | 后端/前端功能域边界可测试 | XL |
 | A6 灰度切换与 HA | AR-6 | 未执行 | canary、故障恢复、单一入口和旧运行时停用 | XL |
-| S0-S5 标准 Skill 单轨 | SK-0 至 SK-5 | 需求已定义，未实施 | 标准 A/B/C package、可视化管理、隔离执行和旧内置能力退出 | XL |
+| S0-S5 标准 Skill 单轨 | SK-0 至 SK-5 | A 级与有限 B 级已形成；各阶段退出门未通过 | 标准 A/B/C package、可视化管理、隔离执行和旧内置能力退出 | XL |
 | SG Skill 门禁 | SKILL-GATE | 未通过 | 标准 Skill 迁移、安全、恢复和跨平台证据齐全 | - |
 | AG 架构解锁门 | ARCH-GATE | 未通过 | 在 SG 通过后解锁工作包 7-10 和后续非 P0 功能 | - |
 | M0 安全可信基线 | R0 | 基础切片完成，egress 保留 | 已知文件、渲染、凭据和 token 高风险输入被阻断 | M |
@@ -602,4 +602,4 @@ AR-1 先落地最小 durable job runner（可用 MySQL polling），再通过 AD
 
 ## 下一步
 
-基础工作包 `1-6` 已完成，但架构重写和标准 Skill 重构尚未开始。当前下一项是与 AR-0 同步执行 `SK-0`，随后按依赖推进 `SK-1 -> SK-5`；Skill 在 Storage、worker、后端域和前端域中均优先成为第一个落地消费者。只有 `SKILL-GATE` 和 `ARCH-GATE` 都通过后，才可从[改进执行计划](./improvement_execution_plan.md)选择 `7-10`。每个 `AR-*`/`SK-*` 阶段必须在对应 `project_changes/<日期-主题>/` 建立 `plan.md`、`change-log.md` 和 `test-record.md`。不能把需求文档完成等同于标准 Skill、Django 下线、模块化重构或生产发布已经完成。
+基础工作包 `1-6` 已完成。标准 Skill 重构已经关闭显式 Tool/Skill ID 授权绕过，落地 CapabilityGrant、SkillRunBinding、资源编辑、OpenAPI、多实例 revision/outbox reconcile 和旧运行目录退出，但尚未完成任何阶段的完整退出门。下一步不是扩展产品功能，而是补齐 durable import worker、per-user scope、资源累计 token 预算和真实 MySQL/API/第三方 A/B 聊天 E2E，再实施 `SK-4` 独立 runner/沙箱并完成 `SK-5` 的恢复与跨平台证据。只有 `SKILL-GATE` 和 `ARCH-GATE` 都通过后，才可从[改进执行计划](./improvement_execution_plan.md)选择 `7-10`。每个 `AR-*`/`SK-*` 阶段必须在对应 `project_changes/<日期-主题>/` 建立 `plan.md`、`change-log.md` 和 `test-record.md`。

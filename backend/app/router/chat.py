@@ -4,14 +4,16 @@ from typing import Any
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.skill_registry import get_skill_catalog
+from app.agent.skill_registry import skill_registry
 from app.agent.streaming import (
     get_agent_regenerate_stream_response,
     get_agent_stream_response,
     get_confirm_action_stream_response,
 )
+from app.core.logger_handler import logger
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
@@ -31,15 +33,29 @@ from app.schemas.models import (
 from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.services import session_manager as sm
 from app.services.agent_run_service import CHAT_PROMPT_MODES, prepare_agent_run
+from app.services.confirmation_service import PendingActionBindingError, resolve_confirmed_tool
 from app.services.pending_action_store import take_pending_action
 from app.services.session_query_service import SessionQueryService, get_session_query_service
-from app.utils.auth_utils import get_current_user_id
+from app.skills.schema import SkillCatalogResponse
+from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, skill_service
+from app.utils.auth_utils import get_current_user_id, is_admin_user, security
 
 chat_router = APIRouter(prefix="/chat", tags=["chat"])
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache",
     "Connection": "keep-alive",
+}
+SKILL_REGISTRY_UNAVAILABLE_RESPONSE = {
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ApiResponse[None],
+        "description": SKILL_REGISTRY_STALE_MESSAGE,
+    }
+}
+PENDING_ACTION_GONE_RESPONSE = {
+    status.HTTP_410_GONE: {
+        "description": "Pending action expired, was consumed, or no longer matches its run authorization snapshot",
+    }
 }
 
 
@@ -51,24 +67,38 @@ async def get_prompt_modes():
     ])
 
 
-@chat_router.get("/skills", response_model=ApiResponse[Any])
-async def get_chat_skills():
-    return success_response(data=get_skill_catalog())
+@chat_router.get(
+    "/skills",
+    response_model=ApiResponse[SkillCatalogResponse],
+    responses=SKILL_REGISTRY_UNAVAILABLE_RESPONSE,
+)
+async def get_chat_skills(
+    _: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    data = await skill_service.catalog(
+        db,
+        can_manage=False,
+        tools=skill_registry.tool_registry.public_catalog(),
+    )
+    return success_response(data=data)
 
 
 @chat_router.post(
     "/agent/query/stream",
     response_class=StreamingResponse,
-    responses=SSE_OPENAPI_RESPONSE,
+    responses={**SSE_OPENAPI_RESPONSE, **SKILL_REGISTRY_UNAVAILABLE_RESPONSE},
 )
 async def query_stream(
     request: QueryRequest,
     user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """查询 Agent 流式响应。"""
     session_id = request.session_id or str(uuid.uuid4())
+    can_manage_skills = await is_admin_user(user_id, credentials)
     plan = await prepare_agent_run(
         db, user_id,
         query=request.query,
@@ -76,6 +106,8 @@ async def query_stream(
         prompt_type=request.prompt_type,
         skill_ids=request.skill_ids,
         tool_ids=request.tool_ids,
+        session_id=session_id,
+        can_manage_skills=can_manage_skills,
     )
 
     return StreamingResponse(
@@ -87,6 +119,8 @@ async def query_stream(
             custom_tools=plan.tools,
             context_settings=request.context,
             rag_retrieval_settings=request.rag_retrieval,
+            run_id=plan.run_id,
+            registry_revision=plan.registry_revision,
             custom_system_prompt=plan.system_prompt,
         ),
         media_type="text/event-stream",
@@ -97,11 +131,13 @@ async def query_stream(
 @chat_router.post(
     "/agent/confirm",
     response_class=StreamingResponse,
-    responses=SSE_OPENAPI_RESPONSE,
+    responses={**SSE_OPENAPI_RESPONSE, **PENDING_ACTION_GONE_RESPONSE},
 )
 async def confirm_agent_action(
     request: ConfirmActionRequest,
     user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     """确认或取消一条高风险待确认动作，并以 SSE 流式返回执行结果。"""
@@ -113,8 +149,41 @@ async def confirm_agent_action(
             detail="待确认操作不存在或已失效，请重新发起。",
         )
 
+    confirmed_tool = None
+    if request.confirmed:
+        can_manage_skills = await is_admin_user(user_id, credentials)
+        try:
+            confirmed_tool = await resolve_confirmed_tool(
+                db,
+                action,
+                user_id,
+                requested_session_id=request.session_id,
+                allow_private=can_manage_skills,
+            )
+        except PendingActionBindingError as exc:
+            logger.warning(
+                "Pending action authorization snapshot rejected: action=%s run=%s reason=%s",
+                action.get("id"),
+                action.get("run_id"),
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail="待确认操作的运行授权快照已失效，请重新发起。",
+            ) from exc
+    elif request.session_id is not None and request.session_id != action.get("session_id"):
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="待确认操作不属于该会话，请重新发起。",
+        )
+
     return StreamingResponse(
-        get_confirm_action_stream_response(action, request.confirmed, user_id),
+        get_confirm_action_stream_response(
+            action,
+            request.confirmed,
+            user_id,
+            confirmed_tool=confirmed_tool,
+        ),
         media_type="text/event-stream",
         headers=SSE_HEADERS,
     )
@@ -168,18 +237,20 @@ async def delete_session_message(
 @chat_router.post(
     "/session/{session_id}/messages/{message_id}/regenerate/stream",
     response_class=StreamingResponse,
-    responses=SSE_OPENAPI_RESPONSE,
+    responses={**SSE_OPENAPI_RESPONSE, **SKILL_REGISTRY_UNAVAILABLE_RESPONSE},
 )
 async def regenerate_session_message_stream(
     session_id: str,
     message_id: int,
     request: RegenerateRequest,
     user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """重新生成已有 assistant 消息，流式返回并覆盖原消息。"""
     payload = await sm.session_manager.get_regenerate_payload(session_id, user_id, message_id)
+    can_manage_skills = await is_admin_user(user_id, credentials)
     plan = await prepare_agent_run(
         db, user_id,
         query=payload["query"],
@@ -187,6 +258,8 @@ async def regenerate_session_message_stream(
         prompt_type=request.prompt_type,
         skill_ids=request.skill_ids,
         tool_ids=request.tool_ids,
+        session_id=session_id,
+        can_manage_skills=can_manage_skills,
     )
 
     return StreamingResponse(
@@ -198,6 +271,8 @@ async def regenerate_session_message_stream(
             custom_tools=plan.tools,
             context_settings=request.context,
             rag_retrieval_settings=request.rag_retrieval,
+            run_id=plan.run_id,
+            registry_revision=plan.registry_revision,
             custom_system_prompt=plan.system_prompt,
         ),
         media_type="text/event-stream",

@@ -1,168 +1,355 @@
-import re
-import shutil
-from pathlib import Path
-from typing import Any
+"""Standard Skill package lifecycle API."""
 
-import yaml
-from fastapi import Depends, HTTPException, status
+from __future__ import annotations
+
+from urllib.parse import quote
+
+from fastapi import Depends, File, Header, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from fastapi.routing import APIRouter
-from pydantic import BaseModel, Field
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.skill_registry import SKILLS_DIR, get_skill_catalog, skill_registry
+from app.agent.skill_registry import skill_registry
 from app.core.success_response import success_response
-from app.utils.auth_utils import get_current_user_id, require_admin_user
+from app.db.db_config import get_db
+from app.schemas.api import ApiResponse
+from app.skills.package import SkillPackageError
+from app.skills.schema import (
+    SkillActivateRequest,
+    SkillArchiveRequest,
+    SkillCatalogResponse,
+    SkillDetailResponse,
+    SkillDraftCreate,
+    SkillDraftUpdate,
+    SkillImportApproveRequest,
+    SkillImportResponse,
+    SkillPublishRequest,
+    SkillRollbackRequest,
+    SkillSettingsUpdate,
+    SkillVersionsResponse,
+)
+from app.skills.service import (
+    SKILL_REGISTRY_STALE_MESSAGE,
+    SkillConflictError,
+    SkillNotFoundError,
+    SkillRegistryStaleError,
+    skill_service,
+)
+from app.utils.auth_utils import get_current_user_id, is_admin_user, require_admin_user, security
 
-skill_router = APIRouter(prefix="/skills", tags=["skills"])
-
-SAFE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
-
-
-class SkillPayload(BaseModel):
-    id: str = Field(min_length=2, max_length=64)
-    label: str = Field(min_length=1, max_length=80)
-    description: str = Field(min_length=1, max_length=500)
-    tools: list[str] = []
-    default: bool = True
-    visibility: str = "public"
-    order: int = 100
-    instructions: str = Field(default="", max_length=20000)
-    always_on: bool = False
-    routable: bool = True
-    routing_examples: dict[str, list[str]] = Field(default_factory=dict)
+skill_router = APIRouter(
+    prefix="/skills",
+    tags=["skills"],
+    responses={
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": ApiResponse[None],
+            "description": SKILL_REGISTRY_STALE_MESSAGE,
+        }
+    },
+)
 
 
-def _default_skill_instructions(payload: SkillPayload) -> str:
-    label = payload.label.strip() or payload.id.strip()
-    description = payload.description.strip() or "描述这个 Skill 的用途。"
-    return (
-        f"# {label}\n\n"
-        f"{description}\n\n"
-        "## 使用规则\n\n"
-        "- 说明这个 Skill 适合处理什么任务。\n"
-        "- 说明何时应该调用已绑定工具。\n"
-        "- 说明回答时需要遵守的边界。\n"
-    )
-
-
-def _validate_skill_id(skill_id: str) -> str:
-    value = skill_id.strip()
-    if not SAFE_ID_PATTERN.match(value):
+def _raise_service_error(exc: Exception) -> None:
+    if isinstance(exc, SkillNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found") from exc
+    if isinstance(exc, SkillConflictError):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    if isinstance(exc, SkillPackageError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="skill id must start with a lowercase letter and contain only lowercase letters, numbers, and underscores",
+            detail={"code": exc.code, "message": exc.detail, "path": exc.path},
+        ) from exc
+    if isinstance(exc, SkillRegistryStaleError):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=SKILL_REGISTRY_STALE_MESSAGE,
+        ) from exc
+    raise exc
+
+
+def _validate_tool_ids(tool_ids: list[str]) -> None:
+    known = skill_registry.tool_registry.ids()
+    invalid = [tool_id for tool_id in dict.fromkeys(tool_ids) if tool_id not in known]
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"unknown or unavailable tools: {', '.join(invalid)}",
         )
-    return value
 
 
-def _skill_dir(skill_id: str) -> Path:
-    return SKILLS_DIR / _validate_skill_id(skill_id)
-
-
-def _read_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    if not isinstance(data, dict):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid skill.yaml")
-    return data
-
-
-def _read_skill_detail(skill_id: str) -> dict:
-    directory = _skill_dir(skill_id)
-    config_path = directory / "skill.yaml"
-    instructions_path = directory / "SKILL.md"
-    data = _read_yaml(config_path)
-    return {
-        "id": data.get("id", skill_id),
-        "label": data.get("label", ""),
-        "description": data.get("description", ""),
-        "tools": data.get("tools", []),
-        "default": bool(data.get("default", True)),
-        "visibility": data.get("visibility", "public"),
-        "order": int(data.get("order", 100)),
-        "always_on": bool(data.get("always_on", False)),
-        "routable": bool(data.get("routable", True)),
-        "routing_examples": data.get("routing_examples", {}) if isinstance(data.get("routing_examples", {}), dict) else {},
-        "instructions": instructions_path.read_text(encoding="utf-8") if instructions_path.exists() else "",
-    }
-
-
-def _write_skill(payload: SkillPayload, existing_id: str | None = None) -> dict:
-    skill_id = _validate_skill_id(payload.id)
-    valid_tool_ids = {tool["id"] for tool in get_skill_catalog()["tools"]}
-    invalid_tools = [tool_id for tool_id in payload.tools if tool_id not in valid_tool_ids]
-    if invalid_tools:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"unknown tools: {', '.join(invalid_tools)}")
-
-    if existing_id and existing_id != skill_id:
-        old_dir = _skill_dir(existing_id)
-        if old_dir.exists():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="renaming skill id is not supported")
-
-    directory = _skill_dir(skill_id)
-    directory.mkdir(parents=True, exist_ok=True)
-
-    config = {
-        "id": skill_id,
-        "label": payload.label,
-        "description": payload.description,
-        "tools": list(dict.fromkeys(payload.tools)),
-        "default": payload.default,
-        "visibility": payload.visibility,
-        "order": payload.order,
-        "always_on": payload.always_on,
-        "routable": payload.routable,
-    }
-    routing_examples = {
-        key: [item.strip() for item in values if item.strip()]
-        for key, values in payload.routing_examples.items()
-        if key in {"positive", "negative"}
-    }
-    if routing_examples:
-        config["routing_examples"] = routing_examples
-    (directory / "skill.yaml").write_text(
-        yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
+@skill_router.get("/catalog", response_model=ApiResponse[SkillCatalogResponse])
+async def get_skills_catalog(
+    user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    can_manage = await is_admin_user(user_id, credentials)
+    data = await skill_service.catalog(
+        db,
+        can_manage=can_manage,
+        tools=skill_registry.tool_registry.public_catalog(include_private=can_manage),
     )
-    instructions = payload.instructions.strip() or _default_skill_instructions(payload)
-    (directory / "SKILL.md").write_text(instructions.rstrip() + "\n", encoding="utf-8")
-    skill_registry.reload()
-    return _read_skill_detail(skill_id)
+    return success_response(data=data)
 
 
-@skill_router.get("/catalog")
-async def get_skills_catalog(_: str = Depends(get_current_user_id)):
-    return success_response(data=get_skill_catalog())
+@skill_router.post(
+    "/drafts",
+    response_model=ApiResponse[SkillDetailResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_skill_draft(
+    payload: SkillDraftCreate,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.create_draft(db, payload, actor_id)
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill draft created", data=data)
 
 
-@skill_router.get("/{skill_id}")
-async def get_skill_detail(skill_id: str, _: str = Depends(get_current_user_id)):
-    return success_response(data=_read_skill_detail(skill_id))
+@skill_router.post(
+    "/imports",
+    response_model=ApiResponse[SkillImportResponse],
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def import_skill_package(
+    file: UploadFile = File(...),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=128),
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    limit = skill_service.storage.limits.max_archive_bytes
+    archive = await file.read(limit + 1)
+    await file.close()
+    if len(archive) > limit:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Skill package exceeds upload limit")
+    data = await skill_service.import_archive(
+        db,
+        archive,
+        actor_id=actor_id,
+        idempotency_key=idempotency_key,
+    )
+    return success_response(message="skill package inspected", data=data)
 
 
-@skill_router.post("")
-async def create_skill(payload: SkillPayload, _: str = Depends(require_admin_user)):
-    directory = _skill_dir(payload.id)
-    if directory.exists():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="skill already exists")
-    return success_response(message="skill created", data=_write_skill(payload))
+@skill_router.get("/imports/{import_id}", response_model=ApiResponse[SkillImportResponse])
+async def get_skill_import(
+    import_id: str,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.get_import(db, import_id, actor_id)
+    except SkillNotFoundError as exc:
+        _raise_service_error(exc)
+    return success_response(data=data)
 
 
-@skill_router.put("/{skill_id}")
-async def update_skill(skill_id: str, payload: SkillPayload, _: str = Depends(require_admin_user)):
-    directory = _skill_dir(skill_id)
-    if not directory.exists():
+@skill_router.post("/imports/{import_id}/approve", response_model=ApiResponse[SkillDetailResponse])
+async def approve_skill_import(
+    import_id: str,
+    payload: SkillImportApproveRequest,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _validate_tool_ids(payload.tools)
+    try:
+        data = await skill_service.approve_import(
+            db,
+            import_id,
+            actor_id=actor_id,
+            **payload.model_dump(),
+        )
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill package installed", data=data)
+
+
+@skill_router.get("/{skill_id}", response_model=ApiResponse[SkillDetailResponse])
+async def get_skill_detail(
+    skill_id: str,
+    user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    can_manage = await is_admin_user(user_id, credentials)
+    try:
+        data = await skill_service.get_detail(db, skill_id, can_manage=can_manage)
+    except SkillNotFoundError as exc:
+        _raise_service_error(exc)
+    if not can_manage and (not data["enabled"] or data["visibility"] != "public"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")
-    if payload.id != skill_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="renaming skill id is not supported")
-    return success_response(message="skill updated", data=_write_skill(payload, existing_id=skill_id))
+    return success_response(data=data)
 
 
-@skill_router.delete("/{skill_id}")
-async def delete_skill(skill_id: str, _: str = Depends(require_admin_user)):
-    directory = _skill_dir(skill_id)
-    if not directory.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")
-    shutil.rmtree(directory)
-    skill_registry.reload()
-    return success_response(message="skill deleted")
+@skill_router.put("/{skill_id}/draft", response_model=ApiResponse[SkillDetailResponse])
+async def save_skill_draft(
+    skill_id: str,
+    payload: SkillDraftUpdate,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.save_draft(db, skill_id, payload, actor_id)
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill draft saved as a new version", data=data)
+
+
+@skill_router.post("/{skill_id}/publish", response_model=ApiResponse[SkillDetailResponse])
+async def publish_skill_draft(
+    skill_id: str,
+    payload: SkillPublishRequest,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _validate_tool_ids(payload.tools)
+    try:
+        data = await skill_service.publish_draft(db, skill_id, actor_id=actor_id, **payload.model_dump())
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill version published", data=data)
+
+
+@skill_router.patch("/{skill_id}/settings", response_model=ApiResponse[SkillDetailResponse])
+async def update_skill_settings(
+    skill_id: str,
+    payload: SkillSettingsUpdate,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    patch = payload.model_dump(exclude={"expected_revision"}, exclude_unset=True)
+    if patch.get("tools") is not None:
+        _validate_tool_ids(patch["tools"])
+    try:
+        data = await skill_service.update_settings(
+            db,
+            skill_id,
+            actor_id=actor_id,
+            expected_revision=payload.expected_revision,
+            patch=patch,
+        )
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill settings updated", data=data)
+
+
+@skill_router.get("/{skill_id}/versions", response_model=ApiResponse[SkillVersionsResponse])
+async def get_skill_versions(
+    skill_id: str,
+    _: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.list_versions(db, skill_id)
+    except SkillNotFoundError as exc:
+        _raise_service_error(exc)
+    return success_response(data=data)
+
+
+@skill_router.post("/{skill_id}/versions/{version_id}/activate", response_model=ApiResponse[SkillDetailResponse])
+async def activate_skill_version(
+    skill_id: str,
+    version_id: str,
+    payload: SkillActivateRequest,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.activate_version(
+            db,
+            skill_id,
+            version_id,
+            actor_id=actor_id,
+            expected_revision=payload.expected_revision,
+        )
+    except (SkillNotFoundError, SkillConflictError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill version activated", data=data)
+
+
+@skill_router.post("/{skill_id}/rollback", response_model=ApiResponse[SkillDetailResponse])
+async def rollback_skill(
+    skill_id: str,
+    payload: SkillRollbackRequest,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        data = await skill_service.rollback(
+            db,
+            skill_id,
+            actor_id=actor_id,
+            expected_revision=payload.expected_revision,
+            version_id=payload.version_id,
+        )
+    except (SkillNotFoundError, SkillConflictError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill rolled back", data=data)
+
+
+@skill_router.get("/{skill_id}/versions/{version_id}/export")
+async def export_skill_version(
+    skill_id: str,
+    version_id: str,
+    _: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        archive, filename = await skill_service.export_version(db, skill_id, version_id)
+    except SkillNotFoundError as exc:
+        _raise_service_error(exc)
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
+
+
+@skill_router.get("/{skill_id}/resources", response_model=ApiResponse[list[dict]])
+async def list_skill_resources(
+    skill_id: str,
+    _: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        resources = await skill_service.list_resources(db, skill_id)
+    except SkillNotFoundError as exc:
+        _raise_service_error(exc)
+    return success_response(data=resources)
+
+
+@skill_router.get("/{skill_id}/resources/{resource_path:path}")
+async def read_skill_resource(
+    skill_id: str,
+    resource_path: str,
+    _: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        content, media_type = await skill_service.read_resource(db, skill_id, resource_path)
+    except (SkillNotFoundError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+    return Response(content=content, media_type=media_type)
+
+
+@skill_router.delete("/{skill_id}", response_model=ApiResponse[None])
+async def archive_skill(
+    skill_id: str,
+    payload: SkillArchiveRequest,
+    actor_id: str = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        await skill_service.archive(
+            db,
+            skill_id,
+            actor_id,
+            expected_revision=payload.expected_revision,
+        )
+    except (SkillNotFoundError, SkillConflictError) as exc:
+        _raise_service_error(exc)
+    return success_response(message="skill disabled and archived")

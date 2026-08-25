@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from contextlib import asynccontextmanager
@@ -12,8 +13,9 @@ from app.core.environment import is_production_environment, normalize_environmen
 from app.core.failed_response_register import register_exception_handlers
 from app.core.logger_handler import logger
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.skill_body_limit import SkillDraftBodyLimitMiddleware
 from app.core.success_response import success_response
-from app.db.db_config import verify_database_schema
+from app.db.db_config import AsyncSessionLocal, verify_database_schema
 from app.db.redis_config import close_redis, connect_redis
 from app.router.chat import chat_router
 from app.router.health import health_router
@@ -29,11 +31,11 @@ from app.router.translate import translate_router
 from app.router.user import user_router
 from app.schemas.api import ApiResponse
 from app.services.database_session_manager import init_database_session_manager
+from app.skills.storage import validate_skill_storage_configuration
 from app.utils.auth_utils import validate_security_configuration
 
-# 加载环境变量
+# Load environment variables before deriving process-level configuration.
 load_dotenv()
-
 
 def _env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
@@ -42,6 +44,24 @@ def _env_list(name: str, default: str = "") -> list[str]:
 def _validate_cors_origins(environment: str, origins: list[str]) -> None:
     if is_production_environment(normalize_environment(environment)) and (not origins or "*" in origins):
         raise RuntimeError("Production requires an explicit CORS_ALLOWED_ORIGINS allowlist")
+
+
+async def _reconcile_skill_registry(stop_event: asyncio.Event) -> None:
+    """Poll the durable revision/outbox so every API process converges."""
+
+    from app.skills.service import skill_service
+
+    interval = max(0.5, float(os.getenv("SKILL_REGISTRY_POLL_SECONDS", "2")))
+    while not stop_event.is_set():
+        try:
+            async with AsyncSessionLocal() as db:
+                await skill_service.consume_registry_events(db)
+        except Exception as exc:
+            logger.error("Standard Skill registry reconciliation failed: %s", exc, exc_info=True)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except TimeoutError:
+            pass
 
 
 ENVIRONMENT = normalize_environment()
@@ -58,10 +78,23 @@ _validate_cors_origins(ENVIRONMENT, CORS_ALLOWED_ORIGINS)
 async def lifespan(_app: FastAPI):
     """Initialize runtime dependencies and release them on shutdown."""
     validate_security_configuration()
+    validate_skill_storage_configuration(ENVIRONMENT)
 
     await verify_database_schema()
     logger.info("Database schema revision verified")
 
+    from app.skills.seed import install_standard_skill_seeds
+    from app.skills.service import skill_service
+
+    async with AsyncSessionLocal() as skill_db:
+        installed = await install_standard_skill_seeds(skill_db)
+        snapshot = await skill_service.reconcile_registry(skill_db, force=True)
+    logger.info(
+        "Standard Skill registry initialized: installed=%s revision=%s skills=%s",
+        installed,
+        snapshot.revision,
+        len(snapshot.skills),
+    )
     await init_database_session_manager()
     logger.info("数据库会话管理器初始化完成")
 
@@ -81,12 +114,19 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:
         logger.warning(f"MCP 工具发现失败，将仅使用本地工具: {exc}")
 
+    skill_registry_stop = asyncio.Event()
+    skill_registry_task = asyncio.create_task(
+        _reconcile_skill_registry(skill_registry_stop),
+        name="standard-skill-registry-reconciler",
+    )
     try:
         yield
     finally:
         from app.agent.mcp.provider import mcp_provider
         from app.db.db_config import async_engine
 
+        skill_registry_stop.set()
+        await skill_registry_task
         await mcp_provider.close()
         await close_redis()
         logger.info("Redis连接已关闭")
@@ -95,6 +135,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(SkillDraftBodyLimitMiddleware)
 
 JSON_ENVELOPE_RESPONSES = {
     200: {

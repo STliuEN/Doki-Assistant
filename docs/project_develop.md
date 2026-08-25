@@ -51,6 +51,7 @@ backend/
     router/         FastAPI 路由
     schemas/        Pydantic schema
     services/       业务服务和运行准备
+    skills/         标准 package、seed、Storage、Registry 与 Skill 领域服务
     utils/          认证、模型、路径、文件、视觉等辅助
   alembic/
     versions/       已审查的 SQLAlchemy schema revision
@@ -220,19 +221,21 @@ Query 和 regenerate 共用 `prepare_agent_run`。二者分别构造新消息上
 
 ## Skill 与 Tool
 
-### Skill
+### Skill（当前实现：标准 package A 级和有限 B 级支持）
 
 ```text
-backend/app/agent/skills/<skill_id>/
-  skill.yaml
-  SKILL.md
+MySQL Skill domain + canonical Storage object
+  SKILL.md (YAML frontmatter + instructions)
+  references/ / assets/ / scripts/ (immutable package resources)
 ```
 
-`skill.yaml` 定义 ID、标签、绑定工具、默认状态、可见性、`always_on`、`routable` 和路由样例。`SKILL.md` 作为本轮 system prompt 的能力说明。
+标准 package 由统一 parser/validator 解析，版本和安装元数据写入 MySQL，原始 ZIP 以 content-addressed immutable object 保存在仓库外；管理 API/UI 通过 draft/import/publish/settings/rollback/export 生命周期操作，不写源码目录。标准 seed package 位于 `backend/app/skills/seed_packages`，启动时幂等安装并发布 Registry snapshot。旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader、写入路径或双 Registry。
 
-这是当前过渡实现，不是目标 Skill 架构：它不解析标准 frontmatter，不管理 `references/assets/scripts`，管理 API 还会直接写源码目录。工作包 `11` 将弃用这套内置能力，把全部 Skill 一次性迁移到标准 package、统一版本/授权/Registry 和可视化管理；具体见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+当前已经接通 A 级 Prompt 和有限 B 级资源：资源工具按本轮固定 version/digest 精确读取，纳入统一 Tool 调用预算；前端支持上传、替换、删除、撤销，并以增量 `resource_changes` 生成新版本。CapabilityGrant、持久 SkillRunBinding、import `target_revision`、private Skill/Tool 过滤和多实例 revision/outbox reconcile 已落地；落后或无法对账的 Registry 统一抛出 `SkillRegistryStaleError` 并返回 `503`。管理员 catalog 可查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
 
-前端传入的 `skill_ids` 是候选上界：未显式指定 Tool 时，意图路由只在候选 Skill 中收窄。显式 `tool_ids` 表示精确工具控制，会跳过 Skill 收窄。
+前端传入的 `skill_ids` 是候选上界，显式 `tool_ids` 可以跳过意图收窄，但二者都必须经过当前用户可见 Skill、CapabilityGrant 和 Tool policy 的有效交集，不能作为授权绕过入口。当前只实现 system/global 安装，per-user scope 尚未完成。
+
+前端允许 `format_compatible=true` 但 `runtime_ready=false` 的 C package（包括含 `scripts/` 的包）以 `enabled=false`、`default=false` 禁用安装和管理；安装成功不提供启用或执行入口。当前没有 durable import worker、独立 Node/Python runner/沙箱、跨资源读取累计 token 预算，也缺真实 MySQL/API/第三方 A/B 聊天 E2E；因此准确能力等级仍是 A 级和有限 B 级开发支持。完整状态见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
 
 ### 本地 Tool
 

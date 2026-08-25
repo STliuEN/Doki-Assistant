@@ -62,14 +62,14 @@ Prompt 模式目前有：
 
 ## Skill 预路由
 
-本节描述当前 Doki 私有 Skill runtime。该实现将在工作包 `11` 中由标准 package、版本化 Registry、渐进加载和 capability grant 单轨替换；旧 `skill.yaml` loader 不作为长期兼容层。目标合同见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+本节描述当前标准 Skill A 级和有限 B 级运行桥接。标准 package version、digest、Storage key、Registry revision 和 effective grants 进入持久 SkillRunBinding；A 级指令直接注入，B 级资源通过绑定到本轮 immutable version 的只读工具渐进读取，并与其他 Tool 共用调用预算。CapabilityGrant、private Skill/Tool 过滤、确认动作版本固定、多实例 revision/outbox reconcile 和 stale Registry `503` 已进入运行合同。当前仍缺 per-user scope、跨多次资源读取的累计 token 预算、durable import worker 和 C 级独立 runner/沙箱；在这些门禁完成前不得宣称通用可执行 Skill 支持。目标合同见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
 
 前端传入的 `skill_ids` 是本轮候选允许集：
 
 - 未传时使用 registry 中的默认 Skill。
 - 传入时只允许在这些 Skill 中路由。
 - `always_on` 或不可路由 Skill 按 registry 规则保留。
-- 显式传入 `tool_ids` 时视为精确控制，跳过意图收窄。
+- 显式传入 `tool_ids` 时可跳过意图收窄，但仍要经过可见性、CapabilityGrant 和 Tool policy 的授权交集。
 
 `resolve_skills` 输出：
 
@@ -77,6 +77,8 @@ Prompt 模式目前有：
 - Tool IDs 和已包装的 LangChain tools。
 - 注入 system prompt 的 `SKILL.md` 内容。
 - 未找到或不可用 Tool 的 notices。
+
+每轮计划会持久记录 Skill version、digest、Registry revision 和 effective grants；高风险确认继续绑定同一运行版本与授权快照。落后实例无法对账到目标 revision 时抛出统一 `SkillRegistryStaleError`，HTTP 层返回 `503`，不会静默继续使用陈旧 Registry。
 
 MCP registry 处于错误态时，`ensure_fresh` 会在请求准备阶段尝试惰性刷新；健康状态不会每轮执行完整 discovery。
 

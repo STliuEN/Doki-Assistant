@@ -8,12 +8,15 @@ route_skills / resolve_skills / mcp_tool_registry / model_config_service 全部 
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 
 from app.agent.skill_registry import SkillResolution
 from app.services import agent_run_service
+from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, SkillRegistryStaleError
 
 
 def _run(coro):
@@ -25,6 +28,22 @@ class _FakeTool:
         self.name = name
 
 
+def _runtime_skill(identifier: str, *, visibility: str = "public", enabled: bool = True):
+    return SimpleNamespace(
+        id=identifier,
+        stable_id=f"stable-{identifier}",
+        canonical_name=identifier.replace("_", "-"),
+        version_id=f"version-{identifier}",
+        version_number=1,
+        digest=f"digest-{identifier}",
+        installation_revision=1,
+        is_default=identifier == "s_default",
+        enabled=enabled,
+        visibility=visibility,
+        effective_grants={"tools": ["rag"]},
+    )
+
+
 def _patch_common(monkeypatch, *, routed_calls, resolution, mcp_refreshed=False, reload_calls=None):
     """装配公共桩：记录 route_skills 是否被调用、resolve_skills 返回值、mcp 自愈与 reload。"""
 
@@ -32,7 +51,7 @@ def _patch_common(monkeypatch, *, routed_calls, resolution, mcp_refreshed=False,
         routed_calls.append((query, candidates))
         return candidates
 
-    def fake_resolve_skills(skill_ids, tool_ids):
+    def fake_resolve_skills(skill_ids, tool_ids, **_kwargs):
         return resolution
 
     class _FakeMcp:
@@ -51,6 +70,21 @@ def _patch_common(monkeypatch, *, routed_calls, resolution, mcp_refreshed=False,
     monkeypatch.setattr(agent_run_service, "resolve_skills", fake_resolve_skills)
     monkeypatch.setattr(agent_run_service, "mcp_tool_registry", _FakeMcp())
     monkeypatch.setattr(agent_run_service, "skill_registry", _FakeRegistry())
+
+    class _FakeSkillService:
+        default_skill = _runtime_skill("s_default")
+        registry = SimpleNamespace(
+            snapshot=SimpleNamespace(
+                revision=7,
+                all=lambda: (_FakeSkillService.default_skill,),
+                get=lambda identifier: _runtime_skill(identifier),
+            )
+        )
+
+        async def refresh_registry(self, db):
+            return None
+
+    monkeypatch.setattr(agent_run_service, "skill_service", _FakeSkillService())
 
     # model_config_service：无 model_config_id 时不应被调用
     class _FakeSvc:
@@ -94,6 +128,30 @@ def test_prepare_run_model_config_not_found_404(monkeypatch):
     assert ei.value.status_code == 404
 
 
+def test_prepare_run_registry_stale_503(monkeypatch):
+    routed: list = []
+    _patch_common(monkeypatch, routed_calls=routed, resolution=_resolution())
+
+    class _StaleSkillService:
+        async def reconcile_registry(self, db):
+            raise SkillRegistryStaleError("revision mismatch")
+
+    monkeypatch.setattr(agent_run_service, "skill_service", _StaleSkillService())
+    with pytest.raises(HTTPException) as exc_info:
+        _run(agent_run_service.prepare_agent_run(
+            db=object(),
+            user_id="u1",
+            query="hi",
+            model_config_id=None,
+            prompt_type=None,
+            skill_ids=None,
+            tool_ids=None,
+        ))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == SKILL_REGISTRY_STALE_MESSAGE
+
+
 def test_prepare_run_explicit_tool_ids_skip_routing(monkeypatch):
     routed: list = []
     _patch_common(monkeypatch, routed_calls=routed, resolution=_resolution())
@@ -106,6 +164,55 @@ def test_prepare_run_explicit_tool_ids_skip_routing(monkeypatch):
     assert [t.name for t in plan.tools] == ["rag"]
     assert plan.skill_ids == ["s1"]
     assert plan.tool_ids == ["rag"]
+
+
+def test_prepare_run_rejects_private_skill_before_routing_provider(monkeypatch):
+    routed: list = []
+    _patch_common(monkeypatch, routed_calls=routed, resolution=_resolution())
+    private_skill = _runtime_skill("s1", visibility="private")
+    snapshot = SimpleNamespace(
+        revision=7,
+        all=lambda: (private_skill,),
+        get=lambda identifier: private_skill if identifier == "s1" else None,
+    )
+    agent_run_service.skill_service.registry.snapshot = snapshot
+
+    with pytest.raises(HTTPException) as exc_info:
+        _run(agent_run_service.prepare_agent_run(
+            db=None,
+            user_id="u1",
+            query="must not reach a provider",
+            model_config_id=None,
+            prompt_type=None,
+            skill_ids=["s1"],
+            tool_ids=None,
+        ))
+
+    assert exc_info.value.status_code == 400
+    assert routed == []
+
+
+def test_prepare_run_offline_does_not_query_registry_database(monkeypatch):
+    routed: list = []
+    _patch_common(monkeypatch, routed_calls=routed, resolution=_resolution())
+
+    class _FailingSkillService:
+        registry = agent_run_service.skill_service.registry
+
+        async def refresh_registry(self, db):
+            raise AssertionError("offline run must use the already published snapshot")
+
+    monkeypatch.setattr(agent_run_service, "skill_service", _FailingSkillService())
+    plan = _run(agent_run_service.prepare_agent_run(
+        db=None,
+        user_id="u1",
+        query="offline",
+        model_config_id=None,
+        prompt_type=None,
+        skill_ids=["s1"],
+        tool_ids=["rag"],
+    ))
+    assert plan.skill_ids == ["s1"]
 
 
 def test_prepare_run_routes_when_no_tool_ids(monkeypatch):
@@ -145,3 +252,100 @@ def test_prepare_run_notices_into_prompt(monkeypatch):
     ))
     assert plan.notices == ["MCP 工具 X 暂不可用"]
     assert "MCP 工具 X 暂不可用" in plan.system_prompt  # notice 注入 system prompt
+
+
+def test_prepare_run_rejects_cumulative_skill_instruction_overflow(monkeypatch):
+    routed: list = []
+    resolution = replace(
+        _resolution(),
+        skill_prompts=["x" * (agent_run_service.MAX_SKILL_INSTRUCTION_CHARS_PER_RUN + 1)],
+    )
+    _patch_common(monkeypatch, routed_calls=routed, resolution=resolution)
+
+    with pytest.raises(HTTPException) as exc_info:
+        _run(agent_run_service.prepare_agent_run(
+            db=None,
+            user_id="u1",
+            query="hi",
+            model_config_id=None,
+            prompt_type=None,
+            skill_ids=["s1"],
+            tool_ids=["rag"],
+        ))
+
+    assert exc_info.value.status_code == 400
+    assert "run budget" in exc_info.value.detail
+
+
+def test_prepare_run_instruction_budget_counts_utf8_bytes(monkeypatch):
+    routed: list = []
+    resolution = replace(
+        _resolution(),
+        skill_prompts=[
+            "技" * ((agent_run_service.MAX_SKILL_INSTRUCTION_BYTES_PER_RUN // 3) + 1)
+        ],
+    )
+    _patch_common(monkeypatch, routed_calls=routed, resolution=resolution)
+
+    with pytest.raises(HTTPException) as exc_info:
+        _run(agent_run_service.prepare_agent_run(
+            db=None,
+            user_id="u1",
+            query="hi",
+            model_config_id=None,
+            prompt_type=None,
+            skill_ids=["s1"],
+            tool_ids=["rag"],
+        ))
+
+    assert exc_info.value.status_code == 400
+    assert "byte run budget" in exc_info.value.detail
+
+
+def test_prepare_run_records_tool_grant_sources(monkeypatch):
+    routed: list = []
+    resolution = replace(
+        _resolution(),
+        tool_grant_sources={"rag": ["stable-s1", "stable-s2"]},
+    )
+    _patch_common(monkeypatch, routed_calls=routed, resolution=resolution)
+
+    plan = _run(agent_run_service.prepare_agent_run(
+        db=None,
+        user_id="u1",
+        query="hi",
+        model_config_id=None,
+        prompt_type=None,
+        skill_ids=["s1"],
+        tool_ids=["rag"],
+    ))
+
+    assert plan.effective_grants["tool_grant_sources"] == {
+        "rag": ["stable-s1", "stable-s2"]
+    }
+
+
+def test_prepare_run_rejects_too_many_selected_skills(monkeypatch):
+    routed: list = []
+    resolution = replace(
+        _resolution(),
+        skill_ids=[
+            f"skill-{index}"
+            for index in range(agent_run_service.MAX_SELECTED_SKILLS_PER_RUN + 1)
+        ],
+    )
+    _patch_common(monkeypatch, routed_calls=routed, resolution=resolution)
+
+    with pytest.raises(HTTPException) as exc_info:
+        _run(agent_run_service.prepare_agent_run(
+            db=None,
+            user_id="u1",
+            query="hi",
+            model_config_id=None,
+            prompt_type=None,
+            skill_ids=resolution.skill_ids,
+            tool_ids=["rag"],
+        ))
+
+    assert exc_info.value.status_code == 400
+    assert "at most" in exc_info.value.detail

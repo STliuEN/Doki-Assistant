@@ -8,12 +8,17 @@ LLM 经路同样 monkeypatch 隔离，不触发真实模型。
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 
 import pytest
 
 from app.agent import intent_router, routing_calibration
 from app.agent.intent_router import route_skills
 from app.core.background_init import init_manager
+from app.skills.package import parse_skill_directory
+from app.skills.registry import RuntimeSkill, SkillRegistrySnapshot, standard_skill_registry
+from app.skills.seed_manifest import SEED_SKILL_MANIFEST
+from app.skills.storage import package_digest
 
 
 def _run(coro):
@@ -183,6 +188,33 @@ def _reset_index(monkeypatch, tmp_path):
     routing_calibration.clear_calibration_cache()
     monkeypatch.setattr(routing_calibration, "_calibration_dir", lambda: str(tmp_path))
     monkeypatch.setattr(intent_router, "_embed_text", lambda sid: sid)
+    runtime_skills = []
+    for index, seed in enumerate(SEED_SKILL_MANIFEST, start=1):
+        package = parse_skill_directory(seed.package_source)
+        runtime_skills.append(RuntimeSkill(
+            id=seed.legacy_alias,
+            stable_id=f"00000000-0000-0000-0000-{index:012d}",
+            canonical_name=seed.package_name,
+            aliases=(seed.legacy_alias,),
+            label=seed.display_name,
+            description=package.metadata.description,
+            tool_ids=seed.tool_ids,
+            instructions=package.instructions,
+            resources=(),
+            storage_key=f"objects/00/{'0' * 64}.zip",
+            version_id=f"10000000-0000-0000-0000-{index:012d}",
+            version_number=1,
+            digest=package_digest(package),
+            installation_revision=1,
+            is_default=seed.default,
+            enabled=True,
+            order=seed.order,
+            visibility=seed.visibility,
+            always_on=seed.always_on,
+            routable=seed.routable,
+            routing_examples=dict(seed.routing_examples),
+        ))
+    standard_skill_registry.publish(SkillRegistrySnapshot(revision=1, skills=tuple(runtime_skills)))
     yield
     init_manager.embed_model = None
     init_manager.chat_model = None
@@ -193,7 +225,7 @@ def test_single_candidate_passthrough():
 
 
 def test_empty_query_passthrough():
-    assert _run(route_skills("   ", ALL)) == ALL
+    assert _run(route_skills("   ", ALL)) == ["system_context"]
 
 
 def test_keyword_strong_cleanup(monkeypatch):
@@ -261,8 +293,8 @@ def test_embed_not_ready_falls_back_to_keyword(monkeypatch):
     assert "memory_read" in result
 
 
-def test_no_signal_falls_back_to_full(monkeypatch):
-    # embed 就绪但所有相似度为 0（query 正交于所有 skill），且无关键词、LLM 空 → 全集
+def test_no_signal_only_keeps_always_on(monkeypatch):
+    # embed 就绪但所有相似度为 0，且样例、LLM 均无信号 → 仅保留 always-on
     init_manager.embed_model = FakeEmbed(blend={})
 
     async def _empty(*a, **k):
@@ -270,7 +302,7 @@ def test_no_signal_falls_back_to_full(monkeypatch):
 
     monkeypatch.setattr(intent_router, "_llm_route", _empty)
     result = _run(route_skills("嗯嗯啊啊哦哦", ALL))
-    assert result == ALL
+    assert result == ["system_context"]
 
 
 def test_cap_limits_skill_count(monkeypatch):
@@ -352,7 +384,10 @@ def test_dynamic_calibration_allows_model_specific_low_scores(monkeypatch):
         and not skill.always_on
     ]
     signature = routing_calibration.calibration_signature(
-        routable, init_manager.embed_model, intent_router._index_vector_dim
+        routable,
+        init_manager.embed_model,
+        intent_router._index_vector_dim,
+        standard_skill_registry.snapshot,
     )
     calibration = routing_calibration._calibration_cache[signature]
     calibrated_floor = calibration.floor_for("knowledge_research")
@@ -429,7 +464,10 @@ def test_scattered_noise_does_not_anchor_floor(monkeypatch):
         and not skill.always_on
     ]
     signature = routing_calibration.calibration_signature(
-        routable, init_manager.embed_model, intent_router._index_vector_dim
+        routable,
+        init_manager.embed_model,
+        intent_router._index_vector_dim,
+        standard_skill_registry.snapshot,
     )
     calibration = routing_calibration._calibration_cache[signature]
     # public 噪声占比 25% < 50% → 不锚定：floor 应停在正例基线（~0.33），远低于噪声天花板 0.44。
@@ -437,3 +475,58 @@ def test_scattered_noise_does_not_anchor_floor(monkeypatch):
     assert "public_info_lookup" not in calibration.noise_ceiling
     assert "public_info_lookup" in result
 
+
+def test_ensure_index_returns_revision_bound_vector_copies_concurrently(monkeypatch):
+    base = standard_skill_registry.snapshot.get("memory_read")
+    assert base is not None
+    snapshot_a = SkillRegistrySnapshot(
+        revision=11,
+        skills=(replace(base, label="alpha", description="alpha"),),
+    )
+    snapshot_b = SkillRegistrySnapshot(
+        revision=12,
+        skills=(replace(base, label="beta", description="beta"),),
+    )
+
+    class RevisionEmbed:
+        model_name = "revision-test"
+
+        def embed_documents(self, texts):
+            return [[1.0] if "alpha" in texts[0] else [2.0]]
+
+    init_manager.embed_model = RevisionEmbed()
+    monkeypatch.setattr(
+        intent_router,
+        "_embed_text",
+        lambda sid: intent_router._get_skill(sid).label,
+    )
+    with intent_router.bind_routing_snapshot(snapshot_a):
+        assert "alpha" in intent_router._embed_text("memory_read")
+    with intent_router.bind_routing_snapshot(snapshot_b):
+        assert "beta" in intent_router._embed_text("memory_read")
+
+    async def _run(snapshot):
+        with intent_router.bind_routing_snapshot(snapshot):
+            return await intent_router._ensure_index(["memory_read"])
+
+    first, second = _run_pair(_run(snapshot_a), _run(snapshot_b))
+
+    assert first[0] and second[0]
+    assert {
+        first[3]["memory_read"][0],
+        second[3]["memory_read"][0],
+    } == {1.0, 2.0}
+    # The two returned dictionaries are independent copies even though the
+    # module-level index has already advanced to the second revision.
+    first_value = first[3]["memory_read"][0]
+    second_value = second[3]["memory_read"][0]
+    first[3]["memory_read"][0] = 99.0
+    assert second[3]["memory_read"] == [second_value]
+    assert first_value in {1.0, 2.0}
+
+
+def _run_pair(first, second):
+    async def _gather():
+        return await asyncio.gather(first, second)
+
+    return _run(_gather())

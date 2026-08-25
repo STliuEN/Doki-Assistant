@@ -406,6 +406,13 @@ async def run_case(case: dict, output_dir: Path, repeat_index: int = 0) -> dict:
         validate_case(case)
         script = _load_model_script(case)
         with offline_patches(case) as state_observation:
+            # The production path refreshes the registry from MySQL.  Offline
+            # cases intentionally pass db=None, so publish the same validated
+            # standard seed packages as an in-memory baseline before invoking
+            # the production run preparation path.
+            from app.skills.seed import build_seed_runtime_snapshot
+
+            build_seed_runtime_snapshot()
             input_data = case["input"]
             plan = await agent_run_service.prepare_agent_run(
                 db=None,
@@ -415,6 +422,8 @@ async def run_case(case: dict, output_dir: Path, repeat_index: int = 0) -> dict:
                 prompt_type=input_data.get("prompt_type"),
                 skill_ids=input_data.get("skill_ids"),
                 tool_ids=input_data.get("tool_ids"),
+                session_id=session_id,
+                run_id=run_id,
             )
             fake_factory = FakeAgentFactory(script, default_system_prompt=plan.system_prompt)
             async for chunk in streaming.get_agent_stream_response(
@@ -425,6 +434,8 @@ async def run_case(case: dict, output_dir: Path, repeat_index: int = 0) -> dict:
                 custom_tools=plan.tools,
                 context_settings=_namespace(input_data.get("context")),
                 rag_retrieval_settings=_namespace(input_data.get("rag_retrieval")),
+                run_id=plan.run_id,
+                registry_revision=plan.registry_revision,
                 factory=fake_factory,
                 custom_system_prompt=plan.system_prompt,
             ):

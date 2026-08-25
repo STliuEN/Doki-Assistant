@@ -1,49 +1,60 @@
-# 标准 Skill 核心重构需求文档计划
+# 标准 Skill 核心重构计划
 
 日期：2026-08-24
 
-状态：文档计划完成；实现尚未开始
+状态：A 级和有限 B 级开发支持已形成；C 级未实现；`SKILL-GATE` 未通过
 
-## 背景
+关联记录：同目录 `change-log.md`、`test-record.md`
 
-当前 Doki 使用私有 `skill.yaml + SKILL.md`、源码目录写入和进程内 Registry。审阅确认它不能直接接入只有标准 `SKILL.md` 的 package，也缺少资源、脚本、版本、授权、回滚和隔离执行能力。
+## 背景与决策
 
-需求经过两次确认后固定为：
+Doki 原有 Skill 使用私有 `skill.yaml + SKILL.md`、源码目录写入和进程内 Registry，不能直接承载只有标准 `SKILL.md` 的第三方 package，也缺少不可变版本、授权、回滚和隔离执行合同。
 
-- 不保留原有内置 Skill runtime。
-- 全面采用标准兼容 Skill package 单轨管理。
-- 前端提供统一可视化新建、导入、编辑、配置、版本、权限、诊断、回滚、导出和卸载。
-- 现有 Skill 只做一次性迁移，不长期保留 Legacy Adapter 或双 Registry。
-- Skill 是当前阶段除不可绕过架构底座外的最高优先级核心修改，必须在 `ARCH-GATE` 前完成并通过 `SKILL-GATE`。
+本重构固定采用以下方向：
 
-## 目标
+- 所有来源统一为根目录包含标准 `SKILL.md` 的版本化 package。
+- MySQL 保存 Skill/版本/安装/授权/运行绑定事实，仓库外 Storage 保存 canonical immutable archive。
+- 前端提供新建、导入、审批、编辑、资源管理、配置、版本、回滚、导出和归档入口。
+- 旧内置 Skill 经标准 seed package 一次性迁移，不保留长期 Legacy loader、源码目录 CRUD 或双 Registry。
+- A Prompt、B Resources、C Executable 分级验收，不能把“格式可解析”表述为“第三方代码可安全执行”。
+- C 级第三方代码只能进入独立 worker/沙箱，不能在 FastAPI 或 Agent 进程内执行。
 
-1. 编写可实现、可测试的标准 Skill 需求规格。
-2. 定义 A Prompt、B Resources、C Executable 兼容等级。
-3. 定义统一领域、MySQL/Storage 权威、package 生命周期、capability grant、隔离 runner 和运行固定合同。
-4. 定义前端可视化管理、标准内容编辑和无损导出要求。
-5. 定义旧内置能力的一次性迁移、观察、切换、回滚和删除清单。
-6. 将 `SK-0` 至 `SK-5`、`SKILL-GATE` 和最高优先级同步到架构、路线图、执行、安全和当前架构文档。
+## 当前实现判定
 
-## 范围
+| 能力 | 当前状态 | 已落地范围 | 剩余边界 |
+|------|----------|------------|----------|
+| A Prompt | 开发支持已实现，发布门未通过 | 标准解析、安全校验、不可变版本、路由、Prompt 注入和 OpenAPI | 真实 MySQL/API/第三方聊天 E2E 与跨平台证据 |
+| B Resources | 有限支持 | 版本绑定只读资源、统一调用预算、前端上传/替换/删除/撤销和增量 `resource_changes` | 跨多次读取的累计 token 预算和真实第三方 B 包聊天 E2E |
+| C Executable | 未实现 | 识别并保存 `scripts/`；前端允许 `format_compatible=true`、`runtime_ready=false` 的 C 包禁用安装和管理 | 仍禁止启用或执行；缺少 durable worker、独立 runner/沙箱、依赖构建、lockfile、网络/文件/secret grant、取消与进程树终止 |
+| 生命周期/一致性 | 主要开发链路已实现 | draft/import/publish/rollback/export、import `target_revision`、管理员纯 draft catalog、多实例 revision/outbox reconcile、统一 stale `503` | import 仍非 durable job；真实数据库、恢复和跨实例故障演练 |
+| 授权/可复现运行 | system/global 闭环已实现 | CapabilityGrant、持久 SkillRunBinding、version/digest/revision/effective grants 固定，以及 private Skill/Tool 和显式 ID 过滤 | per-user scope 和完整真实安全 E2E |
+| 单轨退出 | 运行旧路径已退出 | `backend/app/agent/skills` 的 20 个运行文件已删除；静态测试禁回归；seed package 位于 `backend/app/skills/seed_packages` | `SK-5` 整体验收和恢复/跨平台证据仍未完成 |
 
-- 新增 `docs/standard_skill_integration_requirements.md`。
-- 更新根 README 和文档索引，准确区分当前私有能力与目标标准能力。
-- 更新架构重写计划，将 Skill package 设为 Storage 首个 consumer、worker 首个 workload、AR-5 首个后端域和前端首个功能域。
-- 更新路线图和执行计划，把工作包 `11` 从门禁后产品项调整为当前核心必做项。
-- 更新安全计划，将当前 Skill 风险登记为 `SKILL-01 P0`。
-- 更新当前架构、开发环境和 Agent runtime 文档，标记旧实现为过渡态。
-- 建立本目录的 plan、change log 和 test record。
+准确结论是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持”，不是完整通用或可执行 Skill 平台。本机具备 Node/npm 不能替代 C 级隔离与授权边界。
 
-## 非目标
+## 本批已实施范围
 
-- 不修改 Python、TypeScript、数据库 schema、依赖或部署配置。
-- 不实现 parser、Storage、worker、API 或前端页面。
-- 不连接、读取、迁移或修改现有 MySQL/Redis/Chroma/用户文件。
-- 不删除当前 Skill 目录；实际删除必须等待 SK-5 清单、观察期和回滚证据。
-- 不声称任何 `AR-*`、`SK-*`、`SKILL-GATE` 或 `ARCH-GATE` 已完成。
+- 标准 package parser、统一 ZIP/目录 validator 和恶意 package 防护。
+- 内容寻址、checksum 校验、原子完成的不可变 package Storage。
+- Skill、Alias、Version、Installation、Import、AuditEvent、CapabilityGrant、SkillRunBinding、RegistryState 和 RegistryEvent 领域模型与 migration。
+- draft/import/approve/publish/settings/activate/rollback/archive/export/resource API 与标准管理前端。
+- 前端资源上传、替换、删除、撤销和增量变更；保存内容时保留未修改资源。
+- private Skill/Tool 与显式 ID 授权过滤、B 资源统一调用预算和确认动作的运行版本固定。
+- import `target_revision`、Registry revision/outbox reconcile、落后实例拒绝与统一 `SkillRegistryStaleError` `503`。
+- 管理员 catalog 可见纯 draft，普通 catalog 与运行 Registry 不可见未发布内容。
+- 标准 seed package、旧运行目录删除和静态禁回归测试。
+- OpenAPI、活文档和同主题实施/验证记录同步。
 
-## 执行序列
+## 下一执行顺序
+
+1. 将 import/validation/publish 移入 durable worker，补齐 lease、幂等、重试、取消、背压、DLQ 和重启恢复。
+2. 将 system/global 安装扩展为经过授权的 per-user scope，并补 owner/scope/visibility 的真实数据库测试矩阵。
+3. 在统一 Tool 调用次数预算之上增加资源跨多次读取的累计 token 预算。
+4. 完成真实 MySQL migration/startup/API lifecycle，以及第三方 A/B package 从导入到聊天资源读取的 E2E。
+5. 实施 C 级独立 Node/Python runner/沙箱、依赖锁定、网络/文件/secret grant、取消和进程树强制终止。
+6. 完成 Storage 损坏、跨实例收敛、恢复、回滚、跨平台和 clean install 演练，再执行 `SKILL-GATE`。
+
+## 阶段关系
 
 ```text
 AR-0 + SK-0
@@ -58,16 +69,11 @@ AR-0 + SK-0
   -> 7 -> 8 -> 9 -> 10
 ```
 
-## 风险与控制
+现有代码产物不表示任何 `SK-*` 或 `AR-*` 阶段已经通过完整退出门。工作包 `7-10` 继续保留并冻结。
 
-| 风险 | 控制 |
-|------|------|
-| 把“标准格式兼容”误当成“可安全执行” | 分开 `format_compatible/runtime_ready/enabled`，并定义 A/B/C 等级 |
-| 为兼容旧系统保留永久双轨 | Legacy 仅允许一次性迁移；SK-5 必须删除运行时旧路径 |
-| 前端编辑污染上游或 Git | 不可变版本、结构化写回、Storage 权威和 Git 工作树验收 |
-| 为追求优先级跳过安全底座 | 每个 `SK-*` 显式绑定 AR 依赖，依赖缺失时优先补底座 |
-| 本机 Node/npm 被当作安全边界 | C 级必须通过独立 runner、资源/网络/secret 授权和强制终止 |
+## 回滚边界
 
-## 回滚
-
-本批次只修改文档。若需求再次调整，可回滚本批次文档并保留历史记录；不得以文档回滚触发代码、数据库或运行数据操作。
+- 数据库结构只通过 Alembic upgrade/downgrade 迁移，不手工改表。
+- package 版本不可变；内容回滚通过切换已验证 active version 完成。
+- API、前端、Registry、grant/run binding 和 seed 必须按同一合同整体回滚。
+- 旧目录不恢复为长期运行权威；回滚只能使用标准 seed/package 与数据库版本指针。

@@ -8,7 +8,7 @@ from app.models.chat_history import Base as Base
 
 load_dotenv()
 
-DATABASE_SCHEMA_REVISION = "20260817_0001"
+DATABASE_SCHEMA_REVISION = "20260824_0002"
 
 ASYNC_DATABASE_URL = (
     f"mysql+aiomysql://{os.getenv('MYSQL_USER', 'root')}:{os.getenv('MYSQL_PASSWORD', '')}"

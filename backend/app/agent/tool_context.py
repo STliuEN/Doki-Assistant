@@ -5,6 +5,7 @@ current_user_id_var: ContextVar[str | None] = ContextVar("current_user_id", defa
 thinking_callback_var: ContextVar[Callable | None] = ContextVar("thinking_callback", default=None)
 rag_retrieval_settings_var: ContextVar[object | None] = ContextVar("rag_retrieval_settings", default=None)
 current_session_id_var: ContextVar[str | None] = ContextVar("current_session_id", default=None)
+current_run_binding_var: ContextVar[dict | None] = ContextVar("current_run_binding", default=None)
 # 每轮运行的工具调用计数与预算，由 GuardedTool 在执行前自增并硬拦截。
 # 形如 {"tool_calls": int, "max_tool_calls": int}
 runtime_state_var: ContextVar[dict | None] = ContextVar("runtime_state", default=None)
@@ -50,6 +51,19 @@ def set_current_session_id(session_id: str | None) -> None:
 def get_current_session_id_from_context() -> str | None:
     """Read the current session id for tool execution."""
     return current_session_id_var.get()
+
+
+def set_current_run_binding(run_id: str | None, registry_revision: int | None) -> None:
+    """Bind the durable run identity used by deferred high-risk actions."""
+    if run_id is None or registry_revision is None:
+        current_run_binding_var.set(None)
+        return
+    current_run_binding_var.set({"run_id": run_id, "registry_revision": registry_revision})
+
+
+def get_current_run_binding_from_context() -> dict | None:
+    """Read the run identity that owns the current tool authorization snapshot."""
+    return current_run_binding_var.get()
 
 
 def set_runtime_state(state: dict | None) -> None:

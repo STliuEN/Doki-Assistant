@@ -352,6 +352,110 @@
         "title": "ApiResponse[SessionResponse]",
         "type": "object"
       },
+      "ApiResponse_SkillCatalogResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillCatalogResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SkillCatalogResponse]",
+        "type": "object"
+      },
+      "ApiResponse_SkillDetailResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SkillDetailResponse]",
+        "type": "object"
+      },
+      "ApiResponse_SkillImportResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillImportResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SkillImportResponse]",
+        "type": "object"
+      },
+      "ApiResponse_SkillVersionsResponse_": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillVersionsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[SkillVersionsResponse]",
+        "type": "object"
+      },
       "ApiResponse_dict_str__str__": {
         "properties": {
           "code": {
@@ -380,6 +484,37 @@
           }
         },
         "title": "ApiResponse[dict[str, str]]",
+        "type": "object"
+      },
+      "ApiResponse_list_dict__": {
+        "properties": {
+          "code": {
+            "default": 200,
+            "title": "Code",
+            "type": "integer"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "default": "success",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "title": "ApiResponse[list[dict]]",
         "type": "object"
       },
       "AssistRequest": {
@@ -524,6 +659,20 @@
           "file"
         ],
         "title": "Body_add_vector_single_knowledge_add_single_post",
+        "type": "object"
+      },
+      "Body_import_skill_package_skills_imports_post": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_skill_package_skills_imports_post",
         "type": "object"
       },
       "ChatMessageResponse": {
@@ -2464,7 +2613,561 @@
         "title": "SessionResponse",
         "type": "object"
       },
-      "SkillPayload": {
+      "SkillActivateRequest": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SkillActivateRequest",
+        "type": "object"
+      },
+      "SkillArchiveRequest": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SkillArchiveRequest",
+        "type": "object"
+      },
+      "SkillCatalogItem": {
+        "properties": {
+          "always_on": {
+            "title": "Always On",
+            "type": "boolean"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/SkillCompatibilityResponse"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "origin": {
+            "additionalProperties": true,
+            "title": "Origin",
+            "type": "object"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "routable": {
+            "title": "Routable",
+            "type": "boolean"
+          },
+          "routing_examples": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Routing Examples",
+            "type": "object"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tool Ids",
+            "type": "array"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "skill_id",
+          "name",
+          "label",
+          "description",
+          "tool_ids",
+          "is_default",
+          "enabled",
+          "visibility",
+          "order",
+          "always_on",
+          "routable",
+          "routing_examples",
+          "version",
+          "revision",
+          "digest",
+          "status",
+          "origin",
+          "compatibility"
+        ],
+        "title": "SkillCatalogItem",
+        "type": "object"
+      },
+      "SkillCatalogResponse": {
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "default_skill_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Skill Ids",
+            "type": "array"
+          },
+          "default_tool_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Tool Ids",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillCatalogItem"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "skills",
+          "tools",
+          "default_skill_ids",
+          "default_tool_ids"
+        ],
+        "title": "SkillCatalogResponse",
+        "type": "object"
+      },
+      "SkillCompatibilityResponse": {
+        "properties": {
+          "format_compatible": {
+            "title": "Format Compatible",
+            "type": "boolean"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "runtime_ready": {
+            "title": "Runtime Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "level",
+          "format_compatible",
+          "runtime_ready"
+        ],
+        "title": "SkillCompatibilityResponse",
+        "type": "object"
+      },
+      "SkillDetailResponse": {
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "always_on": {
+            "title": "Always On",
+            "type": "boolean"
+          },
+          "capability_grants": {
+            "additionalProperties": true,
+            "title": "Capability Grants",
+            "type": "object"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/SkillCompatibilityResponse"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "frontmatter": {
+            "additionalProperties": true,
+            "title": "Frontmatter",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "origin": {
+            "additionalProperties": true,
+            "title": "Origin",
+            "type": "object"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/SkillResourceResponse"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "routable": {
+            "title": "Routable",
+            "type": "boolean"
+          },
+          "routing_examples": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Routing Examples",
+            "type": "object"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_id": {
+            "title": "Version Id",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "skill_id",
+          "name",
+          "label",
+          "description",
+          "instructions",
+          "frontmatter",
+          "resources",
+          "tools",
+          "default",
+          "enabled",
+          "visibility",
+          "order",
+          "always_on",
+          "routable",
+          "routing_examples",
+          "version",
+          "version_id",
+          "revision",
+          "digest",
+          "status",
+          "origin",
+          "compatibility",
+          "allowed_actions"
+        ],
+        "title": "SkillDetailResponse",
+        "type": "object"
+      },
+      "SkillDraftCreate": {
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "frontmatter": {
+            "additionalProperties": true,
+            "title": "Frontmatter",
+            "type": "object"
+          },
+          "instructions": {
+            "default": "",
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "resources": {
+            "description": "Complete resource set within the request-level encoded and decoded budgets.",
+            "items": {
+              "$ref": "#/components/schemas/SkillResourceInput"
+            },
+            "maxItems": 255,
+            "title": "Resources",
+            "type": "array",
+            "x-max-total-base64-chars": 44740264,
+            "x-max-total-decoded-bytes": 33554432
+          },
+          "version_note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Version Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ],
+        "title": "SkillDraftCreate",
+        "type": "object"
+      },
+      "SkillDraftUpdate": {
+        "properties": {
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "frontmatter": {
+            "additionalProperties": true,
+            "title": "Frontmatter",
+            "type": "object"
+          },
+          "instructions": {
+            "default": "",
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "resource_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillResourceChanges"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SkillResourceInput"
+                },
+                "maxItems": 255,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional complete replacement resource set within the request budgets.",
+            "title": "Resources",
+            "x-max-total-base64-chars": 44740264,
+            "x-max-total-decoded-bytes": 33554432
+          },
+          "version_note": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Version Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "expected_revision"
+        ],
+        "title": "SkillDraftUpdate",
+        "type": "object"
+      },
+      "SkillImportApproveRequest": {
         "properties": {
           "always_on": {
             "default": false,
@@ -2472,36 +3175,31 @@
             "type": "boolean"
           },
           "default": {
-            "default": true,
+            "default": false,
             "title": "Default",
             "type": "boolean"
           },
-          "description": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Description",
-            "type": "string"
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
           },
-          "id": {
+          "expected_digest": {
             "maxLength": 64,
-            "minLength": 2,
-            "title": "Id",
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expected Digest",
             "type": "string"
           },
-          "instructions": {
-            "default": "",
-            "maxLength": 20000,
-            "title": "Instructions",
-            "type": "string"
-          },
-          "label": {
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Label",
-            "type": "string"
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
           },
           "order": {
             "default": 100,
+            "maximum": 100000.0,
+            "minimum": 0.0,
             "title": "Order",
             "type": "integer"
           },
@@ -2518,28 +3216,495 @@
               "type": "array"
             },
             "title": "Routing Examples",
-            "type": "object"
+            "type": "object",
+            "x-max-item-chars": 512,
+            "x-max-items-per-group": 64,
+            "x-max-total-chars": 8192
           },
           "tools": {
-            "default": [],
             "items": {
               "type": "string"
             },
+            "maxItems": 256,
             "title": "Tools",
             "type": "array"
           },
           "visibility": {
             "default": "public",
+            "enum": [
+              "public",
+              "private"
+            ],
             "title": "Visibility",
             "type": "string"
           }
         },
         "required": [
-          "id",
-          "label",
-          "description"
+          "expected_revision",
+          "expected_digest"
         ],
-        "title": "SkillPayload",
+        "title": "SkillImportApproveRequest",
+        "type": "object"
+      },
+      "SkillImportResponse": {
+        "properties": {
+          "compatibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SkillCompatibilityResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "diagnostics": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "SkillImportResponse",
+        "type": "object"
+      },
+      "SkillPublishRequest": {
+        "properties": {
+          "always_on": {
+            "default": false,
+            "title": "Always On",
+            "type": "boolean"
+          },
+          "default": {
+            "default": false,
+            "title": "Default",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "order": {
+            "default": 100,
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Order",
+            "type": "integer"
+          },
+          "routable": {
+            "default": true,
+            "title": "Routable",
+            "type": "boolean"
+          },
+          "routing_examples": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Routing Examples",
+            "type": "object",
+            "x-max-item-chars": 512,
+            "x-max-items-per-group": 64,
+            "x-max-total-chars": 8192
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Tools",
+            "type": "array"
+          },
+          "visibility": {
+            "default": "public",
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SkillPublishRequest",
+        "type": "object"
+      },
+      "SkillResourceChanges": {
+        "properties": {
+          "delete": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 255,
+            "title": "Delete",
+            "type": "array"
+          },
+          "upsert": {
+            "description": "Incremental resource additions and replacements within the request budgets.",
+            "items": {
+              "$ref": "#/components/schemas/SkillResourceInput"
+            },
+            "maxItems": 255,
+            "title": "Upsert",
+            "type": "array",
+            "x-max-total-base64-chars": 44740264,
+            "x-max-total-decoded-bytes": 33554432
+          }
+        },
+        "title": "SkillResourceChanges",
+        "type": "object"
+      },
+      "SkillResourceInput": {
+        "properties": {
+          "content_base64": {
+            "default": "",
+            "description": "Base64 resource content; decoded content is limited to 8 MiB.",
+            "maxLength": 11184812,
+            "title": "Content Base64",
+            "type": "string",
+            "x-max-decoded-bytes": 8388608
+          },
+          "path": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "SkillResourceInput",
+        "type": "object"
+      },
+      "SkillResourceResponse": {
+        "properties": {
+          "executable": {
+            "default": false,
+            "title": "Executable",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "size",
+          "sha256"
+        ],
+        "title": "SkillResourceResponse",
+        "type": "object"
+      },
+      "SkillRollbackRequest": {
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "version_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Id"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SkillRollbackRequest",
+        "type": "object"
+      },
+      "SkillSettingsUpdate": {
+        "properties": {
+          "always_on": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Always On"
+          },
+          "default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          },
+          "routable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routable"
+          },
+          "routing_examples": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Examples",
+            "x-max-item-chars": 512,
+            "x-max-items-per-group": 64,
+            "x-max-total-chars": 8192
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 256,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visibility"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "SkillSettingsUpdate",
+        "type": "object"
+      },
+      "SkillVersionResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "origin": {
+            "additionalProperties": true,
+            "title": "Origin",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "version_note": {
+            "title": "Version Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "digest",
+          "status",
+          "origin",
+          "version_note",
+          "active"
+        ],
+        "title": "SkillVersionResponse",
+        "type": "object"
+      },
+      "SkillVersionsResponse": {
+        "properties": {
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/SkillVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions"
+        ],
+        "title": "SkillVersionsResponse",
         "type": "object"
       },
       "ToolPayload": {
@@ -3021,6 +4186,9 @@
             },
             "description": "Versioned Server-Sent Events stream"
           },
+          "410": {
+            "description": "Pending action expired, was consumed, or no longer matches its run authorization snapshot"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3078,6 +4246,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -3470,6 +4648,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -3566,13 +4754,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                  "$ref": "#/components/schemas/ApiResponse_SkillCatalogResponse_"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "summary": "Get Chat Skills",
         "tags": [
           "chat"
@@ -6699,14 +7902,269 @@
         ]
       }
     },
-    "/skills": {
+    "/skills/catalog": {
+      "get": {
+        "operationId": "get_skills_catalog_skills_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Skills Catalog",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/drafts": {
       "post": {
-        "operationId": "create_skill_skills_post",
+        "operationId": "create_skill_draft_skills_drafts_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SkillPayload"
+                "$ref": "#/components/schemas/SkillDraftCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SkillDetailResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Skill Draft",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/imports": {
+      "post": {
+        "operationId": "import_skill_package_skills_imports_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_skill_package_skills_imports_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SkillImportResponse_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Skill Package",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/imports/{import_id}": {
+      "get": {
+        "operationId": "get_skill_import_skills_imports__import_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Skill Import",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/imports/{import_id}/approve": {
+      "post": {
+        "operationId": "approve_skill_import_skills_imports__import_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "import_id",
+            "required": true,
+            "schema": {
+              "title": "Import Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillImportApproveRequest"
               }
             }
           },
@@ -6732,32 +8190,16 @@
               }
             },
             "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create Skill",
-        "tags": [
-          "skills"
-        ]
-      }
-    },
-    "/skills/catalog": {
-      "get": {
-        "operationId": "get_skills_catalog_skills_catalog_get",
-        "responses": {
-          "200": {
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
                 }
               }
             },
-            "description": "Successful response using the canonical API envelope"
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -6765,7 +8207,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Skills Catalog",
+        "summary": "Approve Skill Import",
         "tags": [
           "skills"
         ]
@@ -6773,7 +8215,7 @@
     },
     "/skills/{skill_id}": {
       "delete": {
-        "operationId": "delete_skill_skills__skill_id__delete",
+        "operationId": "archive_skill_skills__skill_id__delete",
         "parameters": [
           {
             "in": "path",
@@ -6785,6 +8227,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillArchiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -6805,6 +8257,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -6812,7 +8274,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Delete Skill",
+        "summary": "Archive Skill",
         "tags": [
           "skills"
         ]
@@ -6850,6 +8312,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -6861,9 +8333,11 @@
         "tags": [
           "skills"
         ]
-      },
+      }
+    },
+    "/skills/{skill_id}/draft": {
       "put": {
-        "operationId": "update_skill_skills__skill_id__put",
+        "operationId": "save_skill_draft_skills__skill_id__draft_put",
         "parameters": [
           {
             "in": "path",
@@ -6879,7 +8353,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SkillPayload"
+                "$ref": "#/components/schemas/SkillDraftUpdate"
               }
             }
           },
@@ -6905,6 +8379,16 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
           }
         },
         "security": [
@@ -6912,7 +8396,530 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Update Skill",
+        "summary": "Save Skill Draft",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/publish": {
+      "post": {
+        "operationId": "publish_skill_draft_skills__skill_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillPublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Skill Draft",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/resources": {
+      "get": {
+        "operationId": "list_skill_resources_skills__skill_id__resources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Skill Resources",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/resources/{resource_path}": {
+      "get": {
+        "operationId": "read_skill_resource_skills__skill_id__resources__resource_path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "resource_path",
+            "required": true,
+            "schema": {
+              "title": "Resource Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Read Skill Resource",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/rollback": {
+      "post": {
+        "operationId": "rollback_skill_skills__skill_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillRollbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rollback Skill",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/settings": {
+      "patch": {
+        "operationId": "update_skill_settings_skills__skill_id__settings_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Skill Settings",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/versions": {
+      "get": {
+        "operationId": "get_skill_versions_skills__skill_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Skill Versions",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/versions/{version_id}/activate": {
+      "post": {
+        "operationId": "activate_skill_version_skills__skill_id__versions__version_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillActivateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Activate Skill Version",
+        "tags": [
+          "skills"
+        ]
+      }
+    },
+    "/skills/{skill_id}/versions/{version_id}/export": {
+      "get": {
+        "operationId": "export_skill_version_skills__skill_id__versions__version_id__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "skill_id",
+            "required": true,
+            "schema": {
+              "title": "Skill Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill registry is updating; retry after instances converge"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Skill Version",
         "tags": [
           "skills"
         ]

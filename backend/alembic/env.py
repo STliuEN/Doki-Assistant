@@ -14,6 +14,7 @@ from app.models import (
     model_config,
     note,
     note_template,
+    skill_domain,
 )
 
 _MODELS = (
@@ -24,6 +25,7 @@ _MODELS = (
     model_config,
     note,
     note_template,
+    skill_domain,
 )
 
 config = context.config

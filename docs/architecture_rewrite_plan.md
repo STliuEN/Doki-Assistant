@@ -337,7 +337,7 @@ AR-0 reliability contract and P0 containment
 只有以下条件全部满足，才允许开始工作包 `7-10` 或批准新的非 P0 功能：
 
 - `AR-0` 至 `AR-6` 的产物、变更记录和测试记录齐全。
-- `SKILL-GATE` 已通过；标准 Skill 是单轨权威，旧内置 Skill runtime 已退出。
+- `ARCH-GATE` 退出条件：届时 `SKILL-GATE` 必须已通过，标准 Skill 必须是单轨权威，旧内置 Skill runtime 必须已退出。
 - API 与 worker 是独立故障域；worker、模型或 Chroma 不可用时 core API 仍按 readiness/降级合同运行。
 - 可靠性合同中的 SLO、RPO、RTO、队列、索引新鲜度和容量阈值均有实测证据，错误预算和告警已接通。
 - 用户和业务关系数据只有一个写权威；snapshot、增量捕获、checkpoint、差异阈值和 restore-forward 回滚可验证。
@@ -393,4 +393,4 @@ AR-0 reliability contract and P0 containment
 - `change-log.md`：实际代码、migration、配置和文档改动。
 - `test-record.md`：命令、结果、数据校验、恢复演练和未覆盖风险。
 
-本次仅更新计划文档和对应计划记录，不表示任何 `AR-*`/`SK-*` 阶段已经执行，也不连接或修改现有 MySQL。当前下一实施项是与 AR-0 同步的 `SK-0`。
+2026-08-24 后续实现已经落地标准 parser/Storage/领域/API/UI/seed、资源编辑和 A/有限 B 运行桥接；CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、多实例 revision/outbox reconcile、stale `503`、OpenAPI 以及旧运行目录删除/静态禁回归也已完成。这些代码产物仍未满足 `SK-0` 至 `SK-5` 的完整退出门，也不表示任何 `AR-*` 阶段完成。后续必须补齐 durable import worker、per-user scope、资源累计 token 预算、真实 MySQL/API/第三方聊天 E2E、C 级独立 runner/沙箱和恢复证据；`SKILL-GATE` 和 `ARCH-GATE` 状态不变。

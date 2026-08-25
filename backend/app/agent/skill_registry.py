@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -12,8 +13,10 @@ from langchain_core.tools import BaseTool
 from app.agent.mcp.adapter import make_langchain_tool
 from app.agent.mcp.registry import mcp_tool_registry
 from app.core.logger_handler import logger
+from app.skills.registry import RuntimeSkill as SkillDefinition
+from app.skills.registry import SkillRegistrySnapshot, standard_skill_registry
+from app.skills.resource_tools import build_resource_tools
 
-SKILLS_DIR = Path(__file__).parent / "skills"
 TOOLS_DIR = Path(__file__).parent / "tools"
 
 
@@ -64,41 +67,6 @@ class ToolDefinition:
 
 
 @dataclass(frozen=True)
-class SkillDefinition:
-    id: str
-    label: str
-    description: str
-    tool_ids: tuple[str, ...]
-    instructions: str
-    directory: Path
-    is_default: bool = True
-    order: int = 100
-    visibility: str = "public"
-    # always_on：选中即常驻，不参与意图收窄竞争（如时间/身份等低风险上下文）。
-    always_on: bool = False
-    # routable：是否参与预路由收窄；False 表示一旦被选中就保留、不被裁。
-    routable: bool = True
-    # routing_examples：仅供意图预路由阈值校准使用，不注入 Agent prompt。
-    routing_examples: dict[str, tuple[str, ...]] = field(default_factory=dict)
-
-    def to_public_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "label": self.label,
-            "description": self.description,
-            "tool_ids": list(self.tool_ids),
-            "is_default": self.is_default,
-            "visibility": self.visibility,
-            "always_on": self.always_on,
-            "routable": self.routable,
-            "routing_examples": {
-                key: list(value)
-                for key, value in self.routing_examples.items()
-            },
-        }
-
-
-@dataclass(frozen=True)
 class SkillResolution:
     skill_ids: list[str]
     tool_ids: list[str]
@@ -108,6 +76,8 @@ class SkillResolution:
     missing_tool_ids: list[str] = field(default_factory=list)
     # 面向模型/用户的运行提示（注入 system prompt，避免静默降级）。
     notices: list[str] = field(default_factory=list)
+    # 实际装配工具对应的不可变 Skill 授权来源（stable Skill IDs）。
+    tool_grant_sources: dict[str, list[str]] = field(default_factory=dict)
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -152,24 +122,6 @@ def _optional_string_list(data: dict[str, Any], key: str, path: Path) -> tuple[s
     if not isinstance(value, list) or not all(isinstance(item, str) and item.strip() for item in value):
         raise ValueError(f"{path} field {key} must be a list of strings")
     return tuple(dict.fromkeys(item.strip() for item in value))
-
-
-def _optional_routing_examples(data: dict[str, Any], path: Path) -> dict[str, tuple[str, ...]]:
-    value = data.get("routing_examples", {})
-    if value is None:
-        return {}
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} field routing_examples must be a mapping")
-
-    examples: dict[str, tuple[str, ...]] = {}
-    for key in ("positive", "negative"):
-        items = value.get(key, [])
-        if items is None:
-            items = []
-        if not isinstance(items, list) or not all(isinstance(item, str) and item.strip() for item in items):
-            raise ValueError(f"{path} routing_examples.{key} must be a list of strings")
-        examples[key] = tuple(dict.fromkeys(item.strip() for item in items))
-    return examples
 
 
 class ToolRegistry:
@@ -278,82 +230,48 @@ class ToolRegistry:
     def get(self, tool_id: str) -> ToolDefinition:
         return self._tools[tool_id]
 
-    def public_catalog(self) -> list[dict]:
-        return [tool.to_public_dict() for tool in self.all()]
+    def public_catalog(self, *, include_private: bool = False) -> list[dict]:
+        return [
+            tool.to_public_dict()
+            for tool in self.all()
+            if include_private or tool.visibility == "public"
+        ]
 
     def reload(self) -> None:
         self._tools = self._load_tools()
 
 
 class SkillRegistry:
-    def __init__(self, skills_dir: Path = SKILLS_DIR, tool_registry: ToolRegistry | None = None):
-        self.skills_dir = skills_dir
+    """Runtime facade over the immutable standard Skill snapshot and Tool registry."""
+
+    def __init__(self, tool_registry: ToolRegistry | None = None):
         self.tool_registry = tool_registry or ToolRegistry()
-        self._skills = self._load_skills()
 
-    def _load_skills(self) -> dict[str, SkillDefinition]:
-        loaded: dict[str, SkillDefinition] = {}
-        for skill_dir in sorted(path for path in self.skills_dir.iterdir() if path.is_dir()):
-            config_path = skill_dir / "skill.yaml"
-            instructions_path = skill_dir / "SKILL.md"
-            if not config_path.exists():
-                continue
-            if not instructions_path.exists():
-                raise ValueError(f"{skill_dir} requires SKILL.md")
+    def all(self, snapshot: SkillRegistrySnapshot | None = None) -> list[SkillDefinition]:
+        selected = snapshot or standard_skill_registry.snapshot
+        return list(selected.all())
 
-            data = _read_yaml(config_path)
-            skill_id = _require_string(data, "id", config_path)
-            tool_ids = _optional_string_list(data, "tools", config_path)
-            # MCP tools are discovered after startup. Allow skill definitions to
-            # reference them before the first refresh, then resolve them once
-            # mcp_tool_registry has populated the shared tool registry.
-            unknown_tool_ids = [
-                tool_id
-                for tool_id in tool_ids
-                if tool_id not in self.tool_registry.ids() and not tool_id.startswith("mcp_")
-            ]
-            if unknown_tool_ids:
-                raise ValueError(f"{config_path} references unknown tools: {', '.join(unknown_tool_ids)}")
-
-            loaded[skill_id] = SkillDefinition(
-                id=skill_id,
-                label=_require_string(data, "label", config_path),
-                description=_require_string(data, "description", config_path),
-                tool_ids=tool_ids,
-                instructions=instructions_path.read_text(encoding="utf-8").strip(),
-                directory=skill_dir,
-                is_default=_optional_bool(data, "default", True),
-                order=_optional_int(data, "order", 100),
-                visibility=_optional_string(data, "visibility", "public"),
-                always_on=_optional_bool(data, "always_on", False),
-                routable=_optional_bool(data, "routable", True),
-                routing_examples=_optional_routing_examples(data, config_path),
-            )
-        return loaded
-
-    def all(self) -> list[SkillDefinition]:
-        return sorted(self._skills.values(), key=lambda item: (item.order, item.id))
-
-    def get(self, skill_id: str) -> SkillDefinition | None:
-        return self._skills.get(skill_id)
+    def get(
+        self,
+        skill_id: str,
+        snapshot: SkillRegistrySnapshot | None = None,
+    ) -> SkillDefinition | None:
+        selected = snapshot or standard_skill_registry.snapshot
+        skill = selected.get(skill_id)
+        return skill if skill is not None and skill.enabled else None
 
     def reload(self) -> None:
+        """Refresh Tool/MCP adapters; Skill snapshots are database-published separately."""
         self.tool_registry.reload()
-        self._skills = self._load_skills()
 
-    def default_skill_ids(self) -> list[str]:
-        return [skill.id for skill in self.all() if skill.is_default]
+    def default_skill_ids(self, snapshot: SkillRegistrySnapshot | None = None) -> list[str]:
+        return [skill.id for skill in self.all(snapshot) if skill.is_default]
 
     def default_tool_ids(self) -> list[str]:
         return self.resolve(self.default_skill_ids(), []).tool_ids
 
     def public_catalog(self) -> dict:
-        return {
-            "skills": [skill.to_public_dict() for skill in self.all()],
-            "tools": self.tool_registry.public_catalog(),
-            "default_skill_ids": self.default_skill_ids(),
-            "default_tool_ids": self.default_tool_ids(),
-        }
+        return standard_skill_registry.public_catalog(self.tool_registry.public_catalog())
 
     def _validate_ids(self, ids: list[str] | None, allowed_ids: set[str], kind: str) -> list[str] | None:
         if ids is None:
@@ -375,7 +293,15 @@ class SkillRegistry:
             return "已被禁用"
         return "未选中"
 
-    def resolve(self, skill_ids: list[str] | None = None, tool_ids: list[str] | None = None) -> SkillResolution:
+    def resolve(
+        self,
+        skill_ids: list[str] | None = None,
+        tool_ids: list[str] | None = None,
+        *,
+        snapshot: SkillRegistrySnapshot | None = None,
+        allow_private: bool = False,
+    ) -> SkillResolution:
+        selected_snapshot = snapshot or standard_skill_registry.snapshot
         # 区分"显式空"（调用方明确传 [] 表示本次不用任何能力）与"未指定"（None → 用默认）。
         explicit_empty = (
             (skill_ids is not None and len(skill_ids) == 0)
@@ -385,31 +311,69 @@ class SkillRegistry:
         selected_skill_ids = skill_ids
         selected_tool_ids = tool_ids
         if selected_skill_ids is None and selected_tool_ids is None:
-            selected_skill_ids = self.default_skill_ids()
+            selected_skill_ids = self.default_skill_ids(selected_snapshot)
 
         selected_skill_ids = selected_skill_ids or []
         selected_tool_ids = selected_tool_ids or []
 
-        valid_skill_ids = self._validate_ids(selected_skill_ids, set(self._skills), "skill_ids") or []
+        resolved_skills: dict[str, SkillDefinition] = {}
+        invalid_skill_ids: list[str] = []
+        for skill_id in list(dict.fromkeys(selected_skill_ids)):
+            skill = self.get(skill_id, selected_snapshot)
+            if skill is None or (skill.visibility != "public" and not allow_private):
+                invalid_skill_ids.append(skill_id)
+            else:
+                resolved_skills[skill_id] = skill
+        if invalid_skill_ids:
+            raise ValueError(f"Unsupported skill_ids: {', '.join(invalid_skill_ids)}")
+        valid_skill_ids = list(resolved_skills)
         valid_tool_ids = self._validate_ids(selected_tool_ids, self.tool_registry.ids(), "tool_ids") or []
 
-        collected_tool_ids: list[str] = []
+        granted_tool_ids: list[str] = []
         skill_prompts: list[str] = []
-        declared_by_skill: dict[str, str] = {}
+        granted_by_skill: dict[str, list[str]] = {}
         for skill_id in valid_skill_ids:
-            skill = self._skills[skill_id]
-            for tid in skill.tool_ids:
-                declared_by_skill.setdefault(tid, skill_id)
-            collected_tool_ids.extend(skill.tool_ids)
+            skill = resolved_skills[skill_id]
+            grants = skill.effective_grants if isinstance(skill.effective_grants, Mapping) else {}
+            effective_tools = grants.get("tools", ())
+            if not isinstance(effective_tools, (list, tuple)):
+                effective_tools = ()
+            for tid in effective_tools:
+                if not isinstance(tid, str) or not tid:
+                    continue
+                sources = granted_by_skill.setdefault(tid, [])
+                if skill.stable_id not in sources:
+                    sources.append(skill.stable_id)
+                granted_tool_ids.append(tid)
             if skill.instructions:
                 skill_prompts.append(f"## Skill: {skill.label}\n\n{skill.instructions}")
-        collected_tool_ids.extend(valid_tool_ids)
+
+        # Explicit tool selection is exact control, not a second authority source.
+        # Every requested tool must already be granted by at least one selected,
+        # enabled Skill in this immutable snapshot.
+        if valid_tool_ids:
+            unauthorized_tool_ids = [
+                tool_id for tool_id in valid_tool_ids if tool_id not in granted_by_skill
+            ]
+            if unauthorized_tool_ids:
+                raise ValueError(
+                    "tool_ids are not granted by selected Skills: "
+                    + ", ".join(unauthorized_tool_ids)
+                )
+            collected_tool_ids = valid_tool_ids
+        else:
+            collected_tool_ids = granted_tool_ids
 
         selected_tool_id_set = set(collected_tool_ids)
         ordered_tool_ids = [
             tool.id
             for tool in self.tool_registry.all()
-            if tool.id in selected_tool_id_set and tool.enabled and tool.available
+            if (
+                tool.id in selected_tool_id_set
+                and tool.enabled
+                and tool.available
+                and (tool.visibility == "public" or allow_private)
+            )
         ]
 
         # B1a：诊断被丢弃的工具——不再静默，给出 tool_id、来源 skill 与原因。
@@ -423,8 +387,8 @@ class SkillRegistry:
             if tid in kept:
                 continue
             missing_tool_ids.append(tid)
-            source = declared_by_skill.get(tid)
-            origin = f"，来自 skill {source}" if source else ""
+            sources = granted_by_skill.get(tid, [])
+            origin = f"，来自 skill {', '.join(sources)}" if sources else ""
             message = f"【工具装配】跳过工具 {tid}（{self._drop_reason(tid)}）{origin}"
             if tid.startswith("mcp_") and not mcp_ready:
                 logger.debug(f"{message} [MCP 尚未发现，待刷新]")
@@ -435,14 +399,15 @@ class SkillRegistry:
         from app.agent.tool_guard import wrap_tool
         tools = [wrap_tool(self.tool_registry.get(tool_id)) for tool_id in ordered_tool_ids]
 
-        # B1b：被选中的 skill 解析后零工具——升级为 error 日志并注入可见提示。
+        # Prompt-only A-level Skills are valid. Only a Skill that requested
+        # unavailable tools produces a visible degradation notice.
         # 若缺的全是"待发现"的 MCP 工具（尚未首次发现），则跳过——这只是启动期的暂态。
         mcp_pending_only = (
             not mcp_ready
             and missing_tool_ids
             and all(tid.startswith("mcp_") for tid in missing_tool_ids)
         )
-        if valid_skill_ids and not tools and not mcp_pending_only:
+        if missing_tool_ids and not tools and not mcp_pending_only:
             logger.error(
                 f"【工具装配】skills {valid_skill_ids} 解析后无任何可用工具；missing={missing_tool_ids}"
             )
@@ -450,6 +415,18 @@ class SkillRegistry:
                 "当前所选能力依赖的工具暂不可用（可能是 MCP 服务未连通）。"
                 "请如实告知用户该能力暂不可用并建议稍后重试，不要假装拥有或调用这些工具。"
             )
+
+        # B-level resources are exposed lazily through host-provided read-only
+        # tools bound to the exact immutable package versions in this run.
+        resource_skills = [resolved_skills[skill_id] for skill_id in valid_skill_ids if resolved_skills[skill_id].resources]
+        if resource_skills:
+            from app.agent.tool_guard import wrap_host_tool
+
+            tools.extend(wrap_host_tool(tool) for tool in build_resource_tools(resource_skills))
+            ordered_tool_ids.extend(["skill_list_resources", "skill_read_resource"])
+            resource_sources = list(dict.fromkeys(skill.stable_id for skill in resource_skills))
+            granted_by_skill["skill_list_resources"] = resource_sources
+            granted_by_skill["skill_read_resource"] = resource_sources
 
         # B2b：显式空 skill_ids 是合法的"纯对话"模式，但要让模型明确知道，避免静默。
         if explicit_empty:
@@ -464,6 +441,10 @@ class SkillRegistry:
             skill_prompts=skill_prompts,
             missing_tool_ids=missing_tool_ids,
             notices=notices,
+            tool_grant_sources={
+                tool_id: list(granted_by_skill.get(tool_id, ()))
+                for tool_id in ordered_tool_ids
+            },
         )
 
 
@@ -479,8 +460,19 @@ def get_default_tools() -> list[BaseTool]:
     return skill_registry.resolve().tools
 
 
-def resolve_skills(skill_ids: list[str] | None = None, tool_ids: list[str] | None = None) -> SkillResolution:
-    return skill_registry.resolve(skill_ids, tool_ids)
+def resolve_skills(
+    skill_ids: list[str] | None = None,
+    tool_ids: list[str] | None = None,
+    *,
+    snapshot: SkillRegistrySnapshot | None = None,
+    allow_private: bool = False,
+) -> SkillResolution:
+    return skill_registry.resolve(
+        skill_ids,
+        tool_ids,
+        snapshot=snapshot,
+        allow_private=allow_private,
+    )
 
 
 def resolve_tools(skill_ids: list[str] | None = None, tool_ids: list[str] | None = None) -> list[BaseTool]:

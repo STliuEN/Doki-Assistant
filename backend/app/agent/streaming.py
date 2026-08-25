@@ -12,6 +12,7 @@ from app.agent.runtime.events import runtime_event
 from app.agent.runtime.sse_driver import drive_sse_stream, make_thinking_callback, new_run_id
 from app.agent.tool_context import (
     set_confirmed_action,
+    set_current_run_binding,
     set_current_session_id,
     set_current_user_id,
     set_rag_retrieval_settings,
@@ -30,14 +31,18 @@ def bind_run_context(
     thinking_callback,
     rag_retrieval_settings,
     budget: dict,
+    *,
+    run_id: str | None,
+    registry_revision: int | None,
 ) -> None:
-    """统一设置每轮运行的 6 个 contextvar。顺序与齐全度被 GuardedTool 依赖，禁止拆散。"""
+    """统一设置每轮运行的 contextvars。顺序与齐全度被 GuardedTool 依赖，禁止拆散。"""
     set_current_user_id(user_id)
     set_current_session_id(session_id)
     set_thinking_callback(thinking_callback)
     set_rag_retrieval_settings(rag_retrieval_settings)
     set_confirmed_action(False)
     set_runtime_state({"tool_calls": 0, "max_tool_calls": budget["max_tool_calls"]})
+    set_current_run_binding(run_id, registry_revision)
 
 
 async def get_agent_stream_response(
@@ -49,12 +54,14 @@ async def get_agent_stream_response(
         context_settings=None,
         rag_retrieval_settings=None,
         *,
+        run_id: str | None = None,
+        registry_revision: int | None = None,
         factory: AgentFactory = agent_factory,
         **kwargs,
 ) -> AsyncGenerator[str, None]:
     """获取 Agent 流式响应（包含思考过程，实时推送）。"""
     thinking_queue = asyncio.Queue()
-    run_id = new_run_id()
+    run_id = run_id or new_run_id()
     budget = get_runtime_budget()
     start_time = time.monotonic()
     agent_result_holder = {"response": None, "error": None, "stop_reason": "completed", "run_id": run_id}
@@ -63,7 +70,15 @@ async def get_agent_stream_response(
 
     async def run_agent():
         try:
-            bind_run_context(user_id, session_id, thinking_callback, rag_retrieval_settings, budget)
+            bind_run_context(
+                user_id,
+                session_id,
+                thinking_callback,
+                rag_retrieval_settings,
+                budget,
+                run_id=run_id,
+                registry_revision=registry_revision,
+            )
 
             await thinking_callback(runtime_event("start", "正在准备上下文、模型和可用工具...", {"budget": budget}))
 
@@ -126,12 +141,14 @@ async def get_agent_regenerate_stream_response(
         context_settings=None,
         rag_retrieval_settings=None,
         *,
+        run_id: str | None = None,
+        registry_revision: int | None = None,
         factory: AgentFactory = agent_factory,
         **kwargs,
 ) -> AsyncGenerator[str, None]:
     """重新生成已有 assistant 消息，并用新内容覆盖原消息。"""
     thinking_queue = asyncio.Queue()
-    run_id = new_run_id()
+    run_id = run_id or new_run_id()
     budget = get_runtime_budget()
     start_time = time.monotonic()
     agent_result_holder = {"response": None, "error": None, "stop_reason": "completed", "run_id": run_id}
@@ -144,7 +161,15 @@ async def get_agent_regenerate_stream_response(
 
     async def run_agent():
         try:
-            bind_run_context(user_id, session_id, thinking_callback, rag_retrieval_settings, budget)
+            bind_run_context(
+                user_id,
+                session_id,
+                thinking_callback,
+                rag_retrieval_settings,
+                budget,
+                run_id=run_id,
+                registry_revision=registry_revision,
+            )
 
             await thinking_callback(runtime_event("start", "正在重新生成回答...", {"budget": budget}))
 
@@ -199,6 +224,8 @@ async def get_confirm_action_stream_response(
     action: dict,
     confirmed: bool,
     user_id: str,
+    *,
+    confirmed_tool=None,
 ) -> AsyncGenerator[str, None]:
     """执行或取消一条待确认高风险动作，并以 SSE 流式返回结果。
 
@@ -215,20 +242,22 @@ async def get_confirm_action_stream_response(
     if not confirmed:
         message = f"已取消高风险操作（{tool_id}），未执行。"
     else:
-        from app.agent.skill_registry import tool_registry
         from app.agent.tool_guard import wrap_tool
-        try:
-            tool_def = tool_registry.get(tool_id)
-        except KeyError:
-            message = f"未找到工具「{tool_id}」，无法执行确认操作。"
-            tool_def = None
+        tool_def = confirmed_tool
+        if tool_def is None:
+            message = "确认动作的运行授权快照无效，未执行。请重新发起原请求。"
 
         if tool_def is not None:
-            set_current_user_id(user_id)
-            set_current_session_id(session_id)
+            bind_run_context(
+                user_id,
+                session_id,
+                None,
+                None,
+                {"max_tool_calls": 1},
+                run_id=action.get("run_id"),
+                registry_revision=action.get("registry_revision"),
+            )
             set_confirmed_action(True)
-            set_thinking_callback(None)
-            set_runtime_state({"tool_calls": 0, "max_tool_calls": 1})
             try:
                 result = await wrap_tool(tool_def).ainvoke(args)
                 message = str(result)

@@ -3,7 +3,12 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 
 try {
-    $files = @(git ls-files --cached --others --exclude-standard -- "*.md")
+    # Cached paths include unstaged deletions, so filter against the current
+    # worktree before reading or reporting the checked file count.
+    $files = @(
+        git ls-files --cached --others --exclude-standard -- "*.md" |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+    )
     $failed = $false
     $checkedLinks = 0
     $linkPattern = '!?\[[^\]]*\]\((?<target><[^>]+>|[^)\s]+)(?:\s+["''][^)]*["''])?\)'

@@ -44,20 +44,19 @@ AR-0 + SK-0（合同、威胁、inventory、characterization）
 
 ## 当前验证基线
 
-| 检查 | 2026-08-18 最终复跑结果 |
+| 检查 | 2026-08-24 最终复跑结果 |
 |------|--------------------|
-| Backend pytest | `118 passed` |
-| Backend Ruff | passed |
+| Backend pytest | `216 passed` |
+| Backend 静态/依赖 | Ruff、compileall、`uv lock --check` 和 requirements 检查通过 |
 | FastAPI OpenAPI | current，生成文件检查通过 |
-| Alembic | 单一 head `20260817_0001`；offline SQL 生成通过 |
-| Django system check / migration drift | passed；`No changes detected` |
+| Alembic | 单一 head `20260824_0002`；upgrade/downgrade offline SQL 通过 |
 | Django tests | 隔离 SQLite 与 LocMemCache，`19 passed` |
-| Frontend Vitest | `20 passed` |
+| Frontend Vitest | `6 files / 28 tests passed` |
 | Frontend lint / build | passed |
-| Offline Benchmark | smoke `4/4`；regression `117/117`，无 hard veto |
-| 浏览器主流程 | Firefox 完成注册、资料读取、注销和移动端复核；控制台 0 error / 0 warning |
+| Offline Benchmark | smoke `4/4`；regression `117/117`，hard veto `0` |
+| 文档与差异 | `143 files / 132 local links`；`git diff --check` 通过 |
 
-2026-08-18 复跑补记：后端全量测试、Ruff、OpenAPI、Alembic head/offline SQL、离线 smoke 和 regression 均再次通过；本次只使用离线/隔离验证，没有连接或修改现有 MySQL。
+`scripts/check-docs.ps1` 已过滤 Git 索引中存在但工作树已删除的 cached 路径，文档结果只统计当前工作树。Benchmark results、前端 `dist` 和其他中间产物均受 ignore 规则保护，没有进入跟踪清单。
 
 数据库相关验证只使用临时 SQLite、Alembic offline SQL 和 revision 检查，没有连接或修改现有 MySQL。浏览器验收未启动 FastAPI，因此没有读取业务 MySQL；笔记页请求出现预期的 `502`，不计为已覆盖的业务主流程。上述结果只是合同/离线基线，不证明真实 MySQL、Redis、Storage、Chroma 的迁移、故障恢复、容量或 RPO/RTO。
 
@@ -82,7 +81,7 @@ AR-0 + SK-0（合同、威胁、inventory、characterization）
 | 8 | 知识处理任务中心 | 产品 UI/API 冻结；底层任务基础前置 | 持久化 queued/processing/ready/failed/cancelled；幂等上传、进度、取消和重试 | AR-1/AR-4 先证明重启恢复、lease/fencing、背压和投影对账；`ARCH-GATE` 后再交付 UI |
 | 9 | 统一搜索 | 冻结，待 `ARCH-GATE` | 跨笔记、记忆、会话和知识库检索；支持类型、时间、标签和来源过滤 | 结果按用户隔离；可进入原对象；混合检索有质量基线 |
 | 10 | 运行追踪、导出与恢复 | 产品 UI/API 冻结；观测/恢复底座前置 | Agent run、模型/Tool/耗时/错误记录；版本化导出；备份恢复与部署演练 | AR-0/AR-1/AR-6 先完成 correlation、manifest、恢复和演练；`ARCH-GATE` 后再交付 UI |
-| 11 | 标准兼容 Skill 单轨重构 | 当前核心必做；尚未实施，下一项 `SK-0` | 弃用内置 `skill.yaml` runtime；标准 A/B/C package；统一领域/Registry；可视化管理；一次性迁移与旧能力退出 | `SKILL-GATE`：标准导入/编辑/导出、A/B/C、安全隔离、迁移对账、回滚和无 Git 运行写入全部通过 |
+| 11 | 标准兼容 Skill 单轨重构 | A 级与有限 B 级开发支持已形成；门禁未通过 | parser/Storage/领域/API/UI/seed、资源编辑、CapabilityGrant、SkillRunBinding、private 过滤、多实例 reconcile 和旧运行目录退出已落地；保留 durable import、per-user scope、累计 token 预算、C runner 与真实 E2E | `SKILL-GATE`：标准导入/编辑/导出、A/B/C、安全隔离、迁移对账、回滚和无 Git 运行写入全部通过 |
 
 ## 当前执行选择
 
@@ -93,6 +92,6 @@ SK-0 -> SK-1 -> SK-2 -> SK-3 -> SK-4 -> SK-5 -> SKILL-GATE
   -> ARCH-GATE -> 7 -> 8 -> 9 -> 10
 ```
 
-`SK-0` 与 AR-0 同步启动；后续项必须等待各自依赖，但依赖满足后优先于其他业务域。`SK-4` 只有在 worker 沙箱、依赖锁定、权限和强制终止验收后才开放 Node/Python 脚本。工作包 `7-10` 原范围完整保留，不能因 Skill 或可靠性底座完成而视为已经实施。
+现有实现不能替代阶段门禁：CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、资源编辑、多实例 reconcile、OpenAPI 和旧路径静态禁回归已经完成；下一步集中补 durable import worker、per-user scope、资源累计 token 预算，以及真实 MySQL/API/第三方 A/B 聊天 E2E。`SK-4` 只有在独立 runner/沙箱、依赖锁定、权限和强制终止验收后才开放 Node/Python 脚本。工作包 `7-10` 原范围完整保留，不能因 Skill 或可靠性底座部分完成而视为已经实施。
 
 每个工作包在 `project_changes/<日期-主题>/` 使用同主题目录三件套记录：`plan.md`、`change-log.md` 和 `test-record.md`。完成条件仍包括相关测试、构建、OpenAPI、migration、Benchmark、回滚说明和活文档同步更新。

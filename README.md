@@ -4,7 +4,7 @@ Doki 助手是一个面向个人知识管理和日常任务的 AI Agent 工作�
 
 当前仓库是开发版单仓库、多进程系统，由 React 前端、Django 用户服务和 FastAPI 业务后端三个进程组成。项目仍以本地开发为主，尚未提供生产部署编排；三进程是当前态，不是目标架构。
 
-2026-08-24 计划复核确认：安全、认证、部署可靠性、版本化 migration 和 API/SSE 合同基础工作包 `1-6` 已完成；继续增加普通产品功能前必须执行[架构重写计划](./docs/architecture_rewrite_plan.md)的 `AR-0` 至 `AR-6`。标准 Skill 单轨改造是当前阶段最高优先级核心工作，按 `SK-0` 至 `SK-5` 执行并通过 `SKILL-GATE`；工作包 `7-10` 在 `SKILL-GATE` 与 `ARCH-GATE` 前继续冻结。
+2026-08-24 最终复核确认：安全、认证、部署可靠性、版本化 migration 和 API/SSE 合同基础工作包 `1-6` 已完成；继续增加普通产品功能前仍须执行[架构重写计划](./docs/architecture_rewrite_plan.md)的 `AR-0` 至 `AR-6`。标准 Skill 单轨改造已经形成 A 级和有限 B 级开发支持，授权、RunBinding、私有能力过滤、多实例 revision 对账和旧运行目录退出均已落地，但尚未通过 `SKILL-GATE`；C 级隔离执行、durable import、per-user scope 和完整真实 E2E 仍未完成。工作包 `7-10` 在 `SKILL-GATE` 与 `ARCH-GATE` 前继续冻结。
 
 ## 当前能力
 
@@ -13,7 +13,7 @@ Doki 助手是一个面向个人知识管理和日常任务的 AI Agent 工作�
 - 知识库：上传并解析 `txt/pdf/md/pptx/docx`，使用 ChromaDB 检索，可切换 Embedding 和 Reranker。
 - 笔记：编辑、分类、标签、置顶、批处理、AI 辅助写作和相关片段推荐。
 - 记忆中心：管理 `review/todo/reminder/long_term/memo` 五类事项，并向 Agent 暴露受控工具。
-- Skill/Tool：当前通过 Doki 目录格式注册本地能力，管理员可以在界面中创建和编辑；标准 `SKILL.md` 包接入已完成[需求规格](./docs/standard_skill_integration_requirements.md)，尚未实施。
+- Skill/Tool：开发分支已使用标准 `SKILL.md` package、不可变版本、MySQL 元数据和仓库外对象存储；支持安全 ZIP 检查/审批、可视化 draft/publish/settings、资源增删改与撤销、回滚/导出、A 级 Prompt 注入和受统一调用预算约束的 B 级只读资源。CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、Registry revision/outbox reconcile 和统一 stale `503` 已进入运行链。该能力仍是门禁前的 A 级与有限 B 级支持，不等于任意可执行 Skill 均受支持。
 - MCP：支持 stdio、SSE 和 streamable HTTP server；发现的工具进入统一 ToolRegistry。
 - 工具保护：统一限制调用次数、执行超时和输出长度；高风险工具需要用户确认。
 - 模型配置：支持系统默认模型、用户 OpenAI-compatible 配置和 Ollama 本地模型。
@@ -250,7 +250,7 @@ npm run lint -- --max-warnings 0
 npm run build
 ```
 
-本轮最终基线为 Backend `118 passed`、Django `19 passed`、Frontend `20 passed`；OpenAPI、migration drift、Alembic offline SQL、lint/build 均通过，offline smoke 为 `4/4`、regression 为 `117/117` 且 hard veto 为 0。数据库验证没有连接或修改现有 MySQL。
+本轮最终基线为 Backend `216 passed`、Django `19 passed`、Frontend `6 files / 28 tests passed`；Ruff、compileall、`uv lock`、requirements、OpenAPI、lint/build 均通过。Alembic 单一 head 为 `20260824_0002`，upgrade/downgrade offline SQL 通过；offline smoke 为 `4/4`、regression 为 `117/117` 且 hard veto 为 0。文档检查为 `143 files / 132 local links`，`git diff --check` 通过。数据库验证没有连接或修改现有 MySQL。
 
 ## 文档
 
@@ -277,7 +277,7 @@ npm run build
 - 仓库已有基础 CI 和 production profile 校验，但没有完整 Docker Compose、反向代理、TLS、正式部署与回滚清单。
 - 管理员权限仍以配置文件和环境变量为主，尚未迁移到数据库角色与审计表。
 - MCP 配置写回 YAML，不是数据库配置中心。
-- 当前 Skill 仍要求 Doki `skill.yaml + SKILL.md`，不支持直接导入标准 package、资源或脚本；目标兼容等级、旧内置能力退出、统一可视化管理和安全边界见[标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)。
+- 旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，并由静态测试阻止重新引入；标准 seed package 保存在 `backend/app/skills/seed_packages`。当前可直接导入标准 ZIP package，前端可上传、替换、删除、撤销资源并提交增量 `resource_changes`；CapabilityGrant、SkillRunBinding、import `target_revision`、多实例 revision/outbox reconcile、private Skill/Tool 过滤和 B 级统一调用预算已经落地。前端允许 `format_compatible=true` 但 `runtime_ready=false` 的 C 包（包括含 `scripts/` 的包）以禁用状态安装和管理，但仍禁止启用或执行。仍缺 durable import worker、per-user scope、资源累计 token 预算以及真实 MySQL/API/第三方聊天 E2E；Node/npm 或 Python C 级 runner/沙箱仍不受支持。
 - 前端部分页面仍较大；聊天已完成 SSE hook 和安全 Markdown，认证已统一到单一 Zustand store，但完整功能域拆分、头像及业务 E2E 仍待实施。
 - 标准 Skill 单轨改造不属于冻结项，而是当前架构重写必须交付的核心修改；除该专项、P0 安全、数据完整性、启动阻断修复及门禁底座外，在 `ARCH-GATE` 前暂停其他产品功能。目标架构、Skill 退出旧能力的路径和阶段验收以[架构重写计划](./docs/architecture_rewrite_plan.md)、[标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)与[全量重构开发计划](./docs/roadmap_next.md)为准。
 

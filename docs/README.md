@@ -2,7 +2,7 @@
 
 本目录只维护与当前代码一致的活文档。`project_changes/` 保存历史方案、变更日志和测试记录，用于追溯，不作为当前架构或操作方式的事实来源。
 
-2026-08-24 计划复核确认：基础工作包 `1-6` 已完成并通过既有 Backend `118`、Django `19`、Frontend `20` 项测试及相关 lint、build、OpenAPI、migration 和 Benchmark 门禁；架构重写 `AR-0` 至 `AR-6` 尚未执行，`ARCH-GATE` 未通过。工作包 `7-10` 继续冻结，标准 Skill 单轨改造列为当前最高优先级核心工作，必须按 `SK-0` 至 `SK-5` 执行并通过 `SKILL-GATE`。认证升级后旧 token 需要重新登录，数据库验证没有连接或修改现有 MySQL。
+2026-08-24 最终复核：基础工作包 `1-6` 已完成；标准 Skill 已形成 A 级和有限 B 级开发支持，资源编辑、CapabilityGrant、SkillRunBinding、private 过滤、多实例 revision/outbox reconcile、OpenAPI 和旧运行目录退出均已落地。durable import、per-user scope、资源累计 token 预算、C 级独立 runner/沙箱以及真实 MySQL/API/第三方聊天 E2E 仍是阻断项；`SKILL-GATE`、`ARCH-GATE` 均未通过，工作包 `7-10` 继续冻结。
 
 ## 阅读顺序
 
@@ -12,7 +12,7 @@
 | 理解服务和模块边界 | [当前架构](./project_develop.md) |
 | 修改聊天、SSE 或上下文 | [Agent 运行时](./agent_runtime_improvements.md) |
 | 接入或管理 MCP | [MCP 接入与管理](./mcp_integration_plan.md) |
-| 规划全面标准兼容 Skill 与统一可视化管理 | [标准 Skill 接入需求规格](./standard_skill_integration_requirements.md) |
+| 查看标准 Skill 当前兼容等级、实现差距和验收门 | [标准 Skill 接入需求规格](./standard_skill_integration_requirements.md) |
 | 修改记忆中心 | [记忆中心](./memory_center_implementation.md) |
 | 配置本地 Reranker | [本地模型配置](./modelscope_model.md) |
 | 排查运行问题 | [故障排除](./troubleshooting.md) |
