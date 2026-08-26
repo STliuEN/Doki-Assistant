@@ -31,7 +31,7 @@ R0-R8 是追踪维度，不是另一条阶段链。执行顺序以架构主计�
 | R4 后端模块 | `skills/tools/mcp` 起步的功能域边界 | Skill 首域实现中；其余域等待前置合同 |
 | R5 Agent/RAG/投影 | Run 状态、取消、预算、索引状态、重建和对账 | Agent/Skill 切片存在；通用任务、Tool/MCP policy 固定和投影恢复未完成 |
 | R6 前端模块 | shared/auth、skills、chat、knowledge、notes 与剩余页面 | 安全渲染、认证和 Skill UI 切片存在；完整拆分/E2E 未完成 |
-| R7 质量平台 | unit/API/integration/E2E/benchmark、CI、观测和证据模板 | 从 AR-0 前置启动；当前无 Node/npm，前端未复跑，真实依赖/跨平台矩阵未建立 |
+| R7 质量平台 | unit/API/integration/E2E/benchmark、CI、观测和证据模板 | 从 AR-0 前置启动；当前 Node/npm 与前端/browser R7 已复跑，真实依赖/跨平台矩阵未建立 |
 | R8 切换与部署 | 单一入口、本地清理；可选公网 canary/HA/DR | 本地有提前清理切片；公网部分属于 `PUBLIC-HA-GATE` |
 
 ## 已完成保护工作包

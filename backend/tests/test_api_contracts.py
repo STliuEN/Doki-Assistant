@@ -60,6 +60,24 @@ def test_production_rejects_missing_or_wildcard_cors(origins: list[str]) -> None
         _validate_cors_origins("production", origins)
 
 
+def test_skill_import_idempotency_header_is_allowed_by_cors() -> None:
+    from main import app
+
+    with TestClient(app) as client:
+        response = client.options(
+            "/skills/imports",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type,idempotency-key",
+            },
+        )
+
+    assert response.status_code == 200
+    allowed_headers = response.headers["access-control-allow-headers"].lower()
+    assert "idempotency-key" in allowed_headers
+
+
 def test_all_canonical_json_handlers_publish_the_envelope_in_openapi() -> None:
     from main import app
 

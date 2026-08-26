@@ -4,6 +4,7 @@ import asyncio
 import time
 from dataclasses import replace
 
+from app.agent.mcp.config import mcp_policy_authority_ready
 from app.agent.mcp.provider import McpToolSpec, mcp_provider
 
 # 处于错误态时，最多每隔这么多秒在请求路径上尝试一次重发现（自愈探针）。
@@ -56,6 +57,13 @@ class McpToolRegistry:
         return False
 
     async def _discover_locked(self) -> list[McpToolSpec]:
+        if not mcp_policy_authority_ready():
+            mcp_provider._last_errors["__policy__"] = (
+                "MCP policy authority unavailable; YAML adapter is not executable"
+            )
+            self._tools = {}
+            self._last_refresh = time.monotonic()
+            return []
         specs = await mcp_provider.discover_tools()
         merged: dict[str, McpToolSpec] = {spec.id: spec for spec in specs}
         fresh_server_ids = {spec.server_id for spec in specs}

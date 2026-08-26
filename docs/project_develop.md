@@ -231,11 +231,11 @@ MySQL Skill domain + canonical Storage object
 
 标准 package 由统一 parser/validator 解析，版本和安装元数据写入 MySQL，原始 ZIP 以 content-addressed immutable object 保存在仓库外；管理 API/UI 通过 draft/import/publish/settings/rollback/export 生命周期操作，不写源码目录。标准 seed package 位于 `backend/app/skills/seed_packages`，启动时幂等安装并发布 Registry snapshot。旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader、写入路径或双 Registry。
 
-当前已经接通 A 级 Prompt 和有限 B 级资源：资源工具按本轮固定 version/digest 精确读取，纳入统一 Tool 调用预算；前端支持上传、替换、删除、撤销，并以增量 `resource_changes` 生成新版本。CapabilityGrant、持久 SkillRunBinding、import `target_revision`、private Skill/Tool 过滤和 Registry revision/outbox/reconcile 已有代码切片；它们还不是可靠性闭环。损坏 package 可能让同 revision Registry 进入 degraded 空快照而不触发 stale `503`，普通 Tool/MCP policy 也未固定到 RunBinding。管理员 catalog 可查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
+当前已经接通 A 级 Prompt 和有限 B 级资源：资源工具按本轮固定 version/digest 精确读取，纳入统一 Tool 调用预算；前端支持上传、替换、删除、撤销，并以增量 `resource_changes` 生成新版本。CapabilityGrant、持久 SkillRunBinding、import `target_revision`、private Skill/Tool 过滤和 Registry revision/outbox/reconcile 已有代码切片；它们还不是可靠性闭环。损坏 package 会进入显式 degraded 诊断，健康 Registry 快照不被空快照覆盖且失败事件不 ack；普通 Tool/MCP policy 在版本化权威交付前保持 fail-closed，尚未固定到可执行 RunBinding。管理员 catalog 可查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
 
 前端传入的 `skill_ids` 是候选上界，显式 `tool_ids` 可以跳过意图收窄，但二者都必须经过当前用户可见 Skill、CapabilityGrant 和 Tool policy 的有效交集，不能作为授权绕过入口。当前只实现 system/global 安装，per-user scope 尚未完成。
 
-前端目前把 `format_compatible=true` 但 `runtime_ready=false` 的 C package（包括含 `scripts/` 的包）提交为 `enabled=false`、`default=false`；服务端尚未把新导入固定为 `installed_disabled` 不变量，因此不能把前端惯例当作安全门。当前也没有 durable import worker、独立 Node/Python runner/沙箱、跨资源读取累计 token 预算、角色分离/grant revoke、完整写审计或真实 MySQL/API/第三方 A/B 聊天 E2E；准确能力等级仍是门禁前的 A 级和有限 B 级开发切片。完整状态见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+前端目前把 `format_compatible=true` 但 `runtime_ready=false` 的 C package（包括含 `scripts/` 的包）提交为 `enabled=false`、`default=false`；服务端已将新导入固定为 `installed_disabled`，但完整授权、durable import worker、独立 Node/Python runner/沙箱、跨资源读取累计 token 预算、角色分离/grant revoke、完整写审计或真实 MySQL/API/第三方 A/B 聊天 E2E 仍未完成，准确能力等级仍是门禁前的 A 级和有限 B 级开发切片。完整状态见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
 
 ### 本地 Tool
 
@@ -378,7 +378,7 @@ FastAPI -> signature/claims/revocation/user-state validation -> user_id
 
 - 已有但尚未版本化的数据库仍需要人工备份、schema 审计和接管 runbook，不能直接 upgrade 或 stamp。
 - 管理员权限仍是文件/环境变量名单。
-- MCP 配置写回 Git 忽略的本地 YAML，缺少数据库配置和审计。
+- MCP 当前只读取 Git 忽略的本地 YAML 作为 discovery adapter/cache；版本化 policy authority、revision/digest、RunBinding 和完整审计尚未交付，相关运行与管理写入保持 fail-closed。
 - 用户名允许重复，当前登录查询只取第一条匹配记录。
 - RAG 关键文件仍较大，真实 MySQL/Redis/RAG 集成测试仍需要扩展。
 - 前端多个页面仍承担请求、状态与渲染混合职责。

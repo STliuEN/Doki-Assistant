@@ -280,13 +280,13 @@ npm run dev
 | `backend/app/config/agent.yaml` | Agent 最大迭代、工具调用、运行时间和输出预算 |
 | `backend/app/config/chroma.yaml` | Chroma collection、持久化目录、切片和文件类型 |
 | `backend/app/config/mcp.example.yaml` | 受版本控制的 MCP 示例；所有 server 默认禁用 |
-| `backend/app/config/mcp.local.yaml` | 本机 MCP server、allow/deny 和 tool override；Git 忽略 |
+| `backend/app/config/mcp.local.yaml` | 本机 MCP discovery adapter/cache；默认只读、Git 忽略，不能作为策略权威 |
 | `backend/app/config/prompt.yaml` | Prompt 名称到文件的映射 |
 | `backend/app/config/security.example.yaml` | 受版本控制的管理员配置模板，不含个人身份 |
 | `backend/app/config/security.local.yaml` | 本机管理员兜底名单；Git 忽略 |
 | `backend/app/config/rag.yaml` | 仅保留迁移说明，不再生效 |
 
-通过 ToolManager 修改 MCP server/tool 会写回 `mcp.local.yaml`。首次修改时，后端会从 `mcp.example.yaml` 创建本机副本；本机 URL、命令和凭据不会进入 Git。
+当前版本的 ToolManager 不把本地 YAML 当作策略写入口；版本化 policy authority 未就绪时相关修改 fail-closed。仅显式 adapter maintenance 流程可在隔离路径写入 `mcp.local.yaml`，本机 URL、命令和凭据不得进入 Git。
 
 ## 依赖维护
 

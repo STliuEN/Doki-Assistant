@@ -56,7 +56,7 @@ Alembic head、upgrade/downgrade offline SQL、compileall、requirements、Djang
 - 前端资源上传、替换、删除、撤销、增量 `resource_changes` 和未修改资源保留。
 - 前端允许 `format_compatible=true`、`runtime_ready=false` 的 C 包以 `enabled=false`、`default=false` 禁用安装，并保持不可启用、不可执行。
 - 删除 20 个旧运行文件，并以静态测试禁止 `skill.yaml` loader、旧目录写入和双 Registry 回归。
-- OpenAPI 与当前 Skill lifecycle/错误合同一致。
+- OpenAPI 生成物与已实现 Skill lifecycle 子集保持一致；import/export/error 合同仍有已知缺口，不能据此宣称当前完整 lifecycle 或错误合同已通过。
 
 ## 文档与 Git 产物检查
 

@@ -103,7 +103,7 @@ AR-1 只交付语言无关的隔离进程协议和恶意测试桩；Node/Python 
 
 | 阶段 | 状态 | 已有切片 | 主要阻断 |
 |------|------|----------|----------|
-| AR-0 + SK-0 | 实现中，证据不全 | 工作包 `1-6` 的安全/认证/migration/API-SSE 基线 | Chroma reset、发布安全、真实依赖环境、readiness、威胁模型、inventory、characterization |
+| AR-0 + SK-0 | 实现中，证据不全 | 工作包 `1-6` 的安全/认证/migration/API-SSE 基线；P0 containment 与当前环境 R7 已落地 | 真实依赖/恢复环境、批准的 SLO/RPO/RTO/容量、威胁模型、API/UI/Prompt/route characterization、统一授权审计 |
 | AR-1 + SK-1 | 未开始，有提前切片 | parser、Skill domain、revision/outbox | 无通用 job/worker/UoW/lease-fencing；import 仍在请求内 |
 | AR-2 | 未开始，有保护切片 | access/refresh、token version、部分 grant 数据结构 | 身份未收敛；无角色分离、grant revoke 和完整审计 |
 | AR-3 | 未开始，有 migration 切片 | Alembic baseline、Skill tables | 无统一 UUID/FK schema；Skill provenance 与 Tool/MCP policy 未成权威 |
@@ -115,12 +115,21 @@ AR-1 只交付语言无关的隔离进程协议和恶意测试桩；Node/Python 
 
 ### 3.3 当前执行队列
 
-1. 建立 R7 最小测试入口：失败回归、真实依赖启动方式、证据模板和 scoped diff check。
-2. 关闭 AR-0/SK-0 P0：禁止 Chroma 破坏性 reset；冻结不安全的 Skill publish/activate/rollback；坏包不得发布 ready、ack outbox、清空全 Registry 或以同 revision degraded 继续运行。
-3. 固定新导入为服务端 `installed_disabled`；修正 import `409/413`、ZIP media type、`Idempotency-Key` CORS 和 OpenAPI 错误合同；冻结角色分离、grant revoke、完整审计与 Tool/MCP digest 合同，关闭现有绕过。
-4. 补 package threat model、legacy checksum inventory、API/UI/Prompt/route characterization，并建立隔离的真实 MySQL/Redis/Storage/Chroma 基线。
+1. R7 当前环境失败回归、证据模板、scoped diff、前端测试/lint/build 和浏览器 smoke 已完成；真实依赖启动方式与恢复基线仍待隔离环境。
+2. P0 containment 已完成：禁止 Chroma 破坏性 reset；冻结不安全的 Skill publish/activate/rollback；坏包不得发布 ready、ack outbox、清空全 Registry 或以同 revision degraded 继续运行。
+3. 新导入已固定为服务端 `installed_disabled`；import `409/413`、ZIP media type、`Idempotency-Key` CORS 和 OpenAPI 错误合同已验证；角色分离、grant revoke、完整审计与 Tool/MCP digest 仅冻结合同，留待 AR-2/AR-3。
+4. Legacy checksum inventory、P0 返工矩阵和离线备份工具链已建立；package threat model、API/UI/Prompt/route characterization 及隔离真实 MySQL/Redis/Storage/Chroma 基线仍需补齐。只读 Git 输入见 [Legacy inventory](./legacy-skill-inventory-2026-08-26.md)。
 5. AR-0/SK-0 退出后实施通用 AR-1 worker/UoW/process protocol，以 Skill import/validation/publish 为首个 consumer。
 6. 按 AR-2/3 -> AR-4/5 -> SK-5 顺序完成身份/schema、Storage 生命周期、per-user/预算、真实 A/B E2E 和迁移对账，再执行本地两门。
+
+### 3.4 授权与审计统一合同（AR-0 冻结、AR-2 实现）
+
+AR-0 只冻结不可绕过的合同和失败语义，不把当前局部 CapabilityGrant/审计代码当作闭环证据。所有 Skill、Tool/MCP policy、RunBinding、API、worker 和恢复流程必须遵守同一合同：
+
+- 授权决策必须区分 Skill 管理员与安全管理员；内容准备、grant approve、grant revoke 和紧急例外不能由同一审批动作自批。任何缺少 actor、角色、scope/owner、目标版本或 policy/digest 的请求都 fail closed。
+- 每个 grant/撤销/策略变更固定 `actor/actor_role`、scope/owner、source/package/version/policy/tool-provider digest、before/after revision、grant diff、reason、effective/expiry time、result/error code、correlation ID 以及关联 `run/job/import` ID；secret、token 和资源正文脱敏。
+- revoke、过期、拒绝、回滚或 digest/revision 漂移必须使新 Run、排队 job 和延迟确认 fail closed，并记录受影响对象及取消/重授权结果。API、worker、重启恢复和 Registry reconcile 必须能按 correlation ID 对账同一事实。
+- 负向证据至少覆盖越权管理、同人自批、缺失/过期 grant、撤销传播、重放/幂等、旧 revision、digest 漂移、回滚和 worker 重启恢复；测试必须记录环境、命令、fixture、预期/实际、阈值和证据文件，未执行项标为“未验证”。
 
 ## 4. 阶段合同
 
@@ -189,7 +198,8 @@ AR-1 只交付语言无关的隔离进程协议和恶意测试桩；Node/Python 
 - publish/activate/rollback 原子切换并重验 checksum；坏包隔离且保留其他 Skill/上一健康快照。
 - 新导入固定禁用；upstream version/digest 冲突、`409/413`、ZIP/CORS/OpenAPI 合同稳定。
 - 角色分离、grant revoke、完整审计和 Tool/MCP policy digest 固定通过；Redis 丢失可恢复。
-- legacy 迁移/零数据、回滚、clean install、worker kill 和声明平台 A/B conformance 通过。
+- legacy 迁移/零数据、回滚、clean install、单实例 worker kill/restart、lease/fencing/幂等和声明平台 A/B conformance 通过。
+- 本门不要求真实多实例 consumer offset、跨实例乱序收敛或部署拓扑证据；这些属于 `PUBLIC-HA-GATE`，但相关代码在本地档位仍必须 fail closed。
 
 ### ARCH-GATE：本地产品解锁
 
@@ -201,7 +211,7 @@ AR-1 只交付语言无关的隔离进程协议和恶意测试桩；Node/Python 
 
 ### PUBLIC-HA-GATE：公网与 HA
 
-要求 AR-6 的生产等价拓扑、TLS/egress、canary、容量、监控、PITR、组合故障和 DR 证据。公网只提供 A/B 时不依赖 C 门；公网启用 C 时两门都必须通过。
+要求 AR-6 的生产等价拓扑、TLS/egress、canary、容量、监控、PITR、组合故障和 DR 证据，并补充多实例 worker consumer offset、乱序/重复投递、跨实例 revision 收敛、lease/fencing 和恢复演练。公网只提供 A/B 时不依赖 C 门；公网启用 C 时两门都必须通过。
 
 ### 5.1 阶段证据最低集
 

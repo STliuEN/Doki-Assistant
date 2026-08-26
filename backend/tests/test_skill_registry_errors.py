@@ -1,8 +1,38 @@
+import asyncio
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.failed_response_register import register_exception_handlers
-from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, SkillRegistryStaleError
+from app.skills.registry import SkillRegistrySnapshot, StandardSkillRegistry
+from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, SkillRegistryStaleError, SkillService
+
+
+def test_reconcile_rejects_degraded_snapshot_from_initial_empty_registry(monkeypatch) -> None:
+    service = SkillService()
+    service.registry = StandardSkillRegistry()
+    degraded = SkillRegistrySnapshot(
+        revision=7,
+        skills=(),
+        degraded=True,
+        failure_identity="fixture-failure",
+    )
+
+    async def registry_revision(_db) -> int:
+        return degraded.revision
+
+    async def refresh_registry(_db):
+        assert service.registry.publish(degraded)
+        return service.registry.snapshot
+
+    monkeypatch.setattr(service, "registry_revision", registry_revision)
+    monkeypatch.setattr(service, "refresh_registry", refresh_registry)
+
+    with pytest.raises(SkillRegistryStaleError, match="degraded"):
+        asyncio.run(service.reconcile_registry(object()))
+
+    assert service.registry.snapshot is degraded
 
 
 def test_registry_stale_error_is_globally_mapped_to_503() -> None:
@@ -39,4 +69,21 @@ def test_registry_dependent_routes_publish_503_in_openapi() -> None:
     for operation in operations:
         response = operation["responses"]["503"]
         assert response["description"] == SKILL_REGISTRY_STALE_MESSAGE
+        assert "ApiResponse" in response["content"]["application/json"]["schema"]["$ref"]
+
+
+def test_skill_lifecycle_mutations_publish_stable_conflict_contracts() -> None:
+    from main import app
+
+    schema = app.openapi()
+    lifecycle_operations = [
+        schema["paths"]["/skills/imports/{import_id}/approve"]["post"],
+        schema["paths"]["/skills/{skill_id}/publish"]["post"],
+        schema["paths"]["/skills/{skill_id}/versions/{version_id}/activate"]["post"],
+        schema["paths"]["/skills/{skill_id}/rollback"]["post"],
+    ]
+
+    for operation in lifecycle_operations:
+        response = operation["responses"]["409"]
+        assert response["description"]
         assert "ApiResponse" in response["content"]["application/json"]["schema"]["$ref"]

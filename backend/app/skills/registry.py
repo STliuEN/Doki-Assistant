@@ -126,6 +126,7 @@ class StandardSkillRegistry:
     def __init__(self) -> None:
         self._write_lock = RLock()
         self._snapshot = SkillRegistrySnapshot(revision=0, skills=())
+        self._has_published_snapshot = False
 
     @property
     def snapshot(self) -> SkillRegistrySnapshot:
@@ -139,6 +140,15 @@ class StandardSkillRegistry:
         with self._write_lock:
             if snapshot.revision < self._snapshot.revision:
                 return False
+            # A failed rebuild never replaces a healthy runtime snapshot. The
+            # caller still observes the failure and leaves outbox events
+            # unacknowledged, while existing healthy Skills remain available.
+            if (
+                snapshot.degraded
+                and not self._snapshot.degraded
+                and self._has_published_snapshot
+            ):
+                return False
             # A late failed rebuild must not regress a healthy recovery at the
             # same durable revision. A healthy snapshot may still recover a
             # degraded one at that revision.
@@ -149,6 +159,7 @@ class StandardSkillRegistry:
             ):
                 return False
             self._snapshot = snapshot
+            self._has_published_snapshot = True
             return True
 
     def get(self, identifier: str) -> RuntimeSkill | None:

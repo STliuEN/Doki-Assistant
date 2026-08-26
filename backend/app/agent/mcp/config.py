@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -14,16 +13,36 @@ MCP_LOCAL_CONFIG_PATH = CONFIG_DIR / "mcp.local.yaml"
 VALID_RISK_LEVELS = {"low", "medium", "high"}
 
 
+class McpPolicyAuthorityUnavailable(RuntimeError):
+    """Raised when a local YAML mutation would be mistaken for policy authority."""
+
+
+def mcp_local_writes_enabled() -> bool:
+    """Allow YAML writes only in an explicit adapter-maintenance process."""
+
+    return os.getenv("MCP_ALLOW_LOCAL_CONFIG_WRITES", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def mcp_policy_authority_ready() -> bool:
+    """Stay closed until the AR-3/AR-5 relational authority is implemented."""
+
+    return False
+
+
 def get_mcp_config_path(*, for_write: bool = False) -> Path:
     configured = os.getenv("MCP_CONFIG_PATH", "").strip()
     if configured:
         return Path(configured).expanduser()
 
     if for_write:
-        if not MCP_LOCAL_CONFIG_PATH.exists() and MCP_EXAMPLE_CONFIG_PATH.exists():
-            MCP_LOCAL_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(MCP_EXAMPLE_CONFIG_PATH, MCP_LOCAL_CONFIG_PATH)
-        return MCP_LOCAL_CONFIG_PATH
+        raise McpPolicyAuthorityUnavailable(
+            "MCP YAML is a read-only adapter/cache until versioned policy authority is available"
+        )
 
     if MCP_LOCAL_CONFIG_PATH.exists():
         return MCP_LOCAL_CONFIG_PATH
@@ -31,7 +50,20 @@ def get_mcp_config_path(*, for_write: bool = False) -> Path:
 
 
 def _resolve_config_path(config_path: Path | None, *, for_write: bool = False) -> Path:
-    return config_path if config_path is not None else get_mcp_config_path(for_write=for_write)
+    if not for_write:
+        return config_path if config_path is not None else get_mcp_config_path()
+    if not mcp_local_writes_enabled():
+        raise McpPolicyAuthorityUnavailable(
+            "MCP YAML writes are disabled; set MCP_ALLOW_LOCAL_CONFIG_WRITES=true only for explicit adapter maintenance"
+        )
+    if config_path is not None:
+        return config_path
+    configured = os.getenv("MCP_CONFIG_PATH", "").strip()
+    if not configured:
+        raise McpPolicyAuthorityUnavailable(
+            "MCP adapter maintenance requires an explicit MCP_CONFIG_PATH"
+        )
+    return Path(configured).expanduser()
 
 
 @dataclass(frozen=True)

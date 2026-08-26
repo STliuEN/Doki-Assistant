@@ -7,8 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.mcp.config import load_mcp_servers, update_mcp_server_config
+from app.agent.mcp.config import (
+    McpPolicyAuthorityUnavailable,
+    McpServerConfig,
+    load_mcp_servers,
+    update_mcp_server_config,
+)
+from app.agent.mcp.provider import McpToolProvider
 from app.core.environment import normalize_environment
+from app.router.mcp_router import _server_status
 from app.utils import auth_utils
 from app.utils.crypto_utils import decrypt_text, encrypt_text
 
@@ -131,7 +138,7 @@ def test_mcp_example_servers_are_disabled() -> None:
     assert all(not server.enabled for server in servers)
 
 
-def test_mcp_updates_explicit_writable_config(tmp_path: Path) -> None:
+def test_mcp_local_yaml_writes_fail_closed_by_default(tmp_path: Path, monkeypatch) -> None:
     config_path = tmp_path / "mcp.local.yaml"
     config_path.write_text(
         "servers:\n"
@@ -141,8 +148,57 @@ def test_mcp_updates_explicit_writable_config(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
+    monkeypatch.delenv("MCP_ALLOW_LOCAL_CONFIG_WRITES", raising=False)
+    monkeypatch.delenv("MCP_POLICY_AUTHORITY", raising=False)
+    monkeypatch.delenv("MCP_POLICY_AUTHORITY_VERSION", raising=False)
+
+    with pytest.raises(McpPolicyAuthorityUnavailable, match="YAML writes are disabled"):
+        update_mcp_server_config("sample", {"enabled": True}, config_path)
+
+    assert load_mcp_servers(config_path)[0].enabled is False
+
+
+def test_explicit_adapter_maintenance_can_update_a_scoped_yaml(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "mcp.local.yaml"
+    config_path.write_text(
+        "servers:\n"
+        "  - id: sample\n"
+        "    label: Sample\n"
+        "    enabled: false\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MCP_ALLOW_LOCAL_CONFIG_WRITES", "true")
     update_mcp_server_config("sample", {"enabled": True}, config_path)
 
     servers = load_mcp_servers(config_path)
     assert len(servers) == 1
     assert servers[0].enabled is True
+
+
+def test_mcp_runtime_policy_is_fail_closed_without_versioned_authority() -> None:
+    async def scenario() -> None:
+        provider = McpToolProvider()
+        server = McpServerConfig(id="sample", label="Sample", enabled=True)
+
+        assert await provider.discover_tools() == []
+        with pytest.raises(McpPolicyAuthorityUnavailable, match="cannot authorize discovery"):
+            await provider.list_tools(server)
+        with pytest.raises(McpPolicyAuthorityUnavailable, match="cannot authorize tool execution"):
+            await provider.call_tool("sample", "lookup", {})
+
+    import asyncio
+
+    asyncio.run(scenario())
+
+
+def test_mcp_yaml_catalog_is_explicitly_non_executable_without_authority() -> None:
+    server = McpServerConfig(id="sample", label="Sample", enabled=True)
+
+    status = _server_status(server)
+
+    assert status["status"] == "policy_unavailable"
+    assert status["policy_authority"] == "unavailable"
+    assert status["runtime_enabled"] is False
+    # The adapter may retain the configured value for UI/editing purposes,
+    # but it must never be interpreted as runtime authorization.
+    assert status["enabled"] is True

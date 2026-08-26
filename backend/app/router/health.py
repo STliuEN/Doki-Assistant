@@ -26,11 +26,30 @@ async def get_health_readiness():
     # 检查redis连接
     redis_status = await check_redis_connection()
     skill_storage_status = skill_package_storage.check_health()
-    if mysql_status and redis_status and skill_storage_status:
+    try:
+        from app.rag.vector_store import VectorStoreService
+
+        chroma_projection = VectorStoreService.projection_health()
+    except Exception as exc:
+        chroma_projection = {
+            "status": "unknown",
+            "persist_directory": None,
+            "checked_at": None,
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:500],
+        }
+    core_ready = mysql_status and redis_status and skill_storage_status
+    if core_ready:
         return success_response(
             message="health readiness status",
             data={
-                "status": "ok"
+                "status": "ok" if chroma_projection["status"] == "ready" else "degraded",
+                "dependencies": {
+                    "mysql": "ready",
+                    "redis": "ready",
+                    "skill_storage": "ready",
+                    "chroma_projection": chroma_projection,
+                },
             }
         )
     else:

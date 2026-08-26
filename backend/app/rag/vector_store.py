@@ -1,8 +1,10 @@
 import asyncio
 import hashlib
 import os
-import shutil
 import threading
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -36,12 +38,17 @@ def _clear_chroma_cache():
         pass
 
 
-def _reset_chroma_db(persist_dir: str):
-    """删除 Chroma 数据库目录（文件系统），同时清除内存中的缓存，达到完全重置的效果"""
-    _clear_chroma_cache()
-    if os.path.exists(persist_dir):
-        shutil.rmtree(persist_dir)
-        logger.info(f"已删除 Chroma 数据库目录并重置缓存: {persist_dir}")
+@dataclass(frozen=True, slots=True)
+class ChromaProjectionHealth:
+    status: str
+    persist_directory: str | None
+    checked_at: str | None
+    error_type: str | None = None
+    error_message: str | None = None
+
+
+class ChromaProjectionUnavailable(RuntimeError):
+    """Raised when the rebuildable Chroma projection is quarantined."""
 
 
 class _LazyEmbedding(Embeddings):
@@ -77,7 +84,13 @@ class VectorStoreService:
     """
     _instance = None
     _initialized = False
+    _restart_required = False
     _init_lock = threading.Lock()
+    _projection_health = ChromaProjectionHealth(
+        status="not_initialized",
+        persist_directory=None,
+        checked_at=None,
+    )
 
     def __new__(cls):
         # 第一重检查（无锁，性能优先）
@@ -89,6 +102,10 @@ class VectorStoreService:
         return cls._instance
 
     def __init__(self):
+        if VectorStoreService._restart_required:
+            raise ChromaProjectionUnavailable(
+                "projection rebuild completed; restart the process before opening Chroma"
+            )
         if VectorStoreService._initialized:
             return
 
@@ -103,11 +120,19 @@ class VectorStoreService:
             try:
                 self._init_chroma(persist_dir)
             except Exception as e:
-                # Chroma 初始化失败时（如数据库文件损坏），自动删除并重建，
-                # 实现优雅的自我修复，避免服务完全不可用
-                logger.error(f"Chroma 初始化失败，即将重置数据库: {e}")
-                _reset_chroma_db(persist_dir)
-                self._init_chroma(persist_dir)
+                # Chroma is a rebuildable projection, but an arbitrary init
+                # error never authorizes deleting its persisted source bytes.
+                # Keep the directory untouched and fail closed until an
+                # operator runs the explicit, manifest-backed rebuild flow.
+                self._mark_projection_unhealthy(persist_dir, e)
+                logger.error(
+                    "Chroma projection initialization failed; persistent data was preserved and the projection was quarantined: %s",
+                    e,
+                    exc_info=True,
+                )
+                raise ChromaProjectionUnavailable(
+                    "Chroma projection is unavailable; persistent data was preserved"
+                ) from e
 
             VectorStoreService._initialized = True
 
@@ -118,11 +143,91 @@ class VectorStoreService:
             embedding_function=self._get_embed_model(),
             persist_directory=persist_dir,
         )
+        self._notes_store = Chroma(
+            collection_name="notes_collection",
+            embedding_function=self._get_embed_model(),
+            persist_directory=persist_dir,
+        )
         self._user_rag_stores: dict[str, Chroma] = {}
         self._user_note_stores: dict[str, Chroma] = {}
         self.md5_store = MD5Store()
         self.hybrid_retriever = HybridRetriever(self.vectors_store)
         self.document_processor = DocumentProcessor(self.vectors_store, self.md5_store, self._get_embed_model())
+        VectorStoreService._projection_health = ChromaProjectionHealth(
+            status="ready",
+            persist_directory=str(Path(persist_dir).resolve()),
+            checked_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    @classmethod
+    def _mark_projection_unhealthy(cls, persist_dir: str, error: Exception) -> None:
+        cls._initialized = False
+        cls._projection_health = ChromaProjectionHealth(
+            status="quarantined",
+            persist_directory=str(Path(persist_dir).resolve()),
+            checked_at=datetime.now(timezone.utc).isoformat(),
+            error_type=type(error).__name__,
+            error_message=str(error)[:500],
+        )
+
+    @classmethod
+    def projection_health(cls) -> dict[str, str | None]:
+        """Return a JSON-safe readiness snapshot without touching Chroma."""
+
+        return asdict(cls._projection_health)
+
+    @classmethod
+    def rebuild_projection_from_backup(
+        cls,
+        bundle: str | os.PathLike[str],
+        target: str | os.PathLike[str],
+        *,
+        quarantine_root: str | os.PathLike[str] | None = None,
+    ) -> dict[str, object]:
+        """Rebuild a projection from a verified offline bundle.
+
+        The backup helper validates the manifest and every file digest, builds
+        a sibling staging generation, then atomically swaps the directory. A
+        running Chroma client is never retargeted in place: callers must
+        restart/reinitialize the process after a successful swap.
+        """
+
+        target_path = Path(target).expanduser().resolve(strict=False)
+        configured_path = Path(
+            get_abstract_path(chroma_config["persist_directory"])
+        ).expanduser().resolve(strict=False)
+        if target_path != configured_path:
+            raise ChromaProjectionUnavailable(
+                "projection rebuild target must match the configured persist directory: "
+                f"{configured_path}"
+            )
+
+        current = cls._instance
+        if cls._initialized and current is not None:
+            current_path = Path(getattr(current, "persist_dir", "")).resolve(strict=False)
+            if current_path == target_path:
+                raise ChromaProjectionUnavailable(
+                    "projection rebuild requires a process restart; active Chroma client was not retargeted"
+                )
+
+        # Keep manifest/digest and atomic swap semantics in the offline backup
+        # tool. This entry point intentionally does not open Chroma or a DB.
+        from scripts.backup_restore import rebuild_projection
+
+        result = rebuild_projection(
+            bundle=Path(bundle),
+            target=target_path,
+            quarantine_root=Path(quarantine_root).expanduser().resolve(strict=False)
+            if quarantine_root is not None
+            else None,
+        )
+        cls._projection_health = ChromaProjectionHealth(
+            status="rebuild_pending_restart",
+            persist_directory=str(target_path),
+            checked_at=datetime.now(timezone.utc).isoformat(),
+        )
+        cls._restart_required = True
+        return result
 
     @staticmethod
     def _get_embed_model():
@@ -155,7 +260,8 @@ class VectorStoreService:
         try:
             store.reset_collection()
         except Exception as exc:
-            logger.warning(f"重置 Chroma collection 失败，尝试继续使用新建 collection: {exc}")
+            logger.error("重置 Chroma collection 失败；索引重建已停止: %s", exc, exc_info=True)
+            raise
 
     async def get_user_rag_store(self, user_id: str, db=None, reset: bool = False) -> Chroma:
         if not user_id:
@@ -175,11 +281,7 @@ class VectorStoreService:
 
     async def get_user_notes_store(self, user_id: str, db=None, reset: bool = False) -> Chroma:
         if not user_id:
-            return Chroma(
-                collection_name="notes_collection",
-                embedding_function=self._get_embed_model(),
-                persist_directory=self.persist_dir,
-            )
+            return self._notes_store
 
         embedding_config = await self._get_user_embedding_config(user_id, db)
         collection_name = self._user_collection_name("notes", user_id)

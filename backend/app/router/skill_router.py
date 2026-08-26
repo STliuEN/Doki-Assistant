@@ -38,6 +38,33 @@ from app.skills.service import (
 )
 from app.utils.auth_utils import get_current_user_id, is_admin_user, require_admin_user, security
 
+SKILL_MUTATION_ERROR_RESPONSES = {
+    status.HTTP_400_BAD_REQUEST: {
+        "model": ApiResponse[None],
+        "description": "Skill package or lifecycle request is invalid",
+    },
+    status.HTTP_404_NOT_FOUND: {
+        "model": ApiResponse[None],
+        "description": "Skill or version was not found",
+    },
+    status.HTTP_409_CONFLICT: {
+        "model": ApiResponse[None],
+        "description": "Idempotency key, digest, or reviewed revision conflict",
+    },
+}
+
+SKILL_IMPORT_ERROR_RESPONSES = {
+    **SKILL_MUTATION_ERROR_RESPONSES,
+    status.HTTP_413_CONTENT_TOO_LARGE: {
+        "model": ApiResponse[None],
+        "description": "Skill ZIP or multipart request exceeds the configured limit",
+    },
+    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {
+        "model": ApiResponse[None],
+        "description": "Skill import requires application/zip or application/x-zip-compressed",
+    },
+}
+
 skill_router = APIRouter(
     prefix="/skills",
     tags=["skills"],
@@ -56,6 +83,11 @@ def _raise_service_error(exc: Exception) -> None:
     if isinstance(exc, SkillConflictError):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if isinstance(exc, SkillPackageError):
+        if exc.code == "storage_unavailable":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"code": exc.code, "message": exc.detail, "path": exc.path},
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": exc.code, "message": exc.detail, "path": exc.path},
@@ -97,6 +129,7 @@ async def get_skills_catalog(
     "/drafts",
     response_model=ApiResponse[SkillDetailResponse],
     status_code=status.HTTP_201_CREATED,
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
 )
 async def create_skill_draft(
     payload: SkillDraftCreate,
@@ -114,6 +147,7 @@ async def create_skill_draft(
     "/imports",
     response_model=ApiResponse[SkillImportResponse],
     status_code=status.HTTP_202_ACCEPTED,
+    responses=SKILL_IMPORT_ERROR_RESPONSES,
 )
 async def import_skill_package(
     file: UploadFile = File(...),
@@ -121,17 +155,27 @@ async def import_skill_package(
     actor_id: str = Depends(require_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
+    media_type = (file.content_type or "").split(";", 1)[0].strip().lower()
+    if media_type not in {"application/zip", "application/x-zip-compressed"}:
+        await file.close()
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Skill imports require an application/zip file",
+        )
     limit = skill_service.storage.limits.max_archive_bytes
     archive = await file.read(limit + 1)
     await file.close()
     if len(archive) > limit:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Skill package exceeds upload limit")
-    data = await skill_service.import_archive(
-        db,
-        archive,
-        actor_id=actor_id,
-        idempotency_key=idempotency_key,
-    )
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Skill package exceeds upload limit")
+    try:
+        data = await skill_service.import_archive(
+            db,
+            archive,
+            actor_id=actor_id,
+            idempotency_key=idempotency_key,
+        )
+    except SkillConflictError as exc:
+        _raise_service_error(exc)
     return success_response(message="skill package inspected", data=data)
 
 
@@ -148,7 +192,11 @@ async def get_skill_import(
     return success_response(data=data)
 
 
-@skill_router.post("/imports/{import_id}/approve", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.post(
+    "/imports/{import_id}/approve",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def approve_skill_import(
     import_id: str,
     payload: SkillImportApproveRequest,
@@ -185,7 +233,11 @@ async def get_skill_detail(
     return success_response(data=data)
 
 
-@skill_router.put("/{skill_id}/draft", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.put(
+    "/{skill_id}/draft",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def save_skill_draft(
     skill_id: str,
     payload: SkillDraftUpdate,
@@ -199,7 +251,11 @@ async def save_skill_draft(
     return success_response(message="skill draft saved as a new version", data=data)
 
 
-@skill_router.post("/{skill_id}/publish", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.post(
+    "/{skill_id}/publish",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def publish_skill_draft(
     skill_id: str,
     payload: SkillPublishRequest,
@@ -214,7 +270,11 @@ async def publish_skill_draft(
     return success_response(message="skill version published", data=data)
 
 
-@skill_router.patch("/{skill_id}/settings", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.patch(
+    "/{skill_id}/settings",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def update_skill_settings(
     skill_id: str,
     payload: SkillSettingsUpdate,
@@ -250,7 +310,11 @@ async def get_skill_versions(
     return success_response(data=data)
 
 
-@skill_router.post("/{skill_id}/versions/{version_id}/activate", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.post(
+    "/{skill_id}/versions/{version_id}/activate",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def activate_skill_version(
     skill_id: str,
     version_id: str,
@@ -266,12 +330,16 @@ async def activate_skill_version(
             actor_id=actor_id,
             expected_revision=payload.expected_revision,
         )
-    except (SkillNotFoundError, SkillConflictError) as exc:
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
         _raise_service_error(exc)
     return success_response(message="skill version activated", data=data)
 
 
-@skill_router.post("/{skill_id}/rollback", response_model=ApiResponse[SkillDetailResponse])
+@skill_router.post(
+    "/{skill_id}/rollback",
+    response_model=ApiResponse[SkillDetailResponse],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def rollback_skill(
     skill_id: str,
     payload: SkillRollbackRequest,
@@ -286,7 +354,7 @@ async def rollback_skill(
             expected_revision=payload.expected_revision,
             version_id=payload.version_id,
         )
-    except (SkillNotFoundError, SkillConflictError) as exc:
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
         _raise_service_error(exc)
     return success_response(message="skill rolled back", data=data)
 
@@ -336,7 +404,11 @@ async def read_skill_resource(
     return Response(content=content, media_type=media_type)
 
 
-@skill_router.delete("/{skill_id}", response_model=ApiResponse[None])
+@skill_router.delete(
+    "/{skill_id}",
+    response_model=ApiResponse[None],
+    responses=SKILL_MUTATION_ERROR_RESPONSES,
+)
 async def archive_skill(
     skill_id: str,
     payload: SkillArchiveRequest,

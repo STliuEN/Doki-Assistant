@@ -19,6 +19,8 @@ class _BackgroundInitManager:
         # 各组件的初始化状态事件
         self.models_ready = asyncio.Event()
         self.note_service_ready = asyncio.Event()
+        # Terminal state for NoteService initialization, including failure.
+        self.note_service_init_done = asyncio.Event()
         self.reranker_ready = asyncio.Event()
 
         # 初始化后的实例（初始化完成前为 None）
@@ -27,6 +29,7 @@ class _BackgroundInitManager:
         self.vision_model = None
         self.note_service = None
         self.reorder_service = None
+        self.note_service_error = None
 
     async def start(self):
         """启动后台初始化（不阻塞主事件循环）"""
@@ -38,23 +41,39 @@ class _BackgroundInitManager:
 
     async def _initialize_all(self):
         """后台执行所有重型初始化"""
-        try:
-            logger.info("🔄 开始后台初始化...")
+        logger.info("🔄 开始后台初始化...")
 
+        try:
             # 1. AI 模型（调用 factory 中的工厂类）
             await self._init_models()
-
-            # 2. ChromaDB（NoteService，依赖 embed_model）
-            await self._init_note_service()
-
-            # 3. 重排序模型（引入 torch、sentence_transformers 等重型框架）
-            await self._init_reranker()
-
-            elapsed = time.time() - self._start_time
-            logger.info(f"✅ 后台初始化完成，耗时 {elapsed:.1f} 秒")
-
         except Exception as e:
-            logger.error(f"❌ 后台初始化失败: {e}", exc_info=True)
+            self.note_service = None
+            self.note_service_error = f"model initialization failed: {str(e)[:400]}"
+            self.note_service_init_done.set()
+            logger.error(f"❌ 模型后台初始化失败: {e}", exc_info=True)
+            return
+
+        try:
+            # 2. ChromaDB projection（NoteService，依赖 embed_model）
+            await self._init_note_service()
+        except Exception as e:
+            self.note_service = None
+            self.note_service_error = str(e)[:500]
+            logger.error(
+                "❌ Chroma projection 初始化失败；核心 API 保持存活，向量功能进入 degraded 状态: %s",
+                e,
+                exc_info=True,
+            )
+        finally:
+            # This event means initialization reached a terminal state; the
+            # dependency checks note_service_error after waking up.
+            self.note_service_init_done.set()
+
+        # 3. 重排序模型不依赖 Chroma readiness，单独初始化。
+        await self._init_reranker()
+
+        elapsed = time.time() - self._start_time
+        logger.info(f"✅ 后台初始化流程结束，耗时 {elapsed:.1f} 秒")
 
     async def _init_models(self):
         """初始化 AI 模型"""
@@ -91,6 +110,7 @@ class _BackgroundInitManager:
         self.note_service = await asyncio.to_thread(
             lambda: NoteService(embed_model=self.embed_model)
         )
+        self.note_service_error = None
         logger.info("✅ NoteService（ChromaDB）初始化完成")
         self.note_service_ready.set()
 

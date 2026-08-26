@@ -20,8 +20,8 @@
 |--------|----------|----------|------------|
 | 标准格式与 A Prompt | 开发支持已实现，本地 A/B 发布门未通过 | 标准 frontmatter `SKILL.md` 解析、未知字段保留、ZIP/目录统一校验、不可变版本、Prompt 注入、路由样例和 OpenAPI 生成基础 | Skill import/export/error schema 仍有已知偏差；真实 MySQL/API/第三方聊天 E2E 与当前声明平台的发布证据仍缺失 |
 | B Resources | 有限支持 | 资源 manifest、不可变对象存储、版本绑定的按需读取、统一调用预算，以及前端上传/替换/删除/撤销和增量 `resource_changes` | 尚无跨多次读取的累计 token 预算和真实第三方 B 包聊天 E2E |
-| C Executable | 未实现，`EXEC-SKILL-GATE` 未通过 | 能识别并保留 `scripts/`；前端用 `enabled=false/default=false` 近似提供禁用安装和管理 | 显式、可审计的 `installed_disabled` 状态合同尚未落地；仍禁止启用/执行，且无 runner/沙箱、Node/Python adapter、lockfile、网络/文件/secret grant、取消和进程树强制终止 |
-| 单轨生命周期 | 主要开发链路已形成，本地 A/B 发布门未通过 | MySQL 领域、content-addressed Storage、draft/import/publish/rollback/export、`target_revision`，以及 revision/outbox、stale `503` 和旧目录静态禁回归的局部实现/单元测试 | 当前 outbox acknowledgement 不是逐 consumer，多实例可靠收敛与 stale fail-closed 尚未由真实故障测试证明；import 仍非 durable worker，Legacy 对账、恢复和 GC 未完成 |
+| C Executable | 未实现，`EXEC-SKILL-GATE` 未通过 | 能识别并保留 `scripts/`；服务端已固定新导入为可审计的 `installed_disabled`，仍禁止启用和执行 | 无 runner/沙箱、Node/Python adapter、lockfile、网络/文件/secret grant、取消和进程树强制终止；C 级仍不可发布 |
+| 单轨生命周期 | 主要开发链路已形成，本地 A/B 发布门未通过 | MySQL 领域、content-addressed Storage、draft/import/publish/rollback/export、`target_revision`，以及 revision/outbox、stale `503` 和旧目录静态禁回归的局部实现/单元测试 | 当前 outbox acknowledgement 不是逐 consumer，单实例 fail-closed/重启恢复尚未由真实故障测试证明；多实例收敛属于 `PUBLIC-HA-GATE`；import 仍非 durable worker，Legacy 对账、恢复和 GC 未完成 |
 | 授权与可复现运行 | 系统级控制骨架已形成，闭环未证明 | CapabilityGrant、持久 SkillRunBinding、version/digest/revision/effective grants 字段，以及 private Skill/Tool 和显式 ID 过滤的实现/单元测试 | 仅 system/global；角色仍来自旧管理员判定，per-user scope、grant revoke 传播、Tool/MCP policy digest、延迟确认漂移和真实安全 E2E 未完成 |
 
 旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader/写入路径；标准 seed package 保留在 `backend/app/skills/seed_packages`，不依赖旧运行目录。该删除关闭了旧运行入口，但也提前移除了通用迁移器的在线输入：seed 只代表已知内置基线，不能替代能够保留历史别名、设置、修改内容和 Tool 绑定的 `LegacySkillMigrator`。迁移证据必须从只读备份、最后包含旧目录的 Git 历史导出或发布归档离线重建；不得为补证据恢复 Legacy runtime。管理员 catalog 可以查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
@@ -139,7 +139,7 @@ Doki 可以识别可选扩展 metadata，但标准 A/B 级导入不得依赖扩�
 
 不得把“成功解析”“本机检测到 Node/npm”或“已经安装”展示为“可以安全执行”。
 
-当前前端对 `format_compatible=true` 但 `runtime_ready=false` 的 C 包保留“批准并安装”入口，审批请求强制 `enabled=false`、`default=false`，以现有字段近似表达禁用安装和管理；这不等于第 7.2 节显式、持久、可审计的 `installed_disabled` 状态已经实现。该状态不得显示启用或执行入口；含 `scripts/` 不会因安装成功而获得运行能力。
+当前前端对 `format_compatible=true` 但 `runtime_ready=false` 的 C 包保留“批准并安装”入口；服务端审批请求无论传入何种 enable/default 参数，均持久化为 `installed_disabled`，并由独立设置变更承担后续启用审计。该状态不得显示启用或执行入口；含 `scripts/` 不会因安装成功而获得运行能力。完整授权、runner 和真实 API/浏览器发布证据仍未完成。
 
 ## 4. 单一领域模型
 
@@ -389,7 +389,7 @@ HTTP/API 门禁必须固定以下结果且进入 OpenAPI、API 测试和前端�
 - catalog metadata、正文、资源和 Tool schema 分层加载，并分别设置数量、字节和 token 预算。
 - 每次 Run 记录 `skill_id/version/digest/registry_revision/effective_grants`。
 
-多实例激活或回滚后，健康 API/worker 应在 5 秒内收敛到同一 registry revision；超时实例必须拒绝新 Skill Run，而不是使用混合版本。
+本地 `SKILL-GATE` 要求单实例 worker 在激活/回滚、kill/restart、重复/乱序投递和 lease/fencing 场景中保持确定结果，落后或状态不明时拒绝新 Skill Run。真实多实例 API/worker 在目标时间内收敛到同一 registry revision 的要求属于 `PUBLIC-HA-GATE`；超时实例必须拒绝新 Skill Run，而不是使用混合版本。
 
 ## 11. API 合同
 
@@ -523,7 +523,8 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 
 ### 14.5 一致性和可观测性
 
-- 多 API/worker 实例在目标时间内收敛到相同 revision；落后实例拒绝新 Skill Run。
+- 单实例 API/worker 在 kill/restart、重复/乱序、lease 过期和 fencing 场景中恢复到确定 revision；落后或状态不明时拒绝新 Skill Run。这是 `SKILL-GATE` 条目。
+- 多 API/worker 实例的 consumer offset、跨实例 revision 收敛和部署拓扑恢复属于 `PUBLIC-HA-GATE`，不得用本地替身作为通过证据。
 - 每次 Run 可查询固定 Skill version、digest、effective grants、Tool/MCP policy digest 和 correlation ID。
 - 新建、导入、拒绝、验证、批准、编辑、激活、回滚、grant 授予/撤销、停用、导出、执行、取消、GC 和恢复全部产生第 11.1 节定义的审计。
 - Redis 丢失后 catalog 可从 MySQL/Storage 恢复；单 package 损坏不影响其他 Skill。
@@ -539,7 +540,7 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 
 发布声明按门禁分开，不能用一个含糊的“支持标准 Skill”覆盖不同安全边界：
 
-- `SK-0/1/2/3/5` 与第 14.1 至 14.5 节所有 A/B 条目通过 `SKILL-GATE` 后，才能对已经实际验收的平台声明“A 级标准 Skill 支持”或“标准 Skill 指令和资源支持”。
+- `SK-0/1/2/3/5` 与第 14.1 至 14.5 节除明确标为 `PUBLIC-HA-GATE` 的多实例条目外，其余 A/B 条目通过 `SKILL-GATE` 后，才能对已经实际验收的平台声明“A 级标准 Skill 支持”或“标准 Skill 指令和资源支持”。
 - `SK-4` 与第 14.6 节在某个平台通过 `EXEC-SKILL-GATE` 后，才能对该平台声明“标准 Skill 可执行支持”；未通过的平台继续显示 incompatible，未通过时 C 包只能 `installed_disabled`。
 - `SKILL-GATE` 通过后可成为本地 `ARCH-GATE` 的有效证据；`EXEC-SKILL-GATE` 不阻断本地 A/B 或本地产品解锁。
 - 只有 `PUBLIC-HA-GATE` 通过后才能声明公网/HA 就绪；公网只提供 A/B 时不依赖 `EXEC-SKILL-GATE`，公网启用 C 时二者都必须通过。

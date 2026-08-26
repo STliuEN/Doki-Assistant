@@ -441,7 +441,7 @@ refresh 证明 `tools/list` 成功，不代表每个工具调用都成功。当�
 
 ### 修改 MCP 后找不到配置差异
 
-这是当前设计：ToolManager 的修改写回 Git 忽略的 `backend/app/config/mcp.local.yaml`。仓库只跟踪默认禁用的 `mcp.example.yaml`。需要共享配置时，人工审查并更新示例文件，不要提交本机 URL、命令或 secret。
+这是历史本地开发说明：当前 `mcp.local.yaml` 只作为默认只读的 discovery adapter/cache，不能作为策略或授权权威。管理 API/UI 在版本化 policy authority 未就绪时 fail-closed；只有显式 `MCP_ALLOW_LOCAL_CONFIG_WRITES=true`、`MCP_CONFIG_PATH` 和隔离维护流程才允许写入本地 YAML，且不得提交本机 URL、命令或 secret。
 
 ## Agent SSE
 

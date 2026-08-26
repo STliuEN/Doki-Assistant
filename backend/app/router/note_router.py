@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.responses import Response, StreamingResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
@@ -32,7 +32,27 @@ note_router = APIRouter(prefix="/note", tags=["note"])
 
 async def ensure_note_service():
     """依赖：等待 NoteService 后台初始化完成后再处理请求。"""
-    await init_manager.note_service_ready.wait()
+    if (
+        init_manager.note_service_ready.is_set()
+        and init_manager.note_service is not None
+        and not init_manager.note_service_error
+    ):
+        return init_manager.note_service
+
+    if not init_manager._started:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Note service initialization has not started",
+        )
+
+    # Wait for either success or a terminal failure. Chroma failures release
+    # this event and are returned as a stable fail-closed response below.
+    await init_manager.note_service_init_done.wait()
+    if init_manager.note_service_error or init_manager.note_service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Note service is unavailable; Chroma projection is degraded",
+        )
     return init_manager.note_service
 
 

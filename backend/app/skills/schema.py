@@ -297,6 +297,7 @@ class SkillDetailResponse(BaseModel):
     tools: list[str]
     default: bool
     enabled: bool
+    installation_state: Literal["enabled", "disabled", "installed_disabled"]
     visibility: str
     order: int
     always_on: bool

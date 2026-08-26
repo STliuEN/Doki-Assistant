@@ -117,6 +117,8 @@ async def resolve_confirmed_tool(
     if tool_definition_digest(tool_def) != captured_digest:
         raise _invalid("the Tool definition changed after the action was created")
     current_provider_digest = tool_provider_config_digest(tool_def)
+    if action.get("source") == "mcp" and not current_provider_digest:
+        raise _invalid("the MCP policy authority is unavailable")
     if action.get("provider_config_digest") != current_provider_digest:
         raise _invalid("the Tool provider configuration changed after the action was created")
     return tool_def

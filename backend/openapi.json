@@ -2904,6 +2904,15 @@
             "title": "Id",
             "type": "string"
           },
+          "installation_state": {
+            "enum": [
+              "enabled",
+              "disabled",
+              "installed_disabled"
+            ],
+            "title": "Installation State",
+            "type": "string"
+          },
           "instructions": {
             "title": "Instructions",
             "type": "string"
@@ -3001,6 +3010,7 @@
           "tools",
           "default",
           "enabled",
+          "installation_state",
           "visibility",
           "order",
           "always_on",
@@ -7972,6 +7982,36 @@
             },
             "description": "Successful Response"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8056,6 +8096,56 @@
               }
             },
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill ZIP or multipart request exceeds the configured limit"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill import requires application/zip or application/x-zip-compressed"
           },
           "422": {
             "content": {
@@ -8181,6 +8271,36 @@
             },
             "description": "Successful response using the canonical API envelope"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8247,6 +8367,36 @@
               }
             },
             "description": "Successful response using the canonical API envelope"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
           },
           "422": {
             "content": {
@@ -8370,6 +8520,36 @@
             },
             "description": "Successful response using the canonical API envelope"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8436,6 +8616,36 @@
               }
             },
             "description": "Successful response using the canonical API envelope"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
           },
           "422": {
             "content": {
@@ -8627,6 +8837,36 @@
             },
             "description": "Successful response using the canonical API envelope"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8693,6 +8933,36 @@
               }
             },
             "description": "Successful response using the canonical API envelope"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
           },
           "422": {
             "content": {
@@ -8826,6 +9096,36 @@
               }
             },
             "description": "Successful response using the canonical API envelope"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill package or lifecycle request is invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Skill or version was not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_NoneType_"
+                }
+              }
+            },
+            "description": "Idempotency key, digest, or reviewed revision conflict"
           },
           "422": {
             "content": {

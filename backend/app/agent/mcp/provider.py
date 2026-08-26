@@ -5,7 +5,13 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent.mcp.config import McpServerConfig, load_mcp_servers, make_mcp_tool_id
+from app.agent.mcp.config import (
+    McpPolicyAuthorityUnavailable,
+    McpServerConfig,
+    load_mcp_servers,
+    make_mcp_tool_id,
+    mcp_policy_authority_ready,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +83,11 @@ class McpToolProvider:
         return set(self._last_errors)
 
     async def discover_tools(self) -> list[McpToolSpec]:
+        if not mcp_policy_authority_ready():
+            self._last_errors["__policy__"] = (
+                "MCP policy authority unavailable; YAML adapter is not executable"
+            )
+            return []
         tools: list[McpToolSpec] = []
         for server in self.servers():
             if not server.enabled:
@@ -92,6 +103,10 @@ class McpToolProvider:
         return tools
 
     async def list_tools(self, server: McpServerConfig) -> list[McpToolSpec]:
+        if not mcp_policy_authority_ready():
+            raise McpPolicyAuthorityUnavailable(
+                "MCP policy authority unavailable; YAML cannot authorize discovery"
+            )
         raw_tools = await self._list_tools_raw(server)
         allow = set(server.allow_tools)
         deny = set(server.deny_tools)
@@ -134,6 +149,10 @@ class McpToolProvider:
         return specs
 
     async def call_tool(self, server_id: str, tool_name: str, arguments: dict[str, Any]) -> str:
+        if not mcp_policy_authority_ready():
+            raise McpPolicyAuthorityUnavailable(
+                "MCP policy authority unavailable; YAML cannot authorize tool execution"
+            )
         server = next((item for item in self.servers() if item.id == server_id), None)
         if server is None:
             raise McpProviderError(f"MCP server not found: {server_id}")

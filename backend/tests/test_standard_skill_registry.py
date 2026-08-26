@@ -89,9 +89,41 @@ def test_degraded_snapshot_fails_closed_and_same_revision_can_recover() -> None:
     assert registry.snapshot.degraded is False
     assert registry.get("memory_read") is not None
 
+
+def test_newer_degraded_snapshot_does_not_replace_healthy_skills() -> None:
+    registry = StandardSkillRegistry()
+    healthy = SkillRegistrySnapshot(revision=4, skills=(_skill(),))
+    degraded = SkillRegistrySnapshot(
+        revision=5,
+        skills=(),
+        degraded=True,
+        failure_identity="newer-failure",
+    )
+
+    assert registry.publish(healthy)
+    assert not registry.publish(degraded)
+    assert registry.snapshot is healthy
+    assert registry.get("memory_read") is not None
+
     # A late failure from the same revision cannot regress a healthy recovery.
     assert not registry.publish(degraded)
     assert registry.get("memory_read") is not None
+
+
+def test_degraded_snapshot_does_not_replace_healthy_empty_snapshot() -> None:
+    registry = StandardSkillRegistry()
+    healthy_empty = SkillRegistrySnapshot(revision=4, skills=())
+    degraded = SkillRegistrySnapshot(
+        revision=4,
+        skills=(),
+        degraded=True,
+        failure_identity="empty-registry-failure",
+    )
+
+    assert registry.publish(healthy_empty)
+    assert not registry.publish(degraded)
+    assert registry.snapshot is healthy_empty
+    assert registry.all() == []
 
 
 

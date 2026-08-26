@@ -97,7 +97,11 @@ def tool_provider_config_digest(tool_def: Any) -> str | None:
     if getattr(tool_def, "source", None) != "mcp":
         return None
 
+    from app.agent.mcp.config import mcp_policy_authority_ready
     from app.agent.mcp.provider import mcp_provider
+
+    if not mcp_policy_authority_ready():
+        return None
 
     provider_id = getattr(tool_def, "provider_id", None)
     external_name = getattr(tool_def, "external_name", None)

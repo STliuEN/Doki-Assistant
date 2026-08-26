@@ -21,6 +21,7 @@ from app.models.skill_domain import (
     SkillRunBinding,
     SkillVersion,
 )
+from app.skills.package import SkillPackageError
 from app.skills.registry import StandardSkillRegistry
 from app.skills.schema import (
     SkillDraftCreate,
@@ -251,6 +252,153 @@ def test_new_import_uses_zero_as_the_explicit_uninstalled_revision(tmp_path) -> 
                 installed = await _approve_import(service, db, reviewed, expected_revision=0)
                 assert installed["name"] == "new-import-skill"
                 assert installed["revision"] == 1
+                assert installed["enabled"] is False
+                installation = (
+                    await db.execute(select(SkillInstallation).where(SkillInstallation.skill_id == installed["skill_id"]))
+                ).scalar_one()
+                assert installation.status.value == "disabled"
+                assert installation.settings["installed_disabled"] is True
+                assert installed["installation_state"] == "installed_disabled"
+
+    _run(scenario())
+
+
+def test_import_storage_io_failure_is_quarantined_and_not_published(tmp_path, monkeypatch) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "import-storage-io.db") as factory:
+            service = _service(tmp_path / "import-storage-io-packages")
+
+            def fail_store(_archive: bytes):
+                raise PermissionError("storage volume is read-only")
+
+            monkeypatch.setattr(service.storage, "store_archive", fail_store)
+            async with factory() as db:
+                result = await service.import_archive(
+                    db,
+                    service._archive_from_draft(_draft(name="storage-io-skill")),
+                    actor_id="admin",
+                    idempotency_key="storage-io",
+                )
+
+                assert result["status"] == "quarantined"
+                assert result["diagnostics"][0]["code"] == "storage_unavailable"
+                record = await db.get(SkillImport, result["id"])
+                assert record is not None
+                assert record.status.value == "quarantined"
+                assert record.skill_id is None
+                assert service.registry.snapshot.skills == ()
+
+    _run(scenario())
+
+
+def test_import_approval_ignores_requested_enable_and_requires_separate_transition(tmp_path) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "import-disabled.db") as factory:
+            service = _service(tmp_path / "import-disabled-packages")
+            async with factory() as db:
+                archive = service._archive_from_draft(_draft(name="contained-import"))
+                reviewed = await service.import_archive(
+                    db,
+                    archive,
+                    actor_id="admin",
+                    idempotency_key="contained-import",
+                )
+                installed = await service.approve_import(
+                    db,
+                    reviewed["id"],
+                    actor_id="admin",
+                    expected_digest=reviewed["digest"],
+                    expected_revision=0,
+                    enabled=True,
+                    default=True,
+                    visibility="public",
+                    order=100,
+                    tools=(),
+                    always_on=False,
+                    routable=True,
+                    routing_examples={},
+                )
+
+                assert installed["enabled"] is False
+                assert installed["default"] is False
+                assert service.registry.get("contained-import") is None
+
+    _run(scenario())
+
+
+def test_repeated_published_import_revalidates_storage_before_return(tmp_path) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "published-import-retry.db") as factory:
+            service = _service(tmp_path / "published-import-retry-packages")
+            async with factory() as db:
+                archive = service._archive_from_draft(_draft(name="published-import-retry"))
+                reviewed = await service.import_archive(
+                    db,
+                    archive,
+                    actor_id="admin",
+                    idempotency_key="published-import-retry",
+                )
+                installed = await _approve_import(service, db, reviewed, expected_revision=0)
+                version = await db.get(SkillVersion, installed["version_id"])
+                assert version is not None
+                (service.storage.root / version.storage_key).write_bytes(b"tampered")
+
+                with pytest.raises(SkillPackageError, match="ZIP|zip|digest"):
+                    await _approve_import(service, db, reviewed, expected_revision=0)
+
+    _run(scenario())
+
+
+def test_publish_revalidates_storage_before_switching_active_version(tmp_path) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "publish-digest.db") as factory:
+            service = _service(tmp_path / "publish-digest-packages")
+            async with factory() as db:
+                draft = await service.create_draft(db, _draft(), "admin")
+                version = await db.get(SkillVersion, draft["version_id"])
+                object_path = service.storage.root / version.storage_key
+                object_path.write_bytes(b"not-a-zip")
+
+                with pytest.raises(Exception, match="storage|ZIP|zip"):
+                    await _publish(service, db, draft["id"], draft["revision"])
+
+                await db.rollback()
+                installation = (
+                    await db.execute(select(SkillInstallation).where(SkillInstallation.skill_id == draft["skill_id"]))
+                ).scalar_one()
+                assert installation.active_version_id is None
+                assert service.registry.snapshot.skills == ()
+
+    _run(scenario())
+
+
+def test_post_commit_registry_refresh_cancellation_preserves_pointer_and_outbox(tmp_path, monkeypatch) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "publish-cancel.db") as factory:
+            service = _service(tmp_path / "publish-cancel-packages")
+            async with factory() as db:
+                draft = await service.create_draft(db, _draft(name="publish-cancel"), "admin")
+
+                async def cancel_refresh(*_args, **_kwargs):
+                    raise asyncio.CancelledError()
+
+                monkeypatch.setattr(service, "refresh_registry", cancel_refresh)
+                published = await _publish(service, db, draft["id"], draft["revision"])
+
+                installation = (
+                    await db.execute(
+                        select(SkillInstallation).where(
+                            SkillInstallation.skill_id == draft["skill_id"]
+                        )
+                    )
+                ).scalar_one()
+                assert installation.active_version_id == published["version_id"]
+                pending = (
+                    await db.execute(
+                        select(SkillRegistryEvent).where(SkillRegistryEvent.processed_at.is_(None))
+                    )
+                ).scalars().all()
+                assert pending
 
     _run(scenario())
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -169,6 +170,7 @@ def _installation_settings(
     always_on: bool,
     routable: bool,
     routing_examples: Mapping[str, Sequence[str]],
+    installed_disabled: bool = False,
 ) -> dict[str, Any]:
     return {
         "default": bool(default),
@@ -183,6 +185,7 @@ def _installation_settings(
                 {key: list(values) for key, values in routing_examples.items()}
             ).items()
         },
+        "installed_disabled": bool(installed_disabled),
     }
 
 
@@ -282,6 +285,49 @@ class SkillService:
                 f"Skill revision changed from {expected_revision} to {installation.revision}; reload before saving"
             )
 
+    def _verify_version_storage(self, version: SkillVersion) -> StoredSkillPackage:
+        """Revalidate immutable package bytes before changing the active pointer."""
+
+        try:
+            stored = self.storage.load_archive(
+                version.storage_key,
+                expected_digest=version.package_digest,
+            )
+        except OSError as exc:
+            raise SkillPackageError(
+                "storage_unavailable",
+                "Skill package storage is temporarily unavailable",
+            ) from exc
+        manifest = _manifest(stored.package)
+        stored_version_note = str((version.manifest or {}).get("version_note", ""))
+        manifest["version_note"] = stored_version_note
+        if stored.digest != version.package_digest:
+            raise SkillPackageError(
+                "storage_digest_mismatch",
+                "Skill package digest changed before activation",
+            )
+        if stored.package.metadata.name != version.name:
+            raise SkillPackageError(
+                "metadata_changed",
+                "stored Skill name does not match the approved version",
+            )
+        if stored.package.metadata.description != version.description:
+            raise SkillPackageError(
+                "metadata_changed",
+                "stored Skill description does not match the approved version",
+            )
+        if manifest != (version.manifest or {}):
+            raise SkillPackageError(
+                "manifest_changed",
+                "stored Skill manifest does not match the approved version",
+            )
+        if _requested_capabilities(stored.package) != (version.requested_capabilities or {}):
+            raise SkillPackageError(
+                "capabilities_changed",
+                "stored Skill capabilities do not match the approved version",
+            )
+        return stored
+
     @staticmethod
     def _audit(
         db: AsyncSession,
@@ -352,6 +398,14 @@ class SkillService:
 
         try:
             await self.refresh_registry(db)
+        except asyncio.CancelledError:
+            # The durable DB transaction has already committed. Cancellation
+            # during best-effort in-memory publication must not turn a
+            # successful pointer change into a retryable-looking API failure.
+            logger.warning(
+                "Skill %s committed, but registry refresh was cancelled; outbox reconciliation will retry",
+                operation,
+            )
         except Exception:
             logger.exception(
                 "Skill %s committed, but the local registry refresh failed; outbox reconciliation will retry",
@@ -631,11 +685,23 @@ class SkillService:
             ) from exc
         try:
             stored = self.storage.store_archive(archive_bytes)
-        except SkillPackageError as exc:
+        except (SkillPackageError, OSError) as exc:
+            package_error = (
+                exc
+                if isinstance(exc, SkillPackageError)
+                else SkillPackageError(
+                    "storage_unavailable",
+                    "Skill package storage is temporarily unavailable",
+                )
+            )
             import_record.status = SkillImportStatus.QUARANTINED
-            import_record.error_code = exc.code
-            import_record.error_message = exc.detail
-            import_record.diagnostics = [{"code": exc.code, "detail": exc.detail, "path": exc.path}]
+            import_record.error_code = package_error.code
+            import_record.error_message = package_error.detail
+            import_record.diagnostics = [{
+                "code": package_error.code,
+                "detail": package_error.detail,
+                "path": package_error.path,
+            }]
             import_record.completed_at = _now()
             self._audit(
                 db,
@@ -643,7 +709,7 @@ class SkillService:
                 actor_id=actor_id,
                 skill_id=None,
                 import_id=import_record.id,
-                details={"error_code": exc.code},
+                details={"error_code": package_error.code},
             )
             await db.commit()
             await db.refresh(import_record)
@@ -723,6 +789,20 @@ class SkillService:
         if record.package_digest != expected_digest:
             raise SkillConflictError("Imported package digest changed; review it again")
         if record.status == SkillImportStatus.PUBLISHED and record.skill_id:
+            if record.skill_version_id is None:
+                raise SkillConflictError("Published import is missing its approved version")
+            version_result = await db.execute(
+                select(SkillVersion).where(
+                    SkillVersion.id == record.skill_version_id,
+                    SkillVersion.skill_id == record.skill_id,
+                )
+            )
+            published_version = version_result.scalar_one_or_none()
+            if published_version is None:
+                raise SkillConflictError("Published import version is no longer available")
+            # Idempotent retries must not bypass the same immutable Storage
+            # check required before the original active-pointer transition.
+            self._verify_version_storage(published_version)
             return await self.get_detail(db, record.skill_id, can_manage=True)
         if record.status != SkillImportStatus.AWAITING_APPROVAL or not record.staged_storage_key:
             raise SkillConflictError(f"Import is not awaiting approval: {record.status}")
@@ -780,8 +860,12 @@ class SkillService:
             parent_version_id=parent.id if parent else None,
             status=SkillVersionStatus.READY,
         )
+        self._verify_version_storage(version)
         has_scripts = bool((version.requested_capabilities or {}).get("scripts"))
-        effective_enabled = enabled and not has_scripts
+        # AR-0 containment: importing and approving a package never enables
+        # it in the same operation. Enablement is a separate, auditable
+        # settings transition after the installed package is reviewed.
+        effective_enabled = False
         settings = _installation_settings(
             default=default and effective_enabled,
             visibility=visibility,
@@ -790,13 +874,14 @@ class SkillService:
             always_on=always_on,
             routable=routable,
             routing_examples=routing_examples,
+            installed_disabled=True,
         )
         if installation is None:
             installation = SkillInstallation(
                 skill_id=skill.id,
                 active_version_id=version.id,
                 draft_version_id=None,
-                status=SkillInstallationStatus.ENABLED if effective_enabled else SkillInstallationStatus.DISABLED,
+                status=SkillInstallationStatus.DISABLED,
                 settings=settings,
                 revision=1,
                 created_by=actor_id,
@@ -807,7 +892,7 @@ class SkillService:
         else:
             installation.active_version_id = version.id
             installation.draft_version_id = None
-            installation.status = SkillInstallationStatus.ENABLED if effective_enabled else SkillInstallationStatus.DISABLED
+            installation.status = SkillInstallationStatus.DISABLED
             installation.settings = settings
             installation.revision = int(installation.revision) + 1
             installation.updated_by = actor_id
@@ -832,7 +917,11 @@ class SkillService:
             installation_id=installation.id,
             import_id=record.id,
             after={"revision": installation.revision, "digest": version.package_digest, "enabled": effective_enabled},
-            details={"script_execution_blocked": has_scripts},
+            details={
+                "script_execution_blocked": has_scripts,
+                "requested_enabled": enabled,
+                "installed_disabled": True,
+            },
         )
         await db.commit()
         await db.refresh(record)
@@ -863,6 +952,7 @@ class SkillService:
             raise SkillConflictError("Skill has no draft to publish")
         self._assert_revision(installation, expected_revision)
         version = installation.draft_version
+        self._verify_version_storage(version)
         compatibility = (version.manifest or {}).get("compatibility", {})
         runtime_ready = bool(compatibility.get("runtime_ready", False))
         effective_enabled = enabled and runtime_ready
@@ -933,7 +1023,10 @@ class SkillService:
             compatibility = ((installation.active_version.manifest or {}).get("compatibility", {}) if installation.active_version else {})
             if patch["enabled"] and not compatibility.get("runtime_ready", False):
                 raise SkillConflictError("This Skill is not runtime ready and cannot be enabled")
+            if patch["enabled"] and installation.active_version is not None:
+                self._verify_version_storage(installation.active_version)
             installation.status = SkillInstallationStatus.ENABLED if patch["enabled"] else SkillInstallationStatus.DISABLED
+            settings["installed_disabled"] = False
             if not patch["enabled"]:
                 settings["default"] = False
         if installation.status != SkillInstallationStatus.ENABLED:
@@ -989,6 +1082,7 @@ class SkillService:
         version = result.scalar_one_or_none()
         if version is None:
             raise SkillNotFoundError(version_id)
+        self._verify_version_storage(version)
         before_id = installation.active_version_id
         installation.active_version_id = version.id
         installation.draft_version_id = None
@@ -1205,6 +1299,12 @@ class SkillService:
             "tools": list(settings.get("tools", [])),
             "default": bool(settings.get("default", False)),
             "enabled": installation.status == SkillInstallationStatus.ENABLED,
+            "installation_state": (
+                "installed_disabled"
+                if installation.status == SkillInstallationStatus.DISABLED
+                and bool(settings.get("installed_disabled", False))
+                else installation.status.value
+            ),
             "visibility": settings.get("visibility", "public"),
             "order": int(settings.get("order", 100)),
             "always_on": bool(settings.get("always_on", False)),
@@ -1370,6 +1470,10 @@ class SkillService:
         else:
             snapshot = SkillRegistrySnapshot(revision=revision, skills=tuple(runtime_skills))
         if not self.registry.publish(snapshot):
+            if snapshot.degraded:
+                raise SkillRegistryStaleError(
+                    f"Skill registry rebuild failed at revision {revision}; previous healthy snapshot was preserved"
+                )
             raise SkillRegistryStaleError(
                 f"Skill registry refused revision {revision}; current revision is {self.registry.revision}"
             )
@@ -1388,6 +1492,15 @@ class SkillService:
             snapshot = await self.refresh_registry(db)
         else:
             snapshot = self.registry.snapshot
+        # A degraded snapshot is diagnostic state, never a usable runtime
+        # catalog.  This also covers a process whose initial registry is empty:
+        # publishing the failed rebuild there is useful for observability, but
+        # callers must still receive the stable 503 contract instead of an
+        # apparently successful empty catalog.
+        if snapshot.degraded:
+            raise SkillRegistryStaleError(
+                "Skill registry rebuild is degraded; previous healthy snapshot was preserved"
+            )
         if snapshot.revision != target_revision:
             raise SkillRegistryStaleError(
                 f"Skill registry is stale at revision {snapshot.revision}; database requires {target_revision}"
@@ -1398,6 +1511,10 @@ class SkillService:
         """Reconcile one process and acknowledge outbox events after publication."""
 
         snapshot = await self.reconcile_registry(db)
+        if snapshot.degraded:
+            raise SkillRegistryStaleError(
+                "Skill registry rebuild is degraded; events were left unacknowledged"
+            )
         await db.execute(
             update(SkillRegistryEvent)
             .where(

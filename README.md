@@ -250,7 +250,7 @@ npm run lint -- --max-warnings 0
 npm run build
 ```
 
-2026-08-25 当前可复核基线为 Backend `216 passed`，Ruff、OpenAPI 生成/检查、`uv lock --check` 和文档检查通过。当前 shell 无法解析 Node/npm，因此本轮未复跑 Frontend test/lint/build，不能沿用历史结果作为当前证据。`git diff --check ai_document_assistant_develop...HEAD` 会报告比较基线中既存的空白/换行告警；各工作包必须另跑 scoped diff check。上述离线结果不证明真实 MySQL、Redis、Storage 或 Chroma 的事务与恢复能力。
+2026-08-26 当前可复核基线为 Backend `263 passed`，Frontend Vitest `28 passed`（6 files），ESLint、Vite build、Ruff、OpenAPI 生成/检查、`uv lock --check` 和文档检查通过；前端/browser R7 使用显式 Node 22.20.0/npm 10.9.3 路径完成。`git diff --check ai_document_assistant_develop...HEAD` 会报告比较基线中既存的空白/换行告警；各工作包必须另跑 scoped diff check。上述离线结果不证明真实 MySQL、Redis、Storage 或 Chroma 的事务与恢复能力。
 
 ## 文档
 

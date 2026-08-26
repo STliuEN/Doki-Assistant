@@ -47,7 +47,7 @@
 | API-01 | P1 | 通用基线已关闭；Skill 增量保留 | canonical JSON 通用路由使用 `ApiResponse[T]`，SSE 固定 `schema_version: "1.0"`；Skill 路由的虚假 `200 Any`、ZIP media type 和错误响应仍由 `SKILL-03` 阻断 |
 | REL-01 | P1 | 已关闭 | FastAPI 用户状态复核使用带 timeout 的异步 HTTP client，并有确定的依赖失败语义 |
 | TEST-01 | P1 | 基础门禁已关闭 | 认证、路径、响应、SSE、迁移与限流合同已进入测试；更广的业务 E2E 继续由 R7 扩展 |
-| SKILL-01 | P0 | 部分关闭，三类门禁均未通过 | 标准 package/Storage、版本回滚、CapabilityGrant、SkillRunBinding、private 过滤、revision/outbox、资源编辑和旧目录退出已有局部实现/测试，但授权闭环与多实例收敛未由真实环境证明；仍缺 durable import、per-user scope、grant revoke/角色分离、Tool/MCP policy digest、累计 token 预算、Legacy 对账和完整真实 E2E |
+| SKILL-01 | P0 | 部分关闭，三类门禁均未通过 | 标准 package/Storage、版本回滚、CapabilityGrant、SkillRunBinding、private 过滤、revision/outbox、资源编辑和旧目录退出已有局部实现/测试，但授权闭环与单实例 worker fail-closed/重启恢复未由真实环境证明；多实例收敛归 `PUBLIC-HA-GATE`；仍缺 durable import、per-user scope、grant revoke/角色分离、Tool/MCP policy digest、累计 token 预算、Legacy 对账和完整真实 E2E |
 | SKILL-02 | P0 | 保留 | 旧运行目录已在通用 `LegacySkillMigrator` 和逐项对账前删除；seed package 只能恢复已知基线，不能证明历史别名、用户修改、安装设置和 Tool/MCP binding 已迁移 |
 | SKILL-03 | P0 | 保留 | 发布原子性、单包隔离、`installed_disabled`、staging TTL/orphan GC、完整审计，以及 `409`/`413`/恶意 ZIP/CORS 合同尚未形成真实数据库/API/浏览器发布门 |
 | EXEC-01 | 条件 P0（启用 C 时） | 未实现 | AR-1 尚未交付语言无关隔离进程协议和恶意测试桩；SK-4 Node/Python adapter、沙箱、依赖锁定、grant、取消和进程树终止均未通过 `EXEC-SKILL-GATE`；C 保持禁用时不阻断本地 A/B |
@@ -130,4 +130,5 @@
 - 依赖漏洞扫描、secret scanning、监控告警和部署回滚清单已接入。
 - 生产 CORS 只允许审阅过的 origin；Skill 导入、导出、资源预览和 SSE 的预检/凭据场景均有浏览器测试，不能用 `*` 与 credentials 组合。
 - 真实 MySQL/Redis/Storage/Chroma 的备份、PITR/恢复、对账、API/worker 回滚、canary 自动 abort 和组合故障演练达到批准的 RPO/RTO/SLO。
+- 多 API/worker 实例的 consumer offset、重复/乱序投递、lease/fencing、Registry revision 收敛和实例恢复在生产等价拓扑中达到批准阈值；不得使用本地单实例替身作为通过证据。
 - 当前 Windows-only lock/CI 只能支持 Windows 部署声明；任何 Linux 公网/HA 声明必须先具备 Linux lock、平台依赖拆分和 Windows/Linux required-check matrix。

@@ -8,7 +8,6 @@ import re
 import uuid
 import zipfile
 
-from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 from sqlalchemy import delete, func, select, update
@@ -19,8 +18,6 @@ from app.models.note import Note
 from app.schemas.models import NoteCreate, NoteResponse, NoteUpdate
 from app.schemas.sse import encode_sse
 from app.services.memory_service import memory_service
-from app.utils.config import chroma_config
-from app.utils.path_tool import get_abstract_path
 from app.utils.prompt_loader import load_prompt
 
 NOTES_COLLECTION_NAME = "notes_collection"
@@ -40,12 +37,12 @@ class NoteService:
         初始化 ChromaDB 笔记集合。复用现有 persist_directory 但使用独立 collection。
         :param embed_model: 嵌入模型实例（后台初始化完成后传入）
         """
-        persist_dir = get_abstract_path(chroma_config['persist_directory'])
-        self._notes_store = Chroma(
-            collection_name=NOTES_COLLECTION_NAME,
-            embedding_function=embed_model,
-            persist_directory=persist_dir,
-        )
+        # Chroma initialization is owned by VectorStoreService so every
+        # projection failure is quarantined and reported through one health
+        # contract. Keep the argument for the background-init API.
+        from app.rag.vector_store import VectorStoreService
+
+        self._notes_store = VectorStoreService()._notes_store
 
     @property
     def notes_store(self):
