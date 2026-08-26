@@ -12,9 +12,17 @@
 - [下一阶段路线图](../docs/roadmap_next.md)
 - [架构重写计划](../docs/architecture_rewrite_plan.md)
 
+## 2026-08-25 工作计划与代码现实校准
+
+本批只校准活计划与当前代码现实，不修改业务实现，也不表示任何 AR/SK 门禁已经通过。当前停留在 `AR-0 + SK-0`：发布原子性、Registry 单包隔离、授权撤销/审计、Skill OpenAPI、Chroma 安全恢复、通用 worker/UoW 和真实依赖基线仍是阻断项。本地 A/B `SKILL-GATE`、本地 `ARCH-GATE`、可选 `EXEC-SKILL-GATE` 与 `PUBLIC-HA-GATE` 相互分开；工作包 `7-10` 只暂停到本地门，通过本地门不会解锁 C 级或公网/HA。当前阶段状态和门禁定义以[架构重写计划](../docs/architecture_rewrite_plan.md)为唯一事实源。
+
+| 主题 | 方案 | 变更记录 | 验证记录 |
+|------|------|----------|----------|
+| 工作计划与代码现实校准 | [plan](./2026-08-25-plan-reality-alignment/plan.md) | [change log](./2026-08-25-plan-reality-alignment/change-log.md) | [test record](./2026-08-25-plan-reality-alignment/test-record.md) |
+
 ## 2026-08-24 标准 Skill 核心重构
 
-本目录先记录需求与门禁，随后持续记录同主题实现。当前已形成标准 package 的 A 级和有限 B 级开发支持，包含 parser/Storage/领域/API/UI/seed、资源编辑、CapabilityGrant、SkillRunBinding、private 过滤、多实例 reconcile、OpenAPI 和旧运行目录退出。durable import、per-user scope、累计 token 预算、C 级隔离执行和完整真实 E2E 仍未完成；`SKILL-GATE` 与 `ARCH-GATE` 均未通过，工作包 `7-10` 继续保留并冻结。
+本目录记录了标准 package A 级与有限 B 级的实现切片，包括 parser、content-addressed Storage、领域/API/UI、固定 seed、资源编辑、CapabilityGrant、SkillRunBinding、private 过滤和 revision/outbox 机制；它不是完成声明。缺失或损坏 package 仍可能破坏发布与 Registry 健康，授权撤销/审计、Skill OpenAPI、Storage staging/GC、durable import、per-user scope、累计预算、真实 A/B E2E 和迁移对账均未闭环，因此不能声称多实例一致性、统一 stale `503` 或 OpenAPI 已完成。旧运行目录被提前删除且固定 seed 已存在，也不等于通用 Legacy inventory、迁移器和零数据证明完成。该批 A/B 证据进入本地 `SKILL-GATE`；C 级与公网/HA 分别进入独立门禁，工作包 `7-10` 只暂停到本地 `ARCH-GATE`。
 
 | 主题 | 方案 | 变更记录 | 验证记录 |
 |------|------|----------|----------|
@@ -22,7 +30,7 @@
 
 ## 2026-08-20 架构重写计划
 
-本批次只更新活文档和计划，不代表架构重写已经开始。可靠性优先的 `AR-0` 至 `AR-6` 和 `ARCH-GATE` 说明见[架构重写计划](./2026-08-20-architecture-rewrite-plan/plan.md)；工作包 7-10 的产品 UI/API 在门禁通过前冻结，但任务、观测、投影和恢复底座属于门禁前置基础。
+本批次是 2026-08-20 当时的计划文档化记录；“尚未开始”只描述当时状态，不是当前事实。现行状态、`AR-0` 至 `AR-6` 的分层范围，以及本地 `ARCH-GATE`、`EXEC-SKILL-GATE`、`PUBLIC-HA-GATE` 以[活架构重写计划](../docs/architecture_rewrite_plan.md)为准。
 
 | 主题 | 方案 | 变更记录 | 验证记录 |
 |------|------|----------|----------|
@@ -43,4 +51,4 @@
 | 5 | 版本化数据库迁移 | [plan](./2026-08-17-versioned-database-migrations/plan.md) | [change log](./2026-08-17-versioned-database-migrations/change-log.md) | [test record](./2026-08-17-versioned-database-migrations/test-record.md) |
 | 6 | API 与 SSE 合同 | [plan](./2026-08-17-api-sse-contract/plan.md) | [change log](./2026-08-17-api-sse-contract/change-log.md) | [test record](./2026-08-17-api-sse-contract/test-record.md) |
 
-工作包 7“回答引用与一键沉淀”、8“知识处理任务中心”、9“统一搜索”和 10“运行追踪、导出与恢复”仅保留在[改进执行计划](../docs/improvement_execution_plan.md)中，本批次未实施，也没有创建完成归档。
+工作包 7“回答引用与一键沉淀”、8“知识处理任务中心”、9“统一搜索”和 10“运行追踪、导出与恢复”保留在[产品路线图](../docs/roadmap_next.md)中，本批次未实施，也没有创建完成归档。

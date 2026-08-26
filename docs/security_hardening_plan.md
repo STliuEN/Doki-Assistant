@@ -1,16 +1,16 @@
 # 安全与可靠性加固计划
 
-状态：基础工作包 `1-6` 已完成；剩余风险继续跟踪
+状态：基础工作包 `1-6` 已完成；本地 A/B `SKILL-GATE`、可选 C 级 `EXEC-SKILL-GATE` 与公网/HA `PUBLIC-HA-GATE` 均未通过
 
 审查日期：2026-07-16
 
-最近复核：2026-08-24
+最近复核：2026-08-25
 
 适用范围：当前 `ai_document_assistant` 分支
 
-本文记录安全、认证、数据库演进和接口合同的当前事实与剩余风险。[架构重写计划](./architecture_rewrite_plan.md)规定后续改进门禁，[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)规定当前最高优先级 Skill 改造的 package/权限/runner 安全边界，[改进执行计划](./improvement_execution_plan.md)维护工作包和完成状态，[开发与运行说明](./development_setup.md)维护实际命令和部署边界。历史实施证据位于 `project_changes/`。
+本文只记录已实施安全控制、剩余风险和公网安全条件。[架构重写计划](./architecture_rewrite_plan.md)维护阶段、门禁和当前队列，[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)维护 package/权限/runner 合同，[开发与运行说明](./development_setup.md)维护实际命令。历史实施证据位于 `project_changes/`。
 
-工作包 `1-6` 已关闭最初审查中的路径穿越、原始 HTML 渲染、token 生命周期、固定测试账号、宽松生产 CORS、启动期 schema 修改和 API/SSE 合同漂移等问题。项目仍缺少生产部署编排、TLS/反向代理演练、统一服务端网络出口策略和完整备份恢复演练，因此不能仅凭本轮完成状态宣称公网就绪。
+工作包 `1-6` 已关闭最初审查中的路径穿越、原始 HTML 渲染、token 生命周期、固定测试账号、宽松生产 CORS、启动期 schema 修改和通用 API/SSE 合同漂移等问题；Skill 增量 OpenAPI/错误合同仍属于未关闭阻断。项目仍缺少生产部署编排、TLS/反向代理演练、统一服务端网络出口策略和完整备份恢复演练，因此不能仅凭本轮完成状态宣称公网就绪。门禁必须分开解释：`SKILL-GATE` 只发布本地 A/B，`EXEC-SKILL-GATE` 只发布可执行 C 级，`PUBLIC-HA-GATE` 才允许公网/HA；公网启用 C 时才额外依赖 `EXEC-SKILL-GATE`。
 
 ## 已验证基线
 
@@ -18,7 +18,7 @@
 |------|--------------------|
 | Backend pytest | `216 passed` |
 | Backend Ruff | passed |
-| FastAPI OpenAPI | current |
+| FastAPI OpenAPI | 生成/漂移检查通过；已知 Skill import/export/error schema 仍待修复 |
 | Alembic | `20260824_0002 (head)`；upgrade/downgrade offline SQL 通过 |
 | Django tests | 隔离 SQLite 与 LocMemCache，`19 passed` |
 | Frontend Vitest | `6 files / 28 tests passed` |
@@ -44,10 +44,15 @@
 | DEPLOY-02 | P0 | 已关闭 | Django/FastAPI 拒绝未知 `ENV` 并使用明确 CORS allowlist；生产弱密钥、DEBUG、空 host/origin 或通配 origin 会 fail fast |
 | DB-01 | P0 | 已关闭 | Django migration 已纳入版本控制，CI 检查 migration drift，启动不生成或执行 migration |
 | DB-02 | P0 | 已关闭 | FastAPI Alembic baseline 含 ORM 唯一约束并有 metadata 合同检查；启动只校验 revision，不执行通用 schema DDL |
-| API-01 | P1 | 已关闭 | canonical JSON 路由使用 `ApiResponse[T]`；OpenAPI 与真实 envelope 一致；SSE 固定 `schema_version: "1.0"` |
+| API-01 | P1 | 通用基线已关闭；Skill 增量保留 | canonical JSON 通用路由使用 `ApiResponse[T]`，SSE 固定 `schema_version: "1.0"`；Skill 路由的虚假 `200 Any`、ZIP media type 和错误响应仍由 `SKILL-03` 阻断 |
 | REL-01 | P1 | 已关闭 | FastAPI 用户状态复核使用带 timeout 的异步 HTTP client，并有确定的依赖失败语义 |
 | TEST-01 | P1 | 基础门禁已关闭 | 认证、路径、响应、SSE、迁移与限流合同已进入测试；更广的业务 E2E 继续由 R7 扩展 |
-| SKILL-01 | P0 | 部分关闭，门禁未通过 | 标准 package/Storage、版本回滚、CapabilityGrant、SkillRunBinding、private 过滤、多实例 reconcile、资源编辑和旧目录退出已完成；仍缺 durable import、per-user scope、累计 token 预算、C runner/沙箱和完整真实 E2E |
+| SKILL-01 | P0 | 部分关闭，三类门禁均未通过 | 标准 package/Storage、版本回滚、CapabilityGrant、SkillRunBinding、private 过滤、revision/outbox、资源编辑和旧目录退出已有局部实现/测试，但授权闭环与多实例收敛未由真实环境证明；仍缺 durable import、per-user scope、grant revoke/角色分离、Tool/MCP policy digest、累计 token 预算、Legacy 对账和完整真实 E2E |
+| SKILL-02 | P0 | 保留 | 旧运行目录已在通用 `LegacySkillMigrator` 和逐项对账前删除；seed package 只能恢复已知基线，不能证明历史别名、用户修改、安装设置和 Tool/MCP binding 已迁移 |
+| SKILL-03 | P0 | 保留 | 发布原子性、单包隔离、`installed_disabled`、staging TTL/orphan GC、完整审计，以及 `409`/`413`/恶意 ZIP/CORS 合同尚未形成真实数据库/API/浏览器发布门 |
+| EXEC-01 | 条件 P0（启用 C 时） | 未实现 | AR-1 尚未交付语言无关隔离进程协议和恶意测试桩；SK-4 Node/Python adapter、沙箱、依赖锁定、grant、取消和进程树终止均未通过 `EXEC-SKILL-GATE`；C 保持禁用时不阻断本地 A/B |
+| PLATFORM-01 | P1 | 保留 | backend lock/uv resolution 与 CI 当前仅支持 Windows；没有 Linux lock、平台依赖拆分或 Windows/Linux conformance matrix，不能声明 Linux/macOS 支持 |
+| PUBLIC-01 | P0 | 保留 | 反向代理/TLS、可信代理、secret/漏洞扫描、监控告警、备份恢复、canary/rollback 和组合故障证据未通过 `PUBLIC-HA-GATE` |
 | NET-01 | P1 | 保留 | 自定义模型/Embedding 地址仍需统一 DNS、重定向和私网地址 egress 策略 |
 | USER-01 | P1 | 保留 | 登录主标识及 username/email 唯一性仍需结合后续用户域收敛确认 |
 | UI-01 | P2 | 保留 | 头像选择、上传、失败反馈与组件测试仍不是完整浏览器主流程 |
@@ -90,19 +95,27 @@
 
 - Django migration 源文件进入版本控制；CI 执行 system check、migration drift 和隔离测试。
 - FastAPI schema 由 Alembic 管理，当前 head 为 `20260824_0002`；baseline 与 Skill domain revision、唯一约束及 ORM metadata 均由合同测试比对。应用启动只检查 revision；实际升级必须显式执行 migration 命令。
-- canonical JSON handler 通过泛型 envelope 发布真实 OpenAPI；成功响应不再用未验证的 `JSONResponse` 绕过模型。
+- canonical JSON handler 已建立泛型 envelope 基线，普通成功响应不再用未验证的 `JSONResponse` 绕过模型；Skill 增量路由仍须移除虚假 `200 Any` 并补准确的 ZIP/error schema。
 - chat、knowledge、note 和 translate 的 SSE 都声明 `text/event-stream`，事件携带固定 `schema_version: "1.0"`。
 
-## 剩余加固顺序
+## Skill、执行与发布边界
 
-1. 完成 `SKILL-01` 剩余门禁：durable import、per-user scope、资源累计 token 预算、真实 MySQL/API/第三方聊天 E2E，以及 C 级独立 runner/沙箱和恢复演练。
-2. 完成 `NET-01`：为所有用户可配置外部地址统一 DNS 解析、重定向、loopback/private/link-local/cloud metadata 阻断和管理员 allowlist；该策略同时供 Skill runner egress 使用。
-3. 完成生产反向代理、TLS、可信代理 header、日志脱敏、依赖漏洞与 secret scanning 演练。
-4. 在不触碰现有数据的前提下制定 MySQL 备份、Alembic/Django migration dry-run、校验和恢复演练。
-5. 随 R3 确认用户唯一标识、角色和审计模型；随 R6 完成头像及其浏览器测试。
-6. 随 R7 扩展真实 MySQL/Redis/Chroma integration job 和注册、登录、聊天、上传、笔记、注销的完整 E2E。
+门禁范围、阶段依赖和当前队列以[架构重写计划](./architecture_rewrite_plan.md)为准；package、授权、发布、迁移和 runner 的详细合同以[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)为准。本风险计划只保留以下安全结论：
 
-## 公网就绪条件
+- 未通过可选 C 级门禁时，含脚本或 runtime 未就绪的包只能保持 `installed_disabled`，不得启用、路由或执行。
+- Skill 管理与安全审批必须分权；grant revoke、Tool/MCP policy digest、发布事务、单包隔离、审计和 GC 任一项未闭环，都不能声明 A/B 发布安全。
+- 旧运行目录提前删除不等于迁移完成；必须从只读历史输入离线对账，不得为了补证据恢复 Legacy runtime。
+- 当前 lock 和 CI 只能支持 Windows 声明；没有对应平台 lock、依赖拆分和 conformance 证据时，不得声明 Linux/macOS 支持。
+- Skill API 仍须用真实 API/浏览器测试固定 `409/413`、ZIP media type、结构化恶意 ZIP 错误和 CORS fail-closed 行为。
+
+## 风险处置原则
+
+- `SKILL-01` 至 `SKILL-03`、`PUBLIC-01` 等 P0 未关闭时，相关门禁保持未通过；不得用已有代码切片或绿色单元测试替代真实依赖与恢复证据。
+- 当前实现顺序只从架构重写计划读取；本文件不维护第二套 AR/SK 队列。
+- `NET-01` 必须由统一服务端 egress policy 处理，默认阻断 loopback、private、link-local、cloud metadata、危险重定向和 DNS 漂移。
+- 公网部署是本地架构完成后的独立决策；没有明确拓扑、容量目标和运维责任人时，不启动公网/HA 验收。
+
+## `PUBLIC-HA-GATE` 公网就绪条件
 
 只有同时满足以下条件，才能把文档中的“仅本地开发”限制改为支持公网部署：
 
@@ -110,7 +123,11 @@
 - production profile 和反向代理/TLS 流程在干净环境演练通过。
 - migration 可从空库执行，并对现有数据完成只读盘点、备份与恢复演练。
 - 任意用户输入不能突破文件根目录或服务端网络出口策略。
-- 公网就绪退出条件：届时 `SKILL-GATE` 必须已通过；标准 package、权限、依赖和脚本不得突破 worker 文件/网络/资源边界，旧内置 Skill runtime 必须已退出。
+- 本地 A/B `SKILL-GATE` 必须已通过，旧内置 Skill runtime 必须已退出且 Legacy 离线迁移/不可恢复差异已有批准记录。
+- 若公网只启用 A/B，C 包必须保持 `installed_disabled`，不要求 `EXEC-SKILL-GATE`；若公网开放任何 C 级安装启用、构建或执行入口，对应平台的 `EXEC-SKILL-GATE` 必须已通过，package、依赖和脚本不得突破 worker 文件/网络/资源边界。
 - token 锁定、改密、注销、过期和刷新在 Django/FastAPI 间一致。
 - Django、前端和跨服务认证测试进入稳定 CI required checks。
 - 依赖漏洞扫描、secret scanning、监控告警和部署回滚清单已接入。
+- 生产 CORS 只允许审阅过的 origin；Skill 导入、导出、资源预览和 SSE 的预检/凭据场景均有浏览器测试，不能用 `*` 与 credentials 组合。
+- 真实 MySQL/Redis/Storage/Chroma 的备份、PITR/恢复、对账、API/worker 回滚、canary 自动 abort 和组合故障演练达到批准的 RPO/RTO/SLO。
+- 当前 Windows-only lock/CI 只能支持 Windows 部署声明；任何 Linux 公网/HA 声明必须先具备 Linux lock、平台依赖拆分和 Windows/Linux required-check matrix。

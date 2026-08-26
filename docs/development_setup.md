@@ -377,4 +377,4 @@ npm run lint
 
 仍未交付的生产能力包括反向代理、TLS、静态资源部署、进程守护、secret manager、备份与回滚 runbook，以及用户可配置模型/Embedding 地址的 egress policy。完成这些部署层能力前，不应直接向公网开放。
 
-具体风险和验收见 [安全与可靠性加固计划](./security_hardening_plan.md)，架构重写与 `ARCH-GATE` 见 [架构重写计划](./architecture_rewrite_plan.md)，R0-R8 追踪见 [全量重构开发计划](./roadmap_next.md)。只有安全计划中的“公网就绪条件”全部满足后，才能新增生产部署说明或放宽本节限制。
+具体风险和公网条件见[安全与可靠性加固计划](./security_hardening_plan.md)，架构阶段与门禁见[架构重写计划](./architecture_rewrite_plan.md)，R0-R8 职责见[产品路线图](./roadmap_next.md)。只有 `PUBLIC-HA-GATE` 通过后，才能新增生产部署说明或放宽本节限制。

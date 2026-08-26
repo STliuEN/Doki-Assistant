@@ -1,6 +1,6 @@
 # 当前架构
 
-本文只描述当前仓库中的服务、模块和运行边界，不代表目标架构。历史设计过程位于 `project_changes/`；架构重写和未完成工作位于 [架构重写计划](./architecture_rewrite_plan.md) 与 [全量重构开发计划](./roadmap_next.md)。
+本文只描述当前仓库中的服务、模块和运行边界，不代表目标架构。历史设计过程位于 `project_changes/`；架构阶段和未完成工作见[架构重写计划](./architecture_rewrite_plan.md)，产品队列见[产品路线图](./roadmap_next.md)。
 
 ## 系统边界
 
@@ -231,11 +231,11 @@ MySQL Skill domain + canonical Storage object
 
 标准 package 由统一 parser/validator 解析，版本和安装元数据写入 MySQL，原始 ZIP 以 content-addressed immutable object 保存在仓库外；管理 API/UI 通过 draft/import/publish/settings/rollback/export 生命周期操作，不写源码目录。标准 seed package 位于 `backend/app/skills/seed_packages`，启动时幂等安装并发布 Registry snapshot。旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader、写入路径或双 Registry。
 
-当前已经接通 A 级 Prompt 和有限 B 级资源：资源工具按本轮固定 version/digest 精确读取，纳入统一 Tool 调用预算；前端支持上传、替换、删除、撤销，并以增量 `resource_changes` 生成新版本。CapabilityGrant、持久 SkillRunBinding、import `target_revision`、private Skill/Tool 过滤和多实例 revision/outbox reconcile 已落地；落后或无法对账的 Registry 统一抛出 `SkillRegistryStaleError` 并返回 `503`。管理员 catalog 可查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
+当前已经接通 A 级 Prompt 和有限 B 级资源：资源工具按本轮固定 version/digest 精确读取，纳入统一 Tool 调用预算；前端支持上传、替换、删除、撤销，并以增量 `resource_changes` 生成新版本。CapabilityGrant、持久 SkillRunBinding、import `target_revision`、private Skill/Tool 过滤和 Registry revision/outbox/reconcile 已有代码切片；它们还不是可靠性闭环。损坏 package 可能让同 revision Registry 进入 degraded 空快照而不触发 stale `503`，普通 Tool/MCP policy 也未固定到 RunBinding。管理员 catalog 可查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
 
 前端传入的 `skill_ids` 是候选上界，显式 `tool_ids` 可以跳过意图收窄，但二者都必须经过当前用户可见 Skill、CapabilityGrant 和 Tool policy 的有效交集，不能作为授权绕过入口。当前只实现 system/global 安装，per-user scope 尚未完成。
 
-前端允许 `format_compatible=true` 但 `runtime_ready=false` 的 C package（包括含 `scripts/` 的包）以 `enabled=false`、`default=false` 禁用安装和管理；安装成功不提供启用或执行入口。当前没有 durable import worker、独立 Node/Python runner/沙箱、跨资源读取累计 token 预算，也缺真实 MySQL/API/第三方 A/B 聊天 E2E；因此准确能力等级仍是 A 级和有限 B 级开发支持。完整状态见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
+前端目前把 `format_compatible=true` 但 `runtime_ready=false` 的 C package（包括含 `scripts/` 的包）提交为 `enabled=false`、`default=false`；服务端尚未把新导入固定为 `installed_disabled` 不变量，因此不能把前端惯例当作安全门。当前也没有 durable import worker、独立 Node/Python runner/沙箱、跨资源读取累计 token 预算、角色分离/grant revoke、完整写审计或真实 MySQL/API/第三方 A/B 聊天 E2E；准确能力等级仍是门禁前的 A 级和有限 B 级开发切片。完整状态见[标准 Skill 接入需求规格](./standard_skill_integration_requirements.md)。
 
 ### 本地 Tool
 
@@ -385,4 +385,4 @@ FastAPI -> signature/claims/revocation/user-state validation -> user_id
 - 浏览器端到端流程尚未纳入持续集成。
 - 生产部署、安全 header、TLS、secret manager 和发布回滚流程尚未定义；仓库已有基础 CI。
 
-这些未完成项在[架构重写计划](./architecture_rewrite_plan.md)和[全量重构开发计划](./roadmap_next.md)中按阶段维护。标准 Skill `SK-0` 至 `SK-5` 是当前最高优先级核心重构，必须随 AR 底座执行并通过 `SKILL-GATE`；产品工作包 `7-10` 在 `SKILL-GATE` 与 `ARCH-GATE` 前仍冻结。
+这些未完成项在[架构重写计划](./architecture_rewrite_plan.md)中维护唯一阶段状态，[产品路线图](./roadmap_next.md)只保留 R0-R8 职责和产品队列。当前先关闭 `AR-0 + SK-0`，再按通用 worker、身份/schema、Storage 和 A/B 对账依赖推进。本地产品工作包 `7-10` 在本地 A/B `SKILL-GATE` 与 `ARCH-GATE` 前暂停选择；C 级执行和公网/HA 分别由 `EXEC-SKILL-GATE` 与 `PUBLIC-HA-GATE` 控制。

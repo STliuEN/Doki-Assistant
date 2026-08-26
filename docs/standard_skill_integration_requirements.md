@@ -1,39 +1,39 @@
 # 标准兼容 Skill 管理需求规格
 
-状态：A 级和有限 B 级开发支持已形成，尚未通过 `SKILL-GATE`；C 级未实现
+状态：A 级和有限 B 级开发支持已形成，尚未通过本地 A/B `SKILL-GATE`；C 级未实现且 `EXEC-SKILL-GATE` 未通过；`PUBLIC-HA-GATE` 未通过
 
-版本：1.1
+版本：1.2
 
-最近复核：2026-08-24
+最近复核：2026-08-25
 
 适用范围：Skill package、Tool/MCP capability、Agent runtime、worker、管理 API 和 Skill 管理前端
 
-本文定义 Doki 全面采用标准兼容 Skill 管理的目标合同。该改造是当前架构重写阶段必须执行的最高优先级业务域重构，不再等待 `ARCH-GATE` 后实施；它必须先通过 `SKILL-GATE`，而 `SKILL-GATE` 是 `ARCH-GATE` 的组成条件。架构底座、依赖顺序和总门禁仍以[架构重写计划](./architecture_rewrite_plan.md)为唯一事实源。当前代码已经具备 A 级和有限 B 级开发支持，但未满足本文完成定义，不能据此声明通用或可执行 Skill 已完整支持。
+本文定义 Doki 全面采用标准兼容 Skill 管理的目标合同。该改造是当前架构重写阶段必须执行的最高优先级业务域重构，不再等待 `ARCH-GATE` 后实施。本文把发布判断拆成三个独立门禁：`SKILL-GATE` 只验收本地 A/B 标准 package 能力，`EXEC-SKILL-GATE` 独立验收可执行 C 级能力，`PUBLIC-HA-GATE` 验收公网和高可用部署。`SKILL-GATE` 是本地 `ARCH-GATE` 的组成条件；未声明 C 级支持时，`EXEC-SKILL-GATE` 不是本地 A/B 或 `ARCH-GATE` 的前置。公网部署必须通过 `PUBLIC-HA-GATE`，且只有公网启用 C 级时才额外依赖 `EXEC-SKILL-GATE`。架构底座和 AR 阶段仍以[架构重写计划](./architecture_rewrite_plan.md)为事实源。当前代码已经具备 A 级和有限 B 级开发支持，但未满足本文完成定义，不能据此声明本地 A/B、可执行 Skill 或公网部署已发布就绪。
 
 本文中的“必须”“不得”是发布阻断要求，“应该”需要在实现偏离时提交 ADR，“可以”是非阻断扩展。
 
 ## 0. 当前实现判定
 
-截至 2026-08-24，对“Doki 是否已经支持通用 Skill”的结论是：**部分满足标准包管理和 A/B 级运行条件，不满足完整通用执行条件，也未达到发布门禁。**
+截至 2026-08-25，对“Doki 是否已经支持通用 Skill”的结论是：**部分满足标准包管理和 A/B 级运行条件，不满足完整通用执行条件，也未达到发布门禁。**
 
 | 能力层 | 当前状态 | 已有实现 | 主要阻断项 |
 |--------|----------|----------|------------|
-| 标准格式与 A Prompt | 开发支持已实现，发布门未通过 | 标准 frontmatter `SKILL.md` 解析、未知字段保留、ZIP/目录统一校验、不可变版本、Prompt 注入、路由样例和 OpenAPI 合同 | 真实 MySQL/API/第三方聊天 E2E 与跨平台发布证据仍缺失 |
+| 标准格式与 A Prompt | 开发支持已实现，本地 A/B 发布门未通过 | 标准 frontmatter `SKILL.md` 解析、未知字段保留、ZIP/目录统一校验、不可变版本、Prompt 注入、路由样例和 OpenAPI 生成基础 | Skill import/export/error schema 仍有已知偏差；真实 MySQL/API/第三方聊天 E2E 与当前声明平台的发布证据仍缺失 |
 | B Resources | 有限支持 | 资源 manifest、不可变对象存储、版本绑定的按需读取、统一调用预算，以及前端上传/替换/删除/撤销和增量 `resource_changes` | 尚无跨多次读取的累计 token 预算和真实第三方 B 包聊天 E2E |
-| C Executable | 未实现 | 能识别并保留 `scripts/`；前端允许 `format_compatible=true`、`runtime_ready=false` 的 C 包禁用安装和管理 | 安装后仍禁止启用或执行；无独立 runner/沙箱、Node/npm/Python 构建、lockfile、网络/文件/secret grant、取消和进程树强制终止 |
-| 单轨生命周期 | 主要开发链路已实现，发布门未通过 | MySQL 领域、content-addressed Storage、draft/import/publish/rollback/export、`target_revision`、多实例 revision/outbox reconcile、统一 stale `503`；旧运行目录已删除并有静态禁回归测试 | import 校验/发布仍不是 durable worker；真实数据库、恢复、GC 和跨实例故障演练未完成 |
-| 授权与可复现运行 | 系统级闭环已实现，scope 未完整 | CapabilityGrant、持久 SkillRunBinding、版本/digest/revision/effective grants 固定，以及 private Skill/Tool 和显式 ID 过滤 | 只有 system/global 安装，per-user scope 尚未实现；真实安全 E2E 未完成 |
+| C Executable | 未实现，`EXEC-SKILL-GATE` 未通过 | 能识别并保留 `scripts/`；前端用 `enabled=false/default=false` 近似提供禁用安装和管理 | 显式、可审计的 `installed_disabled` 状态合同尚未落地；仍禁止启用/执行，且无 runner/沙箱、Node/Python adapter、lockfile、网络/文件/secret grant、取消和进程树强制终止 |
+| 单轨生命周期 | 主要开发链路已形成，本地 A/B 发布门未通过 | MySQL 领域、content-addressed Storage、draft/import/publish/rollback/export、`target_revision`，以及 revision/outbox、stale `503` 和旧目录静态禁回归的局部实现/单元测试 | 当前 outbox acknowledgement 不是逐 consumer，多实例可靠收敛与 stale fail-closed 尚未由真实故障测试证明；import 仍非 durable worker，Legacy 对账、恢复和 GC 未完成 |
+| 授权与可复现运行 | 系统级控制骨架已形成，闭环未证明 | CapabilityGrant、持久 SkillRunBinding、version/digest/revision/effective grants 字段，以及 private Skill/Tool 和显式 ID 过滤的实现/单元测试 | 仅 system/global；角色仍来自旧管理员判定，per-user scope、grant revoke 传播、Tool/MCP policy digest、延迟确认漂移和真实安全 E2E 未完成 |
 
-旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader/写入路径；标准 seed package 保留在 `backend/app/skills/seed_packages`，不依赖旧运行目录。管理员 catalog 可以查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
+旧 `backend/app/agent/skills` 的 20 个运行文件已经删除，静态测试禁止重新引入 `skill.yaml` loader/写入路径；标准 seed package 保留在 `backend/app/skills/seed_packages`，不依赖旧运行目录。该删除关闭了旧运行入口，但也提前移除了通用迁移器的在线输入：seed 只代表已知内置基线，不能替代能够保留历史别名、设置、修改内容和 Tool 绑定的 `LegacySkillMigrator`。迁移证据必须从只读备份、最后包含旧目录的 Git 历史导出或发布归档离线重建；不得为补证据恢复 Legacy runtime。管理员 catalog 可以查看尚无 active version 的纯 draft，普通 catalog 与运行 Registry 不可见。
 
-因此当前准确表述是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持”，不是“任意第三方 Skill 均可安装并安全执行”。`scripts/` 存在不代表 C 级兼容，本机安装 Node/npm 也不能替代独立 runner 和 capability enforcement。
+因此当前准确表述是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持，以及尚待真实环境验证的授权/一致性控制骨架”，不是“任意第三方 Skill 均可安装并安全执行”或“授权闭环已经完成”。`scripts/` 存在不代表 C 级兼容，本机安装 Node/npm 也不能替代独立 runner 和 capability enforcement。
 
 ## 1. 已确认决策
 
 1. 弃用当前 `skill.yaml + SKILL.md + 源码目录 Registry` 的内置 Skill 能力。
 2. 目标系统只有一种 Skill 内容模型：根目录包含标准 `SKILL.md` 的版本化 Skill package。
 3. 前端保留可视化管理能力，包括新建、导入、编辑、配置、验证、启停、升级、回滚、导出和卸载；前端保存的内容也必须是标准兼容 package。
-4. 现有 Skill 只通过一次性迁移器转换为标准 package，不保留长期 Legacy runtime 或双 Registry。
+4. 现有 Skill 只通过一次性 `LegacySkillMigrator` 转换为标准 package，不保留长期 Legacy runtime 或双 Registry；seed 安装器不能充当通用迁移器。
 5. 所有 Skill 无论来自导入、前端创建、系统初始化或迁移，都经过同一解析、存储、授权、路由和执行链路。
 6. 标准包内容采用不可变版本；编辑不是原地覆盖，而是生成新的标准兼容版本并切换 active pointer。
 7. Skill 管理和运行不得写入仓库源码目录，不得产生 Git tracked/untracked 运行文件。
@@ -57,24 +57,9 @@ Legacy one-shot migrator +-------------+
 
 不存在 `BuiltinSkillRegistry`、`LegacySkillRegistry` 或“前端 Skill 特殊格式”并行运行。
 
-### 1.1 优先级与门禁关系
+### 1.1 架构绑定
 
-“最高优先级”不表示跳过 worker 隔离、事务、Storage、权限或恢复要求，而是表示每项基础能力具备后，第一个落地和验收的业务消费者必须是标准 Skill：
-
-```text
-AR-0 + SK-0 contract/baseline
-  -> AR-1 runtime foundation + SK-1 parser/domain skeleton
-  -> AR-2/AR-3 identity, audit and schema prerequisites
-  -> AR-4 canonical Storage + SK-2 package lifecycle
-  -> AR-5 starts with skills/tools/mcp + SK-3 A/B runtime and visual management
-  -> SK-4 executable runner
-  -> AR-6 + SK-5 cutover and legacy removal
-  -> SKILL-GATE
-  -> ARCH-GATE
-  -> work packages 7-10
-```
-
-如果 Skill 专项的依赖未满足，应优先补齐对应 AR 底座，不得改做工作包 `7-10`。如果 Skill 专项验收失败，`ARCH-GATE` 不得通过。
+AR/SK 的当前状态、固定执行顺序和四个门禁只在[架构重写计划](./architecture_rewrite_plan.md)维护。本文只定义 Skill 领域合同和验收项。关键边界是：Skill import/validation/publish 是通用 durable worker 的首个业务 consumer；AR-1 只提供语言无关的隔离进程协议，Node/Python adapter 属于可选 SK-4。基础依赖未满足时先补对应 AR 底座，不得转做工作包 `7-10`；C 级与公网/HA 不反向阻断本地 A/B。
 
 ## 2. 目标与非目标
 
@@ -86,6 +71,7 @@ AR-0 + SK-0 contract/baseline
 - 包升级不覆盖安装设置和授权；失败升级不影响当前健康版本。
 - 单个坏包或脚本崩溃不影响 API 启动、Registry 健康或其他 Skill。
 - Skill 的来源、版本、digest、有效授权和每次运行绑定可审计、可复现。
+- Tool/MCP 的解析结果、provider/endpoint 身份、风险与确认策略以 policy digest 固定到每次 Run，策略变化不能被旧确认或旧 binding 绕过。
 - 任意有效版本都可以导出为不依赖 Doki 私有 `skill.yaml` 的标准 package。
 
 ### 2.2 非目标
@@ -149,10 +135,11 @@ Doki 可以识别可选扩展 metadata，但标准 A/B 级导入不得依赖扩�
 - `format_compatible`：包能否正确解析和保存。
 - `runtime_ready`：当前部署是否具备运行时、依赖和已批准能力。
 - `enabled`：管理员是否已经发布给当前 scope。
+- `installed_disabled`：package 和安装记录已持久化但尚未获准运行；可查看、诊断、导出、重新审批或归档，不得路由、设为默认、读取运行资源或执行脚本。
 
 不得把“成功解析”“本机检测到 Node/npm”或“已经安装”展示为“可以安全执行”。
 
-当前前端对 `format_compatible=true` 但 `runtime_ready=false` 的 C 包保留“批准并安装”入口，审批请求强制 `enabled=false`、`default=false`，并明确显示它只能禁用安装和管理。该状态不得显示启用或执行入口；含 `scripts/` 不会因安装成功而获得运行能力。
+当前前端对 `format_compatible=true` 但 `runtime_ready=false` 的 C 包保留“批准并安装”入口，审批请求强制 `enabled=false`、`default=false`，以现有字段近似表达禁用安装和管理；这不等于第 7.2 节显式、持久、可审计的 `installed_disabled` 状态已经实现。该状态不得显示启用或执行入口；含 `scripts/` 不会因安装成功而获得运行能力。
 
 ## 4. 单一领域模型
 
@@ -185,6 +172,8 @@ Doki 可以识别可选扩展 metadata，但标准 A/B 级导入不得依赖扩�
 - 卸载默认停用并归档；存在 Run、审计或保留期引用时不得物理删除。
 - Registry 以不可变 revision 发布；单个版本失败只能隔离该版本，不能清空上一健康快照。
 - 前端创建的 Skill 与外部导入 Skill 使用相同 schema、validator、Storage 和 runtime。
+- active pointer、Installation/Policy/Grant revision、audit 和 outbox 在同一 MySQL 事务提交；Registry 只能消费已提交 revision，不能发布半完成版本。
+- grant 撤销必须递增 policy/registry revision，使新 Run 立即 fail closed，并取消或重新授权尚未执行的 job；已运行任务和延迟确认不得继续使用被撤销的 grant。
 
 ### 4.3 数据权威
 
@@ -261,6 +250,8 @@ Skill 不得引入第四种数据库模型。Redis 丢失后必须可从 MySQL �
 
 后端详情响应必须返回 `allowed_actions`。前端不得根据用户名、页面入口或本地状态推断权限；隐藏按钮只是体验优化。
 
+角色必须分离：Skill 管理员可以准备 package 和安装设置，但不能自批脚本、网络、secret 或高风险 Tool/MCP grant；安全管理员不能在同一审批动作中修改被审批 package。紧急例外必须使用单独权限、短 TTL、双人复核和完整审计。grant 撤销是高优先级安全事件，必须记录操作者、原因、before/after policy digest、受影响 scope/Run/job 和取消结果。
+
 每次执行的有效能力必须是：
 
 ```text
@@ -271,6 +262,8 @@ package capability request
 ```
 
 任一层缺失都必须 fail closed 并产生结构化诊断。package 声明、MCP `readOnlyHint` 或前端设置均不能降低系统风险级别、确认或审计要求。
+
+Tool/MCP capability 还必须绑定 `tool_definition_digest`、provider identity、MCP server/config revision、endpoint allowlist digest、风险等级和确认策略 digest。创建 Run 和恢复延迟确认时都重新验证这些 digest；任一漂移均拒绝执行并要求重新审批，不能只按 Tool 名称或显式 ID 授权。
 
 ## 7. 导入、验证、发布和回滚
 
@@ -310,7 +303,9 @@ enabled/installed_disabled -> rollback -> previous healthy version
 - 新安装固定为 `installed_disabled`，不得自动启用或自动成为默认 Skill。
 - 权限或依赖相较当前版本扩大时必须重新进入 `review_required`。
 - 更新失败保留当前 active version、policy 和 grants，并提供可重试诊断。
-- staging 具备 TTL 和受控 GC；审计、digest 和失败摘要按审计策略保留。
+- 单个 package 的校验、Storage 损坏、Registry 构建或 smoke test 失败只隔离该 package/version；上一健康版本和其他 Skill 保持可用，禁止因一个坏包发布空的全局 catalog。
+- staging object、构建工作区和未引用 finalized object 必须记录 owner/import/job、创建时间和 digest，具备明确 TTL、引用检查、幂等 orphan GC、GC 审计和 dry-run；GC 不得删除被 Version、Import、Run 或保留策略引用的对象。
+- 审计、digest 和失败摘要按审计策略保留；不能随 staging GC 一并丢失。
 
 ### 7.3 原子发布
 
@@ -322,7 +317,7 @@ enabled/installed_disabled -> rollback -> previous healthy version
 4. Storage atomic finalize 成功后，在同一数据库事务写 Version、Installation、audit 和 outbox。
 5. Registry 消费 revision 并切换不可变快照；失败时保留上一快照。
 
-不得在半写入目录上调用全局 `reload()`，不得长期双写源码目录和数据库。
+数据库事务失败时 finalized object 进入可对账 orphan 状态而不是进入 catalog；Registry publish 失败时数据库 revision 保持权威、当前进程标记 stale 并继续使用上一健康快照或拒绝新 Run，不得确认半发布成功。active pointer 与 grant/policy revision 必须原子切换，审计和 outbox 缺一不可提交。不得在半写入目录上调用全局 `reload()`，不得长期双写源码目录和数据库。
 
 ## 8. Package 验证与供应链边界
 
@@ -349,6 +344,8 @@ Validator 必须在发布前拒绝：
 
 检查阶段不得执行 `npm install`、`pip install`、生命周期脚本或包内命令。外部依赖解析只能在批准后由隔离构建任务完成。
 
+HTTP/API 门禁必须固定以下结果且进入 OpenAPI、API 测试和前端错误处理：超过上传/解压/文件/正文预算统一返回 `413`，revision、ETag、idempotency key、目标 digest 或审批快照冲突返回可恢复的 `409`，格式/ZIP 结构错误返回稳定的 `4xx + error_code`，不得伪装为 `500`。ZIP 测试至少覆盖 Zip Slip、绝对/盘符/UNC、Unicode/大小写冲突、symlink/junction/hardlink、device/FIFO、重复条目、加密 ZIP、CRC/截断、压缩炸弹和嵌套归档预算。浏览器导入、导出和资源预览只能由明确 CORS allowlist origin 发起；预检、凭据和响应头不得使用通配 origin，跨源失败必须 fail closed。
+
 ## 9. 运行时要求
 
 ### 9.1 A/B 级运行
@@ -361,6 +358,8 @@ Validator 必须在发布前拒绝：
 
 ### 9.2 C 级脚本运行
 
+- AR-1 只负责与语言无关的隔离进程协议、durable job 领取/租约/fencing、只读 package 与临时输出契约、取消/超时/进程树终止接口，以及不依赖 Node/Python package 的恶意测试桩。AR-1 不以“已支持 C 级 Skill”为退出条件。
+- SK-4 在该协议之上实现 Node/Python runtime adapter、锁文件构建、RuntimeBinding 和平台资源限制；Node/Python 代表包与真实恶意包测试只属于 `EXEC-SKILL-GATE`。该分工禁止用 SK-4 的产物反向作为进入 SK-4 所需的 AR-1 前提。
 - API 进程不得 `import`、`require` 或直接执行 package 代码。
 - 脚本通过 durable job 进入独立 worker runner；worker 崩溃不能拖垮 core API。
 - package 以只读方式挂载，输出写入有配额的临时工作区。
@@ -373,6 +372,12 @@ Validator 必须在发布前拒绝：
 - 本机安装 npm/Node 只能使检查显示 runtime available，不能绕过 worker、授权和沙箱。
 
 无 entrypoint 声明的 C 类 package 可以由管理员选择允许的 `scripts/` 文件或 `package.json` command；选择结果写入 `RuntimeBinding`，不得回写 package。
+
+### 9.3 平台支持声明
+
+当前 backend lock、uv resolution 和 CI 都是 Windows-only；因此本地 `SKILL-GATE` 当前最多声明 Windows A/B 支持，不能把未运行的 Linux/macOS 视为通过。A/B 门禁只要求对 README/兼容矩阵中明确声明的平台提供 clean install、validator、Storage、API/chat E2E 和恶意 package 证据。
+
+`EXEC-SKILL-GATE` 必须逐个平台验收 runner、资源限制和进程树终止。若要声明 Linux 支持，必须先拆分 CPU/GPU 和平台专用依赖、生成并检查 Linux lock/requirements、建立 Windows/Linux CI matrix，再在 Linux 上运行同一 conformance 与真实 Node/Python package E2E；仅让通用 Python 源码可导入不算平台支持。未声明的平台应返回明确 incompatible/platform diagnostics，而不是尝试执行。
 
 ## 10. Registry、路由和运行固定
 
@@ -408,7 +413,7 @@ Validator 必须在发布前拒绝：
 | `GET /skills/{id}/versions/{version}/export` | 导出标准 package ZIP |
 | `DELETE /skills/{id}` | 停用并归档；物理清理由保留策略和 GC 控制 |
 
-所有写操作必须产生 actor、scope、source digest、before/after revision、grant diff、correlation ID 和结果审计。API schema 必须进入 OpenAPI，前端类型由合同生成或自动校验，不能继续使用 `Any` catalog/detail 响应。
+所有写操作，以及导入拒绝、验证失败、审批、grant 授予/撤销、Tool/MCP policy 漂移、smoke test、执行/取消/超时、GC、恢复和越权拒绝，都必须产生不可变审计。审计至少包含 actor/actor role、scope/owner、source/package/policy/tool-provider digest、before/after revision、grant diff、correlation/run/job/import ID、来源 IP/客户端摘要、结果/error code 和时间；secret、token 和资源正文必须脱敏。API schema 必须进入 OpenAPI，前端类型由合同生成或自动校验，不能继续使用 `Any` catalog/detail 响应。
 
 ### 11.2 现有 API 退出
 
@@ -436,17 +441,17 @@ Validator 必须在发布前拒绝：
 
 ### 12.2 迁移步骤
 
-1. 对现有目录做只读 inventory、checksum 和旧 API/UI/路由 characterization tests。
-2. 实现一次性 `LegacySkillMigrator`，输出与外部导入完全相同的标准 package 和领域记录。
-3. 短暂冻结 Skill 管理写入，按 digest 幂等迁移所有现有 Skill。
+1. 对现有目录做只读 inventory、checksum 和旧 API/UI/路由 characterization tests；若工作树中的旧目录已经删除，输入必须来自只读备份、最后含旧目录的 Git commit 导出或已保存发布 artifact，且记录来源 commit/artifact digest。
+2. 实现一次性、可离线运行的通用 `LegacySkillMigrator`，输出与外部导入完全相同的标准 package 和领域记录；它必须处理真实 legacy 内容和设置，不能把当前 seed 清单当作迁移完成证明。
+3. 短暂冻结 Skill 管理写入，按 digest 幂等迁移所有现有 Skill；逐项对账 ID/alias、正文/资源 checksum、Tool/MCP binding、default/visibility/order、always_on/routable/routing examples、owner/scope 和启用状态。
 4. 影子比较新旧 catalog、alias、Tool、默认选择、Prompt 和路由结果。
 5. 一次切换 Registry 读权威和前端写权威；旧目录只作为受控回滚快照。
 6. 观察期通过后删除运行时 Legacy loader、旧 CRUD 和硬编码 Skill 路由；归档或删除旧目录由独立变更计划列出明确清单。
 7. CI 增加静态检查，禁止重新引入 `skill.yaml` loader、源码目录写入或双 Registry。
 
-迁移器不是长期 Adapter，也不得在正常启动时运行。回滚只切换已演练的 Registry/active pointer 和只读快照，不恢复双写。
+迁移器不是长期 Adapter，也不得在正常启动时运行。回滚只切换已演练的 Registry/active pointer 和只读快照，不恢复双写，也不得为了找回迁移输入重新启用 Legacy loader、CRUD、Registry 或 `skill.yaml` runtime。
 
-当前代码状态已经完成运行权威切换、旧 loader/CRUD 退出和静态禁回归：`backend/app/agent/skills` 的 20 个运行文件已删除，标准 seed package 位于 `backend/app/skills/seed_packages`。完整迁移对账、真实环境恢复和跨平台观察证据仍属于 `SK-5` 未完成门禁。
+当前代码状态已经完成运行权威切换、旧 loader/CRUD 退出和静态禁回归：`backend/app/agent/skills` 的 20 个运行文件已删除，标准 seed package 位于 `backend/app/skills/seed_packages`。这是提前删除而不是完整迁移证据：seed 不能证明用户修改、历史别名、安装设置和 Tool/MCP binding 已逐项保留。必须从只读历史输入补做离线通用迁移、差异报告和批准记录；无法取得的字段必须明确记为不可恢复并由负责人批准，不能静默用 seed 默认值覆盖。完整迁移对账与真实环境恢复仍属于 `SK-5` 本地 A/B 门禁；跨平台只按第 9.3 节的声明平台验收。
 
 ### 12.3 必须删除的旧行为
 
@@ -459,29 +464,18 @@ Validator 必须在发布前拒绝：
 
 Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skill package 格式或获得绕过授权的直连入口。
 
-## 13. 当前必做实施序列
+## 13. Skill 工作包交付索引
 
-| 序号 | 工作包 | 核心交付 | 依赖与退出门 |
-|------|--------|----------|--------------|
-| SK-0 | 合同、威胁与迁移基线 | 格式 ADR、A/B/C 矩阵、资源上限、旧目录 inventory、API/UI/路由 characterization、恶意 package fixtures | 与 AR-0 同步；合同和现状 checksum 评审通过 |
-| SK-1 | 标准解析器与统一领域骨架 | `SKILL.md` parser、标准 validator、领域 schema、alias/version/install/policy/grant、Registry snapshot 接口 | AR-1 启动 parser/接口；持久化部分等待 AR-3 schema 规则，不接管流量 |
-| SK-2 | Package 生命周期与可视化管理 | canonical Storage、draft/import/validate/publish/export、版本 diff/回滚、前端统一管理页、OpenAPI 类型 | AR-4 Storage 合同通过；UI 保存可重新导入且不写 Git |
-| SK-3 | A/B 级运行与一次性迁移 | Prompt/Resources 渐进加载、预算、Tool/MCP capability、旧 Skill 幂等转换、影子 catalog/route 对比 | AR-5 首个业务域；A/B、安全和现有行为门通过 |
-| SK-4 | C 级隔离执行 | Node/Python 环境、lockfile 构建、RuntimeBinding、网络/文件/secret 权限、取消/硬终止、smoke test | AR-1 runner/资源隔离成熟；真实 Node package E2E 通过 |
-| SK-5 | 原子切换与旧能力退出 | active pointer 切换、多实例 revision、canary/rollback、删除 Legacy loader/CRUD/硬编码路由、运行文档 | AR-6 故障演练；观察期无回退且回滚证据完整 |
-| SKILL-GATE | 标准 Skill 总验收 | 本文第 14 节全部阻断项、迁移对账、恢复、跨平台、安全和文档证据 | 必须先于 `ARCH-GATE` 通过 |
+本表只标识 Skill 领域产物；阶段状态、完整依赖和执行队列以[架构重写计划](./architecture_rewrite_plan.md)为准。
 
-### 13.1 与 AR 阶段的绑定
-
-- AR-0 不得退出，除非 SK-0 已完成。
-- AR-1 的首个隔离 worker workload 和 durable job conformance consumer 是 Skill validation/runner。
-- AR-2 必须提供 Skill 管理员、安全管理员、scope 和审计 actor。
-- AR-3 的统一 schema/UoW 必须包含 Skill 领域，不允许先写临时第四数据库或本地 JSON。
-- AR-4 的首个 canonical Storage 业务 consumer 是 Skill package，先验证 staging/finalize/checksum/GC 再迁移复杂 knowledge。
-- AR-5 的后端第一个业务域是 `skills/tools/mcp`，前端在 auth/shared 基础后首先迁移 Skill 管理。
-- AR-6 必须包含 SK-5 的 revision、runner、Storage、权限撤销和 legacy removal 演练。
-
-当前实现已经覆盖 `SK-1` 至 `SK-3` 的主要开发链路，并提前关闭 `SK-5` 中旧运行目录退出、静态禁回归和多实例 revision/outbox 对账切片；CapabilityGrant、SkillRunBinding、private Skill/Tool 过滤、资源统一调用预算和 OpenAPI 也已进入门禁。没有任何一个阶段因此自动通过完整退出门：仍须补齐 durable import、per-user scope、累计 token 预算、真实数据库/API/第三方聊天 E2E 与恢复证据。`SK-4` 的 C 级独立 runner/沙箱未实现，`SK-5` 整体也未完成。工作包 `7-10` 在 `SKILL-GATE` 和 `ARCH-GATE` 均通过前继续冻结。
+| 工作包 | Skill 领域交付 | 架构依赖摘要 |
+|--------|----------------|--------------|
+| SK-0 | 格式 ADR、A/B/C 矩阵、资源上限、Legacy inventory、characterization、威胁与恶意包 fixtures | 与 AR-0 同步关闭合同和 P0 |
+| SK-1 | parser、validator、领域骨架、Registry snapshot 接口，并把 import/validation 接入 durable worker | AR-1 通用任务；持久化遵守 AR-3 schema |
+| SK-2 | canonical Storage 生命周期、draft/import/publish/export/rollback 和可视化管理 | AR-4 Storage/projection |
+| SK-3 | A/B Prompt/Resources、预算、Tool/MCP policy binding、per-user 和真实聊天 E2E | AR-2/AR-3 权限权威与 AR-5 首域 |
+| SK-4 | 可选 Node/Python adapters、锁定环境、RuntimeBinding、沙箱和强制终止 | AR-1/AR-2/AR-4 与 SK-3；不阻断 A/B |
+| SK-5 | A/B 原子切换、Registry/Storage 恢复、离线 Legacy 对账、单轨观察和收口 | AR-4 恢复与 SK-3；SK-4 不是前置 |
 
 ## 14. 验收矩阵
 
@@ -494,6 +488,8 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 - 重复 digest 导入幂等；同版本不同 digest 被阻断并要求人工决策。
 - 代码和 CI 中不存在运行时 Legacy Registry 或 `skill.yaml` 写入路径。
 - 所有 provenance 类型走相同 validator、Storage、Registry、授权和运行时。
+- 超限请求稳定返回 `413`；revision/digest/idempotency/审批快照冲突稳定返回可恢复 `409`；恶意或损坏 ZIP 返回结构化 `4xx` 且不产生 active version。
+- 新安装（尤其含 `scripts/` 或 runtime 未就绪的包）只进入 `installed_disabled`，catalog、默认选择和 Agent 路由均不能把它当作可运行 Skill。
 
 ### 14.2 可视化管理
 
@@ -506,11 +502,13 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 
 ### 14.3 旧 Skill 迁移
 
-- 当前全部 Skill 的 alias、Tool、默认状态、排序和路由样例都有迁移对照和 checksum。
+- 只读备份、历史 Git 导出或发布 artifact 的来源和 digest 可追溯；seed package 不作为通用迁移完成证明。
+- `LegacySkillMigrator` 对当前全部 Skill 的 alias、正文/资源、Tool/MCP binding、默认状态、visibility、排序、scope/owner 和路由样例逐项产生迁移对照和 checksum。
 - 新旧影子 catalog 与 Prompt 在批准的兼容范围内一致；差异有显式批准记录。
 - 迁移中断可续跑，重复执行幂等；切换失败可回到只读快照。
 - 观察期后启动和运行不读取旧目录；删除一个旧目录不影响新 Registry。
 - 旧前端/API 写入已删除或返回明确 deprecation/unsupported，不会重建 `skill.yaml`。
+- 无法从只读历史输入恢复的字段有显式不可恢复报告和负责人批准；不得恢复 Legacy runtime 或用 seed 默认值静默覆盖。
 
 ### 14.4 安全、隔离与授权
 
@@ -518,32 +516,36 @@ Tool 与 MCP 可以继续作为 capability provider，但不能继续决定 Skil
 - 普通用户看不到管理动作，直接越权调用返回 `403`。
 - 用户显式提交 Skill/Tool ID 仍不能绕过 visibility、scope 和 capability grant。
 - package 不能降低高风险确认；未批准网络、文件、命令或 secret 访问均被拒绝。
-- 无限循环、内存耗尽、超量输出、派生进程和取消测试会终止整个任务，API 保持 ready。
-- worker kill 后验证/执行任务进入确定状态并可恢复；旧 fencing token 不能发布结果。
+- Skill 管理员与安全管理员职责分离；grant revoke 使新 Run、排队 job 和延迟确认 fail closed，并留下完整影响审计。
+- Tool/MCP definition、provider/endpoint、风险和确认 policy digest 在 Run/确认恢复时一致；任一漂移触发重新审批。
+- A/B 验证 worker kill 后任务进入确定状态并可恢复，旧 fencing token 不能发布结果。这是 `SKILL-GATE` 条目。
+- 无限循环、内存耗尽、超量输出、派生进程和取消测试会终止整个 C 级任务，API 保持 ready。这是 `EXEC-SKILL-GATE` 条目，不阻断 A/B。
 
 ### 14.5 一致性和可观测性
 
 - 多 API/worker 实例在目标时间内收敛到相同 revision；落后实例拒绝新 Skill Run。
-- 每次 Run 可查询固定 Skill version、digest、effective grants 和 correlation ID。
-- 新建、导入、批准、编辑、激活、回滚、停用、导出和执行全部产生审计。
+- 每次 Run 可查询固定 Skill version、digest、effective grants、Tool/MCP policy digest 和 correlation ID。
+- 新建、导入、拒绝、验证、批准、编辑、激活、回滚、grant 授予/撤销、停用、导出、执行、取消、GC 和恢复全部产生第 11.1 节定义的审计。
 - Redis 丢失后 catalog 可从 MySQL/Storage 恢复；单 package 损坏不影响其他 Skill。
-- OpenAPI、后端 unit/API/integration、前端 component/E2E、恶意 package 和 Windows/Linux conformance 测试进入 CI。
+- active pointer、policy/grant revision、audit 和 outbox 原子提交；数据库或 Registry 发布失败不会暴露半完成版本，上一健康快照保持可用。
+- staging TTL、引用保护、orphan GC dry-run/执行/审计测试通过，GC 不删除受引用对象。
+- OpenAPI、后端 unit/API/integration、前端 component/E2E、CORS、`409/413`、恶意 ZIP/package 和所有声明支持平台的 conformance 测试进入 CI。当前 Windows-only lock/CI 只能支持 Windows 声明；增加 Linux 声明前必须满足第 9.3 节。
 
 ### 14.6 C 级代表性验收
 
-必须使用至少一个真实 Node/npm 标准 Skill package 完成端到端验收：导入、检查、权限批准、依赖构建、实际执行、产物校验、取消、超时和回滚。只解析 `SKILL.md` 或检测到本机 Node 不算 C 级通过。
+本节全部属于 `EXEC-SKILL-GATE`，不属于本地 A/B `SKILL-GATE`。必须在每个声明支持的平台使用至少一个真实 Node/npm 和一个 Python 标准 Skill package 完成端到端验收：导入、`installed_disabled`、检查、角色分离审批、依赖构建、实际执行、产物校验、grant revoke、取消、超时和回滚。还必须用恶意测试包验证网络/文件/secret 拒绝、无限循环、资源耗尽、派生进程和进程树终止。只解析 `SKILL.md`、检测到本机 Node/Python 或通过 AR-1 语言无关测试桩不算 C 级通过。
 
 ## 15. 完成定义
 
-只有满足以下条件才能在 README 中声明“支持标准 Skill”：
+发布声明按门禁分开，不能用一个含糊的“支持标准 Skill”覆盖不同安全边界：
 
-- SK-3 的 A 级验收完成时只能声明“A 级标准 Skill 支持”。
-- SK-3 的 B 级验收完成时可以声明“标准 Skill 指令和资源支持”。
-- SK-4、跨平台和安全验收全部通过后，才能声明“标准 Skill 可执行支持”。
-- 完成退出条件：届时 `SKILL-GATE` 必须已通过，并成为 `ARCH-GATE` 的有效证据。
+- `SK-0/1/2/3/5` 与第 14.1 至 14.5 节所有 A/B 条目通过 `SKILL-GATE` 后，才能对已经实际验收的平台声明“A 级标准 Skill 支持”或“标准 Skill 指令和资源支持”。
+- `SK-4` 与第 14.6 节在某个平台通过 `EXEC-SKILL-GATE` 后，才能对该平台声明“标准 Skill 可执行支持”；未通过的平台继续显示 incompatible，未通过时 C 包只能 `installed_disabled`。
+- `SKILL-GATE` 通过后可成为本地 `ARCH-GATE` 的有效证据；`EXEC-SKILL-GATE` 不阻断本地 A/B 或本地产品解锁。
+- 只有 `PUBLIC-HA-GATE` 通过后才能声明公网/HA 就绪；公网只提供 A/B 时不依赖 `EXEC-SKILL-GATE`，公网启用 C 时二者都必须通过。
 - 当前内置 Skill runtime、旧写入 API 和源码目录 Registry 已退出，不存在长期双轨。
 - 可视化管理覆盖内容、安装、版本、授权和诊断，并能导出标准 package。
 - 兼容矩阵公开列出未支持的 runtime、权限和 package 结构。
 - 主 README、开发文档、OpenAPI、管理员指南、Security threat model、变更记录和测试记录已同步。
 
-在此之前，当前能力的准确表述是“标准 `SKILL.md` package 的 A 级和有限 B 级开发支持，以及经 CapabilityGrant 约束的预注册 Tool/MCP 编排”；不得表述为“通用可执行 Skill 支持”。
+在对应门禁通过前，当前能力的准确表述是“Windows 上标准 `SKILL.md` package 的 A 级和有限 B 级开发支持，以及包含 CapabilityGrant/RunBinding/private 过滤骨架的预注册 Tool/MCP 编排”；这些控制尚未形成真实环境授权闭环，不得表述为已发布的本地 A/B、Linux/macOS 支持、通用可执行 Skill 或公网/HA 支持。
