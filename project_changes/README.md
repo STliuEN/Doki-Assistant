@@ -8,9 +8,17 @@
 
 - [项目 README](../README.md)
 - [文档索引](../docs/README.md)
-- [当前架构](../docs/project_develop.md)
-- [下一阶段路线图](../docs/roadmap_next.md)
+- [当前架构归档](../docs/archive/2026-08-26/project_develop.md)
+- [下一阶段路线图归档](../docs/archive/2026-08-26/roadmap_next.md)
 - [架构重写计划](../docs/architecture_rewrite_plan.md)
+
+## 2026-08-27 E1 AR-0/SK-0 真实依赖与恢复证据
+
+本批已完成隔离 MySQL/Chroma、故障注入、备份恢复和 API/UI/Prompt/route characterization，当前状态为 `待验证`。完整后端 pytest 的 schema gate、offline benchmark fixture、原生 Linux/macOS、真实模型质量和用户关闭确认仍未完成；本批不进入 AR-1，也不连接现有业务数据。
+
+| 主题 | 方案 | 变更记录 | 验证记录 | 补充证据 |
+|------|------|----------|----------|----------|
+| E1 AR-0/SK-0 真实依赖与恢复证据 | [plan](./2026-08-27-e1-ar0-evidence/plan.md) | [change log](./2026-08-27-e1-ar0-evidence/change-log.md) | [test record](./2026-08-27-e1-ar0-evidence/test-record.md) | [威胁模型](./2026-08-27-e1-ar0-evidence/threat-model.md)、[characterization 矩阵](./2026-08-27-e1-ar0-evidence/characterization-matrix.md)、[平台限制](./2026-08-27-e1-ar0-evidence/platform-limitations.md) |
 
 ## 2026-08-25 工作计划与代码现实校准
 
@@ -51,4 +59,4 @@
 | 5 | 版本化数据库迁移 | [plan](./2026-08-17-versioned-database-migrations/plan.md) | [change log](./2026-08-17-versioned-database-migrations/change-log.md) | [test record](./2026-08-17-versioned-database-migrations/test-record.md) |
 | 6 | API 与 SSE 合同 | [plan](./2026-08-17-api-sse-contract/plan.md) | [change log](./2026-08-17-api-sse-contract/change-log.md) | [test record](./2026-08-17-api-sse-contract/test-record.md) |
 
-工作包 7“回答引用与一键沉淀”、8“知识处理任务中心”、9“统一搜索”和 10“运行追踪、导出与恢复”保留在[产品路线图](../docs/roadmap_next.md)中，本批次未实施，也没有创建完成归档。
+工作包 7“回答引用与一键沉淀”、8“知识处理任务中心”、9“统一搜索”和 10“运行追踪、导出与恢复”保留在[产品路线图归档](../docs/archive/2026-08-26/roadmap_next.md)中，本批次未实施，也没有创建完成归档。

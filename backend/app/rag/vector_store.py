@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import os
+import sqlite3
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -49,6 +50,11 @@ class ChromaProjectionHealth:
 
 class ChromaProjectionUnavailable(RuntimeError):
     """Raised when the rebuildable Chroma projection is quarantined."""
+
+
+CHROMA_PROJECTION_UNAVAILABLE_MESSAGE = (
+    "Chroma projection is unavailable; retry after recovery"
+)
 
 
 class _LazyEmbedding(Embeddings):
@@ -138,15 +144,18 @@ class VectorStoreService:
 
     def _init_chroma(self, persist_dir: str):
         self.persist_dir = persist_dir
+        create_collections = self._preflight_existing_projection(persist_dir)
         self.vectors_store = Chroma(
             collection_name=chroma_config['collection_name'],
             embedding_function=self._get_embed_model(),
             persist_directory=persist_dir,
+            create_collection_if_not_exists=create_collections,
         )
         self._notes_store = Chroma(
             collection_name="notes_collection",
             embedding_function=self._get_embed_model(),
             persist_directory=persist_dir,
+            create_collection_if_not_exists=create_collections,
         )
         self._user_rag_stores: dict[str, Chroma] = {}
         self._user_note_stores: dict[str, Chroma] = {}
@@ -158,6 +167,113 @@ class VectorStoreService:
             persist_directory=str(Path(persist_dir).resolve()),
             checked_at=datetime.now(timezone.utc).isoformat(),
         )
+
+    @staticmethod
+    def _preflight_existing_projection(persist_dir: str) -> bool:
+        """Validate an existing projection without allowing Chroma to mutate it.
+
+        Chroma's default client applies migrations and creates missing collections
+        during construction. A damaged or partial projection must instead fail
+        closed before the client gets a write-capable handle. The return value is
+        true only for a new/empty directory where initial collection creation is
+        intentional.
+        """
+
+        persist_path = Path(persist_dir).expanduser().resolve(strict=False)
+        if not persist_path.exists():
+            return True
+        if not persist_path.is_dir():
+            raise RuntimeError(f"Chroma persist path is not a directory: {persist_path}")
+
+        database_path = persist_path / "chroma.sqlite3"
+        if not database_path.exists():
+            if any(persist_path.iterdir()):
+                raise RuntimeError(
+                    "Chroma projection directory is non-empty but chroma.sqlite3 is missing"
+                )
+            return True
+        if not database_path.is_file():
+            raise RuntimeError(f"Chroma database is not a regular file: {database_path}")
+
+        try:
+            uri = f"{database_path.resolve(strict=True).as_uri()}?mode=ro&immutable=1"
+            connection = sqlite3.connect(uri, uri=True)
+            try:
+                table_names = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    )
+                }
+                required_tables = {"collections", "migrations"}
+                missing_tables = sorted(required_tables - table_names)
+                if missing_tables:
+                    raise RuntimeError(
+                        f"Chroma projection is missing required tables: {missing_tables}"
+                    )
+                collection_names = {
+                    row[0] for row in connection.execute("SELECT name FROM collections")
+                }
+                migration_rows = connection.execute(
+                    "SELECT dir, version, filename, hash FROM migrations ORDER BY dir, version"
+                ).fetchall()
+            finally:
+                connection.close()
+        except (OSError, sqlite3.Error) as exc:
+            raise RuntimeError(f"Chroma projection read-only preflight failed: {exc}") from exc
+
+        expected_collections = {chroma_config["collection_name"], "notes_collection"}
+        missing_collections = sorted(expected_collections - collection_names)
+        if missing_collections:
+            raise RuntimeError(
+                f"Chroma projection is missing required collections: {missing_collections}"
+            )
+
+        try:
+            from importlib.resources import files
+
+            from chromadb.db.migrations import find_migrations, verify_migration_sequence
+
+            migration_root = files("chromadb.migrations")
+            source_dirs = {
+                child.name: child for child in migration_root.iterdir() if child.is_dir()
+            }
+            database_dirs = {row[0] for row in migration_rows}
+            unknown_dirs = sorted(database_dirs - source_dirs.keys())
+            if unknown_dirs:
+                raise RuntimeError(
+                    f"Chroma projection has unknown migration directories: {unknown_dirs}"
+                )
+
+            for directory_name, directory in source_dirs.items():
+                database_migrations = [
+                    {
+                        "dir": row[0],
+                        "version": row[1],
+                        "filename": row[2],
+                        "hash": row[3],
+                        "scope": "sqlite",
+                        "sql": "",
+                    }
+                    for row in migration_rows
+                    if row[0] == directory_name
+                ]
+                source_migrations = find_migrations(directory, "sqlite", "md5")
+                unapplied = verify_migration_sequence(
+                    database_migrations,
+                    source_migrations,
+                )
+                if unapplied:
+                    raise RuntimeError(
+                        "Chroma projection requires unapplied migrations; "
+                        "an explicit offline rebuild or upgrade is required"
+                    )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Chroma projection migration compatibility preflight failed: {exc}"
+            ) from exc
+
+        return False
 
     @classmethod
     def _mark_projection_unhealthy(cls, persist_dir: str, error: Exception) -> None:

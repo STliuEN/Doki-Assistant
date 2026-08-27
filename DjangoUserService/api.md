@@ -407,4 +407,4 @@ DjangoUserService/apps/file/views.py
 DjangoUserService/apps/file/serializers.py
 ```
 
-开发环境和跨服务 JWT 配置见 [开发与运行说明](../docs/development_setup.md)。
+历史开发环境和跨服务 JWT 配置见[归档开发说明](../docs/archive/2026-08-26/development_setup.md)。当前认证迁移目标见[架构重写计划](../docs/architecture_rewrite_plan.md)。

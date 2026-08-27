@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import sqlite3
 from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from langchain_chroma import Chroma
+from langchain_core.embeddings import Embeddings
 
 from app.core.background_init import _BackgroundInitManager
 from app.rag import vector_store
@@ -21,6 +25,33 @@ def _reset_singleton() -> None:
         persist_directory=None,
         checked_at=None,
     )
+
+
+class _DeterministicEmbeddings(Embeddings):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.embed_query(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [float(value) / 255.0 for value in hashlib.sha256(text.encode()).digest()]
+
+
+def _create_live_projection(path: Path) -> None:
+    for collection_name in ("rag_collection", "notes_collection"):
+        store = Chroma(
+            collection_name=collection_name,
+            embedding_function=_DeterministicEmbeddings(),
+            persist_directory=str(path),
+        )
+        store.add_texts([collection_name], ids=[f"{collection_name}-id"])
+    vector_store._clear_chroma_cache()
+
+
+def _tree_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    for file_path in sorted(item for item in path.rglob("*") if item.is_file()):
+        digest.update(file_path.relative_to(path).as_posix().encode())
+        digest.update(file_path.read_bytes())
+    return digest.hexdigest()
 
 
 def test_chroma_init_failure_preserves_persisted_directory(tmp_path, monkeypatch) -> None:
@@ -108,6 +139,69 @@ def test_chroma_failure_modes_quarantine_without_mutation(tmp_path, monkeypatch,
 
     assert sentinel.read_bytes() == b"original-projection"
     assert vector_store.VectorStoreService.projection_health()["status"] == "quarantined"
+
+
+def test_live_missing_collection_fails_before_chroma_can_recreate_it(tmp_path, monkeypatch) -> None:
+    persisted = tmp_path / "missing-collection"
+    _create_live_projection(persisted)
+    import chromadb
+
+    client = chromadb.PersistentClient(path=str(persisted))
+    client.delete_collection("rag_collection")
+    vector_store._clear_chroma_cache()
+    before = _tree_digest(persisted)
+    monkeypatch.setitem(vector_store.chroma_config, "persist_directory", str(persisted))
+    monkeypatch.setattr(vector_store, "get_abstract_path", lambda value: value)
+    _reset_singleton()
+
+    with pytest.raises(vector_store.ChromaProjectionUnavailable):
+        vector_store.VectorStoreService()
+
+    assert _tree_digest(persisted) == before
+    health = vector_store.VectorStoreService.projection_health()
+    assert health["status"] == "quarantined"
+    assert "missing required collections" in health["error_message"]
+
+
+def test_live_migration_hash_mismatch_fails_read_only(tmp_path, monkeypatch) -> None:
+    persisted = tmp_path / "migration-mismatch"
+    _create_live_projection(persisted)
+    with sqlite3.connect(persisted / "chroma.sqlite3") as connection:
+        connection.execute(
+            "UPDATE migrations SET hash = ? WHERE rowid = (SELECT MAX(rowid) FROM migrations)",
+            ("0" * 64,),
+        )
+    before = _tree_digest(persisted)
+    monkeypatch.setitem(vector_store.chroma_config, "persist_directory", str(persisted))
+    monkeypatch.setattr(vector_store, "get_abstract_path", lambda value: value)
+    _reset_singleton()
+
+    with pytest.raises(vector_store.ChromaProjectionUnavailable):
+        vector_store.VectorStoreService()
+
+    assert _tree_digest(persisted) == before
+    health = vector_store.VectorStoreService.projection_health()
+    assert health["status"] == "quarantined"
+    assert "migration compatibility preflight failed" in health["error_message"]
+
+
+def test_live_healthy_projection_passes_preflight_and_reopens(tmp_path, monkeypatch) -> None:
+    persisted = tmp_path / "healthy"
+    _create_live_projection(persisted)
+    monkeypatch.setitem(vector_store.chroma_config, "persist_directory", str(persisted))
+    monkeypatch.setitem(
+        vector_store.chroma_config,
+        "md5_hex_store",
+        str(tmp_path / "md5" / "md5_hex_store.txt"),
+    )
+    monkeypatch.setattr(vector_store, "get_abstract_path", lambda value: value)
+    _reset_singleton()
+
+    service = vector_store.VectorStoreService()
+
+    assert service.vectors_store._collection.count() == 1
+    assert service._notes_store._collection.count() == 1
+    assert vector_store.VectorStoreService.projection_health()["status"] == "ready"
 
 
 def test_explicit_projection_rebuild_requires_manifest_and_marks_restart(tmp_path, monkeypatch) -> None:

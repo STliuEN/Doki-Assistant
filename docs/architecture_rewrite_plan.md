@@ -1,236 +1,117 @@
 # 架构重写计划
 
-状态：当前停留在 `AR-0 + SK-0`；P0/P1 阻断未关闭，所有阶段退出门均未通过
+状态：`AR-0 + SK-0`（实施中，P0-6 未通过）；S0 文档收束已完成，执行交接手册已就绪。
 
-最近复核：2026-08-25
+最近复核：2026-08-27
+适用分支：`ai_document_assistant`
 
-适用范围：`ai_document_assistant` 分支
+本文是 AR/SK 阶段、门禁、当前队列和关闭条件的唯一事实源。执行交接细则见[架构重构执行交接手册](./architecture-execution-handoff-2026-08-26.md)；最终架构和逐阶段任务见[最终重构蓝图](./architecture-target-blueprint-2026-08-26.md)；运行代码事实见[当前架构归档](./archive/2026-08-26/project_develop.md)；P0 证据见[0826 执行计划归档](./archive/2026-08-26/change-route-execution-plan-2026-08-26.md)和[P0 收口报告归档](./archive/2026-08-26/p0-completion-report-2026-08-26.md)。`project_changes/` 只保存批次证据，不覆盖本文的状态判断。
 
-本文件是 AR/SK 状态、依赖、当前队列和四个门禁的唯一事实源。相关文档各自只维护一类信息：
+## 1. 最终目标
 
-- [当前架构](./project_develop.md)：运行代码与进程事实。
-- [标准 Skill 规格](./standard_skill_integration_requirements.md)：package、权限、运行时和验收合同。
-- [安全基线](./security_hardening_plan.md)：已实施控制、剩余风险和公网安全条件。
-- [产品路线图](./roadmap_next.md)：R0-R8 职责与工作包 `7-10`。
-- `project_changes/`：历史或实施证据，不作为活状态源。
-
-## 1. 决策与发布档位
-
-目标是一个代码库、一个关系数据写权威和一个 FastAPI 模块化业务单体，同时保留独立的 API 与 worker 故障域：
+本项目只面向单机、小范围局域网和低并发。最终运行形态是一个 FastAPI 进程直接托管前端构建产物和全部业务 API/SSE，使用同一个 MySQL 实例中的一个数据库保存全部业务事实；SQL job 加内置 runner 默认并发为 1。Chroma 保留为独立、可重建的 RAG 向量投影，不承担业务写权威；不保存向量 BLOB 到 SQL。
 
 ```text
-Browser -> same-origin entry -> FastAPI modules
-                               -> one MySQL authority
-                               -> Redis bounded runtime state
-                               -> immutable Storage
-                               -> rebuildable Chroma projection
-
-                           worker runtime
-                               -> durable job/outbox
-                               -> bounded model/index work
-                               -> isolated process protocol
+局域网浏览器
+    -> 一个 FastAPI 进程（静态前端、认证、业务、SQL runner）
+       -> 一个 MySQL 实例/数据库（唯一业务写权威）
+       -> Chroma adapter（可重建 RAG projection）
+       -> 本地模型/Embedding/Reranker
 ```
 
-“单体”指代码和数据边界，不指单进程。模型、Embedding、大文件和第三方代码不得与 core API 共用无限资源。
+最终不引入微服务、第二套向量后端、长期双写、Redis 正确性依赖或独立业务数据库。Django、Redis、文件/MD5 sidecar 和旧 Skill 内部结构只在迁移/调试窗口保留，完成对账和恢复验证后删除。
 
-发布能力分开验收：
+## 2. 当前状态
 
-| 门禁 | 解锁范围 | 不代表 |
-|------|----------|--------|
-| `SKILL-GATE` | 声明平台上的本地 A/B Prompt/Resources | C 级代码可执行；公网/HA 就绪 |
-| `ARCH-GATE` | 本地架构与产品工作包 `7-10` | C 级代码可执行；公网/HA 就绪 |
-| `EXEC-SKILL-GATE` | 声明平台上的 C 级 Node/Python 执行 | 公网/HA 就绪 |
-| `PUBLIC-HA-GATE` | 公网、多实例、canary、HA/DR | 自动启用 C 级执行 |
+阶段状态只能使用：`草案`、`待你确认`、`实施中`、`待验证`、`已关闭`、`阻塞`。提前存在的代码切片不改变阶段入口，也不能代替退出证据。
 
-当前项目明确为本地开发档位。C 级与公网/HA 是可选后续轨道，不反向冻结已经验收的本地 A/B 产品开发。
+| 阶段 | 当前状态 | 已有事实 | 未收口/入口条件 |
+|---|---|---|---|
+| AR-0 + SK-0：P0 containment 与证据收口 | `实施中` | Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具、当前环境 R7、E1 隔离 MySQL/Chroma 故障与恢复证据已记录；E1 批次提交 `待验证` | E1 用户审阅/关闭确认；完整后端 schema gate、benchmark fixture、原生 Linux/macOS、真实模型质量和 AR-2 授权审计仍未收口。 |
+| AR-1：统一 SQL 基础与运行时合同 | `草案` | 局部 Alembic、局部 outbox 和 API/SSE 合同存在 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/DLQ 尚未交付。 |
+| AR-2：FastAPI 身份、角色与审计 | `草案` | access/refresh/token-version 和部分 grant 数据结构存在 | users/sessions/refresh/revocation 全部 SQL 化、角色分离、approve/revoke 传播和完整审计未完成。 |
+| AR-3：业务数据与迁移权威收敛 | `草案` | 当前 Django/FastAPI 分表和文件/Chroma 事实已盘点 | 同库分表过渡、稳定 UUID/FK、源文档/图片/MD5 入 SQL、旧输入对账和唯一写入口未完成。 |
+| AR-4：RAG/Chroma projection | `草案` | Chroma 失败隔离、staging/rebuild fixture 已有 | RAG port、generation 表、用户声明式切片/检索、SQL 重建和真实 Chroma E2E 未完成。 |
+| AR-5 + SK-1..3：Skill 与核心业务回接 | `草案` | Codex 风格 A/有限 B 切片和 `installed_disabled` 已有 | SQL manifest/raw package、标准目录/ZIP、授权闭环、知识/笔记/聊天回接和旧结构清理未完成。 |
+| SK-4：C 级执行 | `阻塞`（本次不做） | 仅保留 `unsupported` 插口 | 只有用户改变范围并明确启用 C 级后才启动；不阻塞本地 A/B。 |
+| AR-6：删除过渡依赖与单机部署/恢复 | `草案` | 当前三进程开发拓扑有说明 | 删除 Django/Redis/旧 adapter、FastAPI 直接托管前端、单机升级/恢复和核心回归未完成。 |
 
-本次重写不引入微服务、第二套向量后端或长期 v2/双写；不在无备份、dry-run、对账和恢复证据时迁移或删除数据；不把 Chroma/Redis 变成关系数据主库。
-
-## 2. 当前现实与数据权威
-
-### 2.1 主要差距
-
-| 维度 | 当前 | 目标 |
-|------|------|------|
-| 入口/身份 | Vite 分流 Django 与 FastAPI；用户权威在 Django MySQL | 同源 FastAPI；统一 users/sessions/roles/audit |
-| 关系数据 | 两套 migration；业务 `user_id` 多为字符串且无跨库 FK | 一个逻辑 schema、统一 UUID/FK/删除策略和 Alembic |
-| 任务 | 请求内工作、临时 background task 与局部 outbox 并存 | 独立 worker + durable job/UoW/lease/fencing/DLQ/backpressure |
-| 文件/索引 | Blob、目录、MD5 JSONL、Chroma 多路状态 | Storage canonical source + MySQL state + Chroma projection |
-| 配置 | 环境变量、本地 JSON/YAML 分散 | 部署只读配置与版本化业务配置分层 |
-| Skill | 标准 package 主路径和 A/有限 B 切片已形成；旧目录提前删除 | 可恢复的 MySQL/Storage 权威、单包隔离、完整授权审计与可选 runner |
-| 发布恢复 | 无统一 generation manifest、canary 或 restore-forward 证据 | 分档位的本地恢复与公网 HA runbook |
-
-### 2.2 权威矩阵
-
-| 数据 | 权威 | 可重建/短期状态 | 失败规则 |
-|------|------|-----------------|----------|
-| 用户、密码、角色、会话、撤销、审计 | MySQL | Redis auth cache | MySQL 失败即失败；Redis 丢失不得错误放行 |
-| 会话、笔记、记忆、模型配置 | MySQL | Redis cache、向量 projection | 事务提交后异步投影 |
-| 上传源文件与 Skill package | immutable Storage object | worker staging、解析产物 | checksum/finalize 后才能发布 |
-| 文档/索引状态 | MySQL job/source manifest | Chroma collection | 版本化、可 fencing、对账和重建 |
-| 限流、短期锁、pending action | Redis | 无永久副本 | 明确 TTL、容量和 fail-open/closed |
-| Skill/version/install/policy/grant/RunBinding | MySQL | Registry snapshot/cache | 业务事实与 outbox 同事务；坏包不得清空健康快照 |
-| Tool/MCP definition 与 policy | 目标 MySQL 版本化事实 | 本地只读 adapter/cache | RunBinding 固定 digest；实例本地 YAML 不得是最终权威 |
-
-## 3. 依赖、状态与当前队列
-
-### 3.1 固定依赖
+## 3. 固定依赖与顺序
 
 ```text
-AR-0 + SK-0 containment/contracts
-  -> real MySQL/Redis/Storage/Chroma integration baseline
-  -> AR-1 generic durable jobs/UoW/process protocol + SK-1
-  -> Skill import/validation/publish as first worker consumer
-  -> AR-2 identity/roles/audit
-  -> AR-3 authoritative relational schema
-  -> AR-4 Storage/projection + SK-2
-  -> AR-5 skills/tools/mcp first + SK-3
-  -> SK-5 A/B reconciliation/recovery
-  -> SKILL-GATE -> ARCH-GATE -> local product queue
-
-optional C track after AR-1/AR-2/AR-4/SK-3
-  -> SK-4 -> EXEC-SKILL-GATE
-
-optional public track after ARCH-GATE and deployment decision
-  -> AR-6 -> PUBLIC-HA-GATE
+AR-0/SK-0 文档确认、P0 证据和真实依赖基线
+  -> AR-1 统一 MySQL schema + SQL job/UoW/runner
+  -> AR-2 FastAPI 用户/会话/撤销/角色/审计
+  -> AR-3 业务源数据迁移与唯一写权威
+  -> AR-4 RAG port + Chroma generation/rebuild
+  -> AR-5 Skill 标准化与知识/笔记/聊天回接
+  -> AR-6 删除过渡依赖、单机部署和恢复验收
+  -> SKILL-GATE -> ARCH-GATE
 ```
 
-AR-1 只交付语言无关的隔离进程协议和恶意测试桩；Node/Python adapter 属于 SK-4。这样避免 AR-1 与 SK-4 循环依赖。
+每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先标 `待验证`，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 未关闭前不得进入 AR-1，不执行数据库迁移或删除现有业务数据，不解冻产品工作包 `7-10`。
 
-### 3.2 当前状态
+交接批次 `E0-E8` 和蓝图批次 `S0-S8` 只是执行别名，不是第二套状态机；规范对照与每批责任边界见[执行交接手册的映射表](./architecture-execution-handoff-2026-08-26.md)。其中 `E2=S1=AR-1` 必须先完成 SQL schema/UoW/job/runner，`E3=S2=AR-2` 才能做认证审计，`E4=S3=AR-3` 才能迁移业务数据。
 
-状态只使用“未开始 / 实现中 / 证据不全 / 退出门通过”。提前切片不改变阶段入口。
+## 4. 权威和失败边界
 
-| 阶段 | 状态 | 已有切片 | 主要阻断 |
-|------|------|----------|----------|
-| AR-0 + SK-0 | 实现中，证据不全 | 工作包 `1-6` 的安全/认证/migration/API-SSE 基线；P0 containment 与当前环境 R7 已落地 | 真实依赖/恢复环境、批准的 SLO/RPO/RTO/容量、威胁模型、API/UI/Prompt/route characterization、统一授权审计 |
-| AR-1 + SK-1 | 未开始，有提前切片 | parser、Skill domain、revision/outbox | 无通用 job/worker/UoW/lease-fencing；import 仍在请求内 |
-| AR-2 | 未开始，有保护切片 | access/refresh、token version、部分 grant 数据结构 | 身份未收敛；无角色分离、grant revoke 和完整审计 |
-| AR-3 | 未开始，有 migration 切片 | Alembic baseline、Skill tables | 无统一 UUID/FK schema；Skill provenance 与 Tool/MCP policy 未成权威 |
-| AR-4 + SK-2 | 未开始，有提前切片 | content-addressed Skill Storage、API/UI 生命周期 | 无 staging TTL/GC、激活重验、orphan 对账和恢复证据 |
-| AR-5 + SK-3 | 未开始，有提前切片 | A/有限 B、资源编辑、RunBinding 数据面 | 无 per-user、累计预算、真实 A/B E2E、通用迁移器和影子对账 |
-| SK-4 | 未开始 | 只保存 `scripts/`，C 包禁用 | 无 adapter、沙箱、lock/profile 和声明平台证据 |
-| SK-5 | 未开始，有提前清理切片 | 旧运行目录删除与静态禁回归、固定 seed | 删除早于 inventory/迁移/观察/回滚；无自定义 Skill 零数据证明 |
-| AR-6 | 未开始 | 无可用生产拓扑 | 无公网部署、canary、PITR/HA、监控和 DR 证据 |
+| 数据/能力 | 最终权威 | 失败规则 |
+|---|---|---|
+| 用户、会话、refresh、撤销、角色、审计、聊天、笔记、知识源、原始文档/图片、Skill、job、generation、迁移映射 | 一个 MySQL 数据库 | SQL 不可用即 fail-closed；内存、Redis、文件不能放行或确认写入。 |
+| RAG chunks、metadata、vectors | Chroma projection | 可由 SQL 原文和配置重建；异常时 RAG `degraded/503`，不在查询请求内重建。 |
+| 本地 debug/import/export/rollback | 显式操作文件 + SQL 审计 | 开发期默认开启，正式部署可关闭；不得自动 fallback 或成为第二写权威。 |
+| Redis、Django、旧目录、MD5 sidecar | 迁移期临时输入/适配层 | 完成切换、对账和恢复后删除；任何残留不得被描述为最终权威。 |
 
-### 3.3 当前执行队列
+RAG 的 collection 由 `index_kind + embedding_fingerprint + generation` 隔离；最多短暂 `active + staging`，新 generation 成功后删除旧 generation。SQL 不承担向量检索，也不保存向量 BLOB。
 
-1. R7 当前环境失败回归、证据模板、scoped diff、前端测试/lint/build 和浏览器 smoke 已完成；真实依赖启动方式与恢复基线仍待隔离环境。
-2. P0 containment 已完成：禁止 Chroma 破坏性 reset；冻结不安全的 Skill publish/activate/rollback；坏包不得发布 ready、ack outbox、清空全 Registry 或以同 revision degraded 继续运行。
-3. 新导入已固定为服务端 `installed_disabled`；import `409/413`、ZIP media type、`Idempotency-Key` CORS 和 OpenAPI 错误合同已验证；角色分离、grant revoke、完整审计与 Tool/MCP digest 仅冻结合同，留待 AR-2/AR-3。
-4. Legacy checksum inventory、P0 返工矩阵和离线备份工具链已建立；package threat model、API/UI/Prompt/route characterization 及隔离真实 MySQL/Redis/Storage/Chroma 基线仍需补齐。只读 Git 输入见 [Legacy inventory](./legacy-skill-inventory-2026-08-26.md)。
-5. AR-0/SK-0 退出后实施通用 AR-1 worker/UoW/process protocol，以 Skill import/validation/publish 为首个 consumer。
-6. 按 AR-2/3 -> AR-4/5 -> SK-5 顺序完成身份/schema、Storage 生命周期、per-user/预算、真实 A/B E2E 和迁移对账，再执行本地两门。
+## 5. 授权与审计合同（AR-0 冻结，AR-2/S2 实现）
 
-### 3.4 授权与审计统一合同（AR-0 冻结、AR-2 实现）
+当前只冻结不可绕过的 fail-closed 语义，不能以局部 CapabilityGrant 或单一管理员名单宣称闭环完成。AR-2 必须同时交付：
 
-AR-0 只冻结不可绕过的合同和失败语义，不把当前局部 CapabilityGrant/审计代码当作闭环证据。所有 Skill、Tool/MCP policy、RunBinding、API、worker 和恢复流程必须遵守同一合同：
+- 内容/Skill 管理员与安全管理员角色分离；内容准备、`grant approve`、`grant revoke` 和紧急例外不能由同一审批动作自动完成。
+- 每次授权、撤销、策略变更、RunBinding、恢复和本地运维动作记录 actor/role、scope/owner、版本与 digest、before/after revision、grant diff、reason、effective/expiry、result/error、correlation ID 和关联 run/job/import ID。
+- revoke、过期、拒绝、回滚、digest/revision 漂移和 worker 重启使新 Run、排队 job、延迟确认 fail-closed，并记录传播结果。
+- API、runner、重启恢复和审计查询能够按 correlation ID 对账；缺字段或未知 revision 一律拒绝。
 
-- 授权决策必须区分 Skill 管理员与安全管理员；内容准备、grant approve、grant revoke 和紧急例外不能由同一审批动作自批。任何缺少 actor、角色、scope/owner、目标版本或 policy/digest 的请求都 fail closed。
-- 每个 grant/撤销/策略变更固定 `actor/actor_role`、scope/owner、source/package/version/policy/tool-provider digest、before/after revision、grant diff、reason、effective/expiry time、result/error code、correlation ID 以及关联 `run/job/import` ID；secret、token 和资源正文脱敏。
-- revoke、过期、拒绝、回滚或 digest/revision 漂移必须使新 Run、排队 job 和延迟确认 fail closed，并记录受影响对象及取消/重授权结果。API、worker、重启恢复和 Registry reconcile 必须能按 correlation ID 对账同一事实。
-- 负向证据至少覆盖越权管理、同人自批、缺失/过期 grant、撤销传播、重放/幂等、旧 revision、digest 漂移、回滚和 worker 重启恢复；测试必须记录环境、命令、fixture、预期/实际、阈值和证据文件，未执行项标为“未验证”。
+## 6. 门禁
 
-## 4. 阶段合同
+### `SKILL-GATE`：本地 A/B
 
-### AR-0：可靠性与 P0 containment
+必须证明标准目录/ZIP Skill、SQL manifest/raw package、`installed_disabled`、单机 SQL runner、授权撤销、Chroma generation 重建、旧输入对账和恢复可执行。只要求单实例；C 级、多实例收敛、公网和 HA 不属于本门。
 
-- 交付：批准的本地 SLO/RPO/RTO/容量、依赖故障矩阵、generation manifest、只读数据盘点、分层 readiness、Chroma quarantine、Skill 发布止血、SK-0 威胁/inventory/characterization。
-- 退出：真实依赖故障/恢复抽样通过；Chroma 不删除持久目录；缺失/损坏 package 不暴露半发布状态；导入禁用与 API 合同准确。
-- 回滚：只允许报告、测试和保护性开关；任一 P0 未关即停留本阶段。
+### `ARCH-GATE`：本地架构解锁
 
-### AR-1：运行时、持久任务与共享合同
+要求 AR-0 至 AR-6（不含可选 SK-4）和 `SKILL-GATE` 通过，并证明单一 MySQL 业务权威、FastAPI 唯一写入、Django/Redis/文件权威退出、Chroma 可重建、单机部署和恢复回滚可执行。通过后才可解冻产品工作包 `7-10`。
 
-- 入口：AR-0/SK-0 全部退出证据通过。
-- 交付：独立 API/worker；通用 job 状态、claim/lease/heartbeat/fencing/retry/cancel/DLQ/backpressure；application UoW；Storage/Vector ports；SSE replay；隔离进程协议与测试桩；Skill import worker consumer。
-- 退出：kill/restart、过期租约、重复/乱序、毒任务、回滚、背压和 SSE 断线都有确定结果；API 在 worker/模型不可用时保持 core readiness。
+### `EXEC-SKILL-GATE`：可选 C 级
 
-### AR-2：身份、角色与审计
+仅当用户改变范围并启用 `scripts/` 等可执行 Skill 时，验证隔离进程、Node/Python、资源/网络/secret 限制、取消和进程树终止。未启用时保持 `unsupported`，不阻塞本次目标。
 
-- 入口：AR-1 任务/UoW/Redis/SSE 合同通过，用户迁移 dry-run 和 change capture 就绪。
-- 交付：FastAPI users/sessions/revocations/roles/audit；UUID/hash/token 兼容迁移；写入栅栏与 restore-forward；Skill 管理员/安全管理员分权；grant 独立 approve/revoke；全写操作审计与查询。
-- 退出：身份/权限/hash/审计逐项一致；Redis 丢失不错误放行；切换中断可续跑；业务不再运行时查询 Django 用户状态。
+### `PUBLIC-HA-GATE`：未来范围
 
-### AR-3：关系数据权威
+仅当用户将范围扩展到公网、HA 或多实例时，另行验证 TLS、反向代理、容量、PITR、canary、监控和值班。本次局域网目标不依赖该门。
 
-- 入口：AR-2 观察期通过，空库 migration、snapshot 和增量重放已演练。
-- 交付：统一 UUID/FK/唯一约束/删除策略；checkpoint migration；N/N-1 schema；Skill upstream/source/parent/derived digest；Tool/MCP version/policy authority 与 RunBinding digest。
-- 退出：计数、摘要、孤儿、权限隔离一致；迁移可暂停/重放，差异超阈值自动停止；空库和 snapshot 可恢复。
+## 7. 证据与阶段记录
 
-### AR-4：canonical Storage 与 projection
+每阶段在 `project_changes/<date>-<topic>/` 维护 `plan.md`、`change-log.md`、`test-record.md`，至少记录：
 
-- 入口：AR-1 ports/jobs 和 AR-3 schema 已通过。
-- 交付：staged key + TTL + checksum + finalize + 引用感知 GC；DB/final object orphan reconciliation；版本化 Chroma pointer/fencing/rebuild；Skill package 作为 SK-2 首个 consumer。
-- 退出：publish/activate/rollback 在切换 pointer 前重验 Storage；部分失败不产生无法解释的孤儿；跨存储恢复与 checksum 对账通过。
+1. 状态、用户确认范围、owner/approver 和未决事项。
+2. 目标、非目标、依赖、环境、版本、拓扑和迁移开关。
+3. 每个文件/commit/schema 变更、原因、影响、回滚点和关联证据。
+4. 命令、阈值、实际结果、日志路径、fixture/真实依赖和替身限制。
+5. 数据行数、digest、generation、审计事件、对账差异和处理结果。
+6. 可执行的备份、停写、恢复、校验和回滚步骤。
+7. 未执行项保持 `未验证/阻塞`，不能写进完成摘要；用户关闭确认单独记录。
 
-### AR-5：业务域模块化
+## 8. 当前队列
 
-- 入口：AR-2 至 AR-4 退出；目标域有合同和性能基线。
-- 顺序：后端 `skills/tools/mcp -> notes/memory -> chat/sessions -> models -> knowledge`；前端 `auth/shared -> skills/tools -> chat -> knowledge -> notes -> remaining`。
-- Skill 首域退出：per-user scope、累计资源预算、真实 MySQL/API/第三方 A/B E2E、通用离线 `LegacySkillMigrator`、catalog/Prompt/route 影子对账和无 Git 写入全部通过。
+1. 审阅并关闭 E1 批次（[E1 证据目录](../project_changes/2026-08-27-e1-ar0-evidence/)）；在用户确认前保持 `AR-0 + SK-0`，不进入 E2/AR-1。
+2. E1 关闭后，严格按 E2 -> E3 -> E4 -> E5 -> E6 -> E7 -> E8 实施；每阶段只在用户确认后推进。
+3. 0826 批次继续作为 P0 证据，不把本次文档整理误报为 AR-1 或 `ARCH-GATE` 完成。
+4. 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 在 `ARCH-GATE` 或其独立门禁前保持冻结。
 
-### SK-4：可选 C 级执行
+## 9. 重要限制
 
-- 入口：AR-1 通用协议、AR-2 权限、AR-4 Storage、SK-3 A/B/影子对账通过，并明确支持的 OS/runtime。
-- 交付：Node/Python adapters、digest-locked environment、RuntimeBinding、只读挂载、默认断网、CPU/内存/PID/磁盘/输出/secret 限制和进程树终止。
-- 退出：每个声明平台的真实 Node/Python 与恶意 package E2E 通过。当前 Windows-only lock/CI 不得证明 Linux/macOS。
-
-### SK-5：A/B 迁移、恢复与单轨收口
-
-- 入口：SK-3 真实 A/B E2E/影子对账和 AR-4 恢复工具通过；SK-4 不是前置。
-- 交付：从只读 Git artifact/备份/导出盘点 legacy 输入；通用迁移器；逐项或零数据报告；Registry/Storage rebuild、clean install、active pointer rollback 和观察期。
-- 退出：所有可发现 legacy 输入已迁移或显式处置；固定 seed 不充当自定义 Skill 迁移证明；旧 runtime 不恢复。
-
-### AR-6：可选公网/HA 发布
-
-- 入口：本地 `ARCH-GATE` 通过且有明确部署拓扑、容量目标和运维责任人；公网启用 C 时还需 `EXEC-SKILL-GATE`。
-- 交付：TLS/反向代理、canary/abort、connection drain、MySQL failover/PITR、Redis/Storage 耐久性、监控值班、组合故障与 restore-forward。
-- 退出：生产等价环境的 install/migrate/start/test/rollback、SLO/RPO/RTO、告警与 DR 演练通过。
-
-## 5. 门禁
-
-### SKILL-GATE：本地 A/B
-
-必须满足：
-
-- SK-0/1/2/3/5 证据完整，C package 保持不可启用且不可绕过。
-- active package 全部来自统一 validator/MySQL/Storage；前端新建/编辑/导出可无损重导入。
-- publish/activate/rollback 原子切换并重验 checksum；坏包隔离且保留其他 Skill/上一健康快照。
-- 新导入固定禁用；upstream version/digest 冲突、`409/413`、ZIP/CORS/OpenAPI 合同稳定。
-- 角色分离、grant revoke、完整审计和 Tool/MCP policy digest 固定通过；Redis 丢失可恢复。
-- legacy 迁移/零数据、回滚、clean install、单实例 worker kill/restart、lease/fencing/幂等和声明平台 A/B conformance 通过。
-- 本门不要求真实多实例 consumer offset、跨实例乱序收敛或部署拓扑证据；这些属于 `PUBLIC-HA-GATE`，但相关代码在本地档位仍必须 fail closed。
-
-### ARCH-GATE：本地产品解锁
-
-要求 AR-0 至 AR-5 和 `SKILL-GATE` 通过，并证明：单一身份/关系/Storage 权威；API/worker 隔离；durable job/SSE replay；Chroma 可 fencing/rebuild；本地真实依赖恢复和应用/worker 回滚可执行。通过后才选择工作包 `7-10`。
-
-### EXEC-SKILL-GATE：C 级执行
-
-要求 SK-4 在每个声明平台通过真实 Node/Python 构建/执行、供应链、资源限制、网络/文件/secret 拒绝、取消、恢复和进程树终止。未通过时不影响 A/B，但 C 必须保持禁用。
-
-### PUBLIC-HA-GATE：公网与 HA
-
-要求 AR-6 的生产等价拓扑、TLS/egress、canary、容量、监控、PITR、组合故障和 DR 证据，并补充多实例 worker consumer offset、乱序/重复投递、跨实例 revision 收敛、lease/fencing 和恢复演练。公网只提供 A/B 时不依赖 C 门；公网启用 C 时两门都必须通过。
-
-### 5.1 阶段证据最低集
-
-| 阶段 | 最低证据 |
-|------|----------|
-| AR-0/SK-0 | SLO/RPO/RTO、inventory、备份抽样、Chroma/Skill P0 回归、故障矩阵、readiness、威胁/characterization |
-| AR-1/SK-1 | API/worker、job kill/restart、lease/fencing/DLQ/backpressure、UoW rollback、import worker、SSE replay、进程树测试桩 |
-| AR-2 | snapshot/change capture、身份/权限/审计对账、key rotation、grant revoke、增量重放和 restore-forward |
-| AR-3 | checkpoint migration、差异 abort、FK/唯一约束、孤儿/tombstone、N/N-1、Skill/Tool/MCP provenance digest |
-| AR-4/SK-2 | staging/TTL/finalize/checksum、orphan/GC、激活重验、projection fencing/rebuild、跨存储恢复 |
-| AR-5/SK-3 | per-user/预算、真实 A/B E2E、通用迁移器/影子对账、模块边界、权限/失败/取消/性能 |
-| SK-4 | 声明平台 lock/CI、Node/Python/恶意 package、资源/网络/文件/secret/进程树和产物 |
-| SK-5 | legacy inventory/零数据、幂等迁移、单包隔离、Registry/Storage rebuild、clean install、观察期 |
-| AR-6 | canary/abort、drain、failover/PITR、监控值班、组合故障、restore-forward |
-
-## 6. 执行规则
-
-- 每个阶段在 `project_changes/<日期-主题>/` 维护 `plan.md`、`change-log.md`、`test-record.md`；测试记录注明真实依赖或替身、基线和未覆盖风险。
-- 真实 MySQL 迁移必须先有备份、dry-run、审批和隔离恢复；本计划本身不授权连接或修改当前数据库。
-- 切换后优先 restore-forward；不得把恢复旧备份、切回代理或生产 downgrade 冒充零数据回滚。
-- 任一退出条件缺失即停留本阶段；已有代码、绿色 unit test、生成文件 current、目录删除或表结构存在都不是通过证据。
-- 工作包 `7-10` 在本地两门前暂停；允许的变更仅限 P0、安全/数据完整性、启动阻断、门禁底座和标准 A/B Skill 首域。
+- 不连接、迁移、删除或覆盖现有 MySQL、Redis、文件和 Chroma 数据，除非对应阶段完成备份、dry-run、对账、停写和恢复批准。
+- 绿色 unit test、生成文件、固定 seed、删除旧目录或已有局部 API 不等于门禁通过。
+- 发现代码事实与蓝图冲突时，停留当前阶段并更新差异/回滚记录，由用户决定是否修改蓝图。

@@ -11,6 +11,10 @@ from app.core.failed_response import (
     sqlalchemy_error_handler,
     validation_exception_handler,
 )
+from app.rag.vector_store import (
+    CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
+    ChromaProjectionUnavailable,
+)
 from app.skills.service import SKILL_REGISTRY_STALE_MESSAGE, SkillRegistryStaleError
 
 
@@ -21,9 +25,23 @@ async def skill_registry_stale_exception_handler(request, exc):
     )
 
 
+async def chroma_projection_unavailable_exception_handler(request, exc):
+    return await http_exception_handler(
+        request,
+        HTTPException(
+            status_code=503,
+            detail=CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
+        ),
+    )
+
+
 def register_exception_handlers(app):
     """Register application exception handlers."""
     app.add_exception_handler(SkillRegistryStaleError, skill_registry_stale_exception_handler)
+    app.add_exception_handler(
+        ChromaProjectionUnavailable,
+        chroma_projection_unavailable_exception_handler,
+    )
     app.add_exception_handler(HTTPException, http_exception_handler)  # 使用正确的HTTPException类
     app.add_exception_handler(IntegrityError, integrity_error_handler)  # 处理数据库完整性错误
     app.add_exception_handler(SQLAlchemyError, sqlalchemy_error_handler)  # 处理SQLAlchemy异常

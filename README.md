@@ -51,7 +51,7 @@ flowchart LR
 
 开发环境由 Vite proxy 按路径把请求转发给两个后端。代理定义见 `front/vite.config.ts`。
 
-目标是通过本地 `ARCH-GATE` 后收敛为一个代码库、一个关系数据写权威和一个 FastAPI 模块化业务单体，同时保留 API 与 worker 的独立故障域、受约束的 Storage adapter 和可重建的 Chroma projection。该门只解锁 README 明确的本地档位，不代表 C 级代码执行或公网/HA 就绪。当前图中的 Django 鉴权依赖、双 MySQL 和三进程启动方式在重写完成前仍保留，差异和阶段见 [当前架构](./docs/project_develop.md) 与 [架构重写计划](./docs/architecture_rewrite_plan.md)。
+目标是通过本地 `ARCH-GATE` 后收敛为一个代码库、一个 MySQL 业务写权威和一个 FastAPI 模块化业务单体，由 SQL job 加内置 runner 默认单并发执行；Chroma 只作为可重建的 RAG projection。该门只解锁本地局域网档位，不代表 C 级代码执行或公网/HA 就绪。当前 Django、Redis 和三进程启动方式仍是过渡态，差异和阶段见 [架构重写计划](./docs/architecture_rewrite_plan.md) 与 [最终重构蓝图](./docs/architecture-target-blueprint-2026-08-26.md)。
 
 ## Agent 运行链路
 
@@ -87,11 +87,11 @@ SSE 事件类型包括 `thinking`、`waiting_confirmation`、`response`、`done`
 
 ## 快速开始
 
-完整说明见 [开发与运行说明](./docs/development_setup.md)。
+历史开发与运行基线见[归档说明](./docs/archive/2026-08-26/development_setup.md)；当前执行只以[架构重写计划](./docs/architecture_rewrite_plan.md)为准。
 
 ### 1. 准备数据库和环境变量
 
-以下双 MySQL、Django 环境变量和三进程启动命令是本地 `ARCH-GATE` 前的过渡开发基线。架构重写阶段不会自动连接或迁移现有 MySQL；任何接管、迁移或删除都必须按 [架构重写计划](./docs/architecture_rewrite_plan.md) 的备份、dry-run、对账和恢复门执行。
+以下双 MySQL、Django 环境变量和三进程启动命令是历史过渡开发基线，详见[归档开发说明](./docs/archive/2026-08-26/development_setup.md)。架构重写阶段不会自动连接或迁移现有 MySQL；任何接管、迁移或删除都必须按[架构重写计划](./docs/architecture_rewrite_plan.md)的备份、dry-run、对账和恢复门执行。
 
 先创建两个 MySQL database，例如：
 
@@ -155,7 +155,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1
 - FastAPI OpenAPI：<http://127.0.0.1:18000/docs>
 - Django Swagger：<http://127.0.0.1:18001/docs/>
 
-端口是否可用取决于机器当前的监听和系统保留端口范围。遇到 Windows 10013 错误时按 [故障排除](./docs/troubleshooting.md#windows-端口绑定错误-10013) 检查，不要假定某个固定区间一定安全。
+端口是否可用取决于机器当前的监听和系统保留端口范围。遇到 Windows 10013 错误时按[归档故障排除](./docs/archive/2026-08-26/troubleshooting.md#windows-端口绑定错误-10013)检查，不要假定某个固定区间一定安全。
 
 ### 手动启动
 
@@ -256,29 +256,24 @@ npm run build
 
 从 [文档索引](./docs/README.md) 开始阅读。常用入口：
 
-- [开发与运行说明](./docs/development_setup.md)
-- [当前架构](./docs/project_develop.md)
 - [架构重写计划](./docs/architecture_rewrite_plan.md)
-- [Agent 运行时](./docs/agent_runtime_improvements.md)
-- [MCP 接入与管理](./docs/mcp_integration_plan.md)
-- [标准 Skill 接入需求规格](./docs/standard_skill_integration_requirements.md)
-- [Benchmark 开发者指南](./docs/benchmark_engineering_plan.md)
-- [产品路线图](./docs/roadmap_next.md)
-- [安全与可靠性加固计划](./docs/security_hardening_plan.md)
-- [故障排除](./docs/troubleshooting.md)
+- [最终重构蓝图](./docs/architecture-target-blueprint-2026-08-26.md)
+- [架构重构执行交接手册](./docs/architecture-execution-handoff-2026-08-26.md)
+- [阶段执行记录模板](./docs/stage-execution-record-template-2026-08-26.md)
+- [历史文档归档](./docs/archive/2026-08-26/README.md)
 - [Django 用户服务 API](./DjangoUserService/api.md)
 
 ## 当前限制
 
 - 当前仍以受信任机器上的本地开发为主，不应在未完成部署演练时直接向公网或不受信任用户开放。Django/FastAPI 只接受明确的 `ENV` 枚举并使用 CORS allowlist；production profile 对 DEBUG、host/origin、Redis 和弱密钥 fail fast，但这不等于已有生产部署方案。
-- 路径 containment、安全 Markdown、access/refresh 生命周期、固定账号移除和 API/SSE 合同已完成。统一服务端 egress 策略、反向代理/TLS、依赖与 secret scanning、监控告警及恢复演练仍在 [安全与可靠性加固计划](./docs/security_hardening_plan.md) 中跟踪。
+- 路径 containment、安全 Markdown、access/refresh 生命周期、固定账号移除和 API/SSE 合同已完成。统一服务端 egress 策略、反向代理/TLS、依赖与 secret scanning、监控告警及恢复演练的历史记录见[归档安全计划](./docs/archive/2026-08-26/security_hardening_plan.md)。
 - Django migration 与 FastAPI Alembic baseline 已进入版本控制；应用启动只验证 revision，不生成 migration 或执行通用 schema DDL。现有数据库接管仍必须先备份、核对并由运维人员显式执行。
 - 仓库已有基础 CI 和 production profile 校验，但没有完整 Docker Compose、反向代理、TLS、正式部署与回滚清单。
 - 管理员权限仍以配置文件和环境变量为主，尚未迁移到数据库角色与审计表。
 - MCP 配置写回 YAML，不是数据库配置中心。
 - 旧 `backend/app/agent/skills` 的 20 个运行文件已经提前删除，并由静态测试阻止重新引入；标准 seed package 保存在 `backend/app/skills/seed_packages`。这只证明固定内置包和旧运行路径的切片，不等于通用 Legacy inventory、迁移器、逐项对账或零数据证明已经完成。标准 ZIP、资源编辑、CapabilityGrant、SkillRunBinding 和 revision/outbox 均仍受发布原子性、单包隔离、授权审计、Storage GC、durable worker、per-user scope、累计预算与真实 A/B E2E 门禁约束。C 包保持禁用，Node/Python runner/沙箱不受支持。
 - 前端部分页面仍较大；聊天已完成 SSE hook 和安全 Markdown，认证已统一到单一 Zustand store，但完整功能域拆分、头像及业务 E2E 仍待实施。
-- 标准 Skill A/B 单轨改造不属于冻结项，而是当前架构重写的首个业务 consumer；除 P0、安全与门禁底座外，工作包 `7-10` 在本地 `ARCH-GATE` 前暂停。通过本地门后仍不得启用 C 级或宣称公网/HA 就绪，它们分别需要 `EXEC-SKILL-GATE` 与 `PUBLIC-HA-GATE`。阶段与门禁以[架构重写计划](./docs/architecture_rewrite_plan.md)为准，Skill 合同和产品队列分别见[标准 Skill 规格](./docs/standard_skill_integration_requirements.md)与[产品路线图](./docs/roadmap_next.md)。
+- 标准 Skill A/B 单轨改造属于当前架构重写阶段；架构收敛、恢复验收和核心回归关闭前，工作包 `7-10` 与新功能发布冻结。阶段与门禁以[架构重写计划](./docs/architecture_rewrite_plan.md)为准，历史 Skill 合同见[归档文档](./docs/archive/2026-08-26/standard_skill_integration_requirements.md)。
 
 ## License
 

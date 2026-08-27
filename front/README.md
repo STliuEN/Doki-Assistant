@@ -200,4 +200,4 @@ npm run build
 - 当前没有 E2E 浏览器测试。
 - 当前没有生产静态资源和反向代理部署配置。
 
-全项目运行说明见 [开发与运行说明](../docs/development_setup.md)。
+历史全项目运行说明见[归档开发说明](../docs/archive/2026-08-26/development_setup.md)；当前架构执行入口见[架构重写计划](../docs/architecture_rewrite_plan.md)。

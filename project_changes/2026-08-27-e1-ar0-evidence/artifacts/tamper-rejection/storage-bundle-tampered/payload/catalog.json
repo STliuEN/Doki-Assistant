@@ -1,0 +1,9 @@
+{
+  "batch": "E1",
+  "packages": [
+    {
+      "digest": "e1-synthetic-package",
+      "state": "installed_disabled"
+    }
+  ]
+}

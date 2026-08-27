@@ -1,0 +1,15 @@
+{
+  "artifact_kind": "mysql-dump",
+  "content_sha256": "74a0c180929595dcf400435a320571ffe5bd26f388f8b2f29c580eed4140b997",
+  "created_at": "2026-08-27T01:51:18.193456+00:00",
+  "entries": [
+    {
+      "path": "dump.sql",
+      "sha256": "06c982ce1b3b47d7b5d3a1ef21d5f8f1801b91e2948ccf2eae6dcba9c2c4ca17",
+      "size": 2779,
+      "type": "file"
+    }
+  ],
+  "schema_version": 1,
+  "source_format": "offline-sql-file"
+}

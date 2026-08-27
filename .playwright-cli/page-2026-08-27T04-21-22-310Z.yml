@@ -1,0 +1,97 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - complementary [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - heading "Doki Assistant" [level=1] [ref=f1e6]
+        - button "收起侧栏" [ref=f1e7] [cursor=pointer]
+      - navigation [ref=f1e11]:
+        - link "笔记" [ref=f1e12] [cursor=pointer]:
+          - /url: /notes
+        - link "AI 对话" [ref=f1e19] [cursor=pointer]:
+          - /url: /chat
+        - link "实时翻译" [ref=f1e22] [cursor=pointer]:
+          - /url: /translate
+        - link "会话管理" [ref=f1e30] [cursor=pointer]:
+          - /url: /sessions
+        - link "记忆中心" [ref=f1e35] [cursor=pointer]:
+          - /url: /memory
+        - link "知识库" [ref=f1e46] [cursor=pointer]:
+          - /url: /knowledge
+        - link "Skill" [ref=f1e52] [cursor=pointer]:
+          - /url: /skills
+        - link "工具库" [ref=f1e55] [cursor=pointer]:
+          - /url: /tools
+      - generic [ref=f1e66]:
+        - link "个人信息" [ref=f1e67] [cursor=pointer]:
+          - /url: /profile
+        - link "模型选择" [ref=f1e71] [cursor=pointer]:
+          - /url: /model-settings
+        - link "系统设置" [ref=f1e82] [cursor=pointer]:
+          - /url: /settings
+        - link "关于我们" [ref=f1e86] [cursor=pointer]:
+          - /url: /about
+        - button "退出登录" [ref=f1e91] [cursor=pointer]
+    - main [ref=f1e96]:
+      - generic [ref=f1e97]:
+        - complementary [ref=f1e98]:
+          - generic [ref=f1e99]:
+            - generic [ref=f1e100]:
+              - heading "Skill" [level=1] [ref=f1e101]
+              - paragraph [ref=f1e102]: 标准 package 与本地能力
+            - generic [ref=f1e103]:
+              - button "导入本地 ZIP" [ref=f1e104] [cursor=pointer]
+              - button "新增 Skill" [ref=f1e109] [cursor=pointer]
+          - button "Fixture Skill 未知来源" [ref=f1e114] [cursor=pointer]:
+            - generic [ref=f1e115]: Fixture Skill
+            - generic [ref=f1e118]: 未知来源
+        - main [ref=f1e120]:
+          - generic [ref=f1e121]:
+            - generic [ref=f1e122]:
+              - generic [ref=f1e123]:
+                - generic [ref=f1e124]:
+                  - heading "Fixture Skill" [level=2] [ref=f1e125]
+                  - generic [ref=f1e126]: ready
+                  - generic [ref=f1e127]: A
+                - generic [ref=f1e128]:
+                  - generic [ref=f1e129]: 来源：未知来源
+                  - generic [ref=f1e130]: 版本：1
+                  - generic "fixture-skill" [ref=f1e131]: 内部 ID：fixture-skil
+              - generic [ref=f1e132]:
+                - button "导出" [ref=f1e133] [cursor=pointer]
+                - button "归档" [ref=f1e138] [cursor=pointer]
+                - button "保存" [disabled] [ref=f1e143]
+            - navigation "Skill 详情" [ref=f1e148]:
+              - button "内容" [ref=f1e149] [cursor=pointer]
+              - button "管理设置" [ref=f1e156] [cursor=pointer]
+              - button "版本" [ref=f1e162] [cursor=pointer]
+            - generic [ref=f1e167]:
+              - generic [ref=f1e168]:
+                - generic [ref=f1e169]:
+                  - text: 标准名称
+                  - textbox "标准名称" [disabled] [ref=f1e170]: fixture-skill
+                - generic [ref=f1e171]:
+                  - text: 名称
+                  - textbox "名称" [ref=f1e172]: Fixture Skill
+                - generic [ref=f1e173]:
+                  - text: 描述
+                  - textbox "描述" [ref=f1e174]: E1 browser fixture
+              - generic [ref=f1e175]:
+                - generic [ref=f1e176]:
+                  - generic [ref=f1e177]: SKILL.md 执行指令
+                  - generic [ref=f1e178]: 保存后生成新版本
+                - textbox [ref=f1e179]: "# Fixture Skill E1 browser fixture."
+              - generic [ref=f1e180]:
+                - generic [ref=f1e181]:
+                  - text: 扩展 frontmatter（JSON）
+                  - textbox "扩展 frontmatter（JSON）" [ref=f1e182]: "{}"
+                - generic [ref=f1e183]:
+                  - generic [ref=f1e184]:
+                    - generic [ref=f1e185]: Package 资源
+                    - generic [ref=f1e186]: 0 / 255
+                  - generic [ref=f1e187]:
+                    - textbox "资源路径" [ref=f1e188]:
+                      - /placeholder: 资源路径（留空使用文件名）
+                    - button "上传" [ref=f1e189] [cursor=pointer]
+                  - generic [ref=f1e194]: 此版本没有附加资源。
+                  - generic [ref=f1e195]: 单文件最多 8 MiB；scripts/ 下文件只会作为禁用的 C 级资源保存。
+  - region "Notifications alt+T"

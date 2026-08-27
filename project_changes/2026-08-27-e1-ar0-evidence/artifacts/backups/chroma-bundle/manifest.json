@@ -1,0 +1,71 @@
+{
+  "artifact_kind": "chroma-projection",
+  "content_sha256": "6774c829580a9d217c6a4c5b94177201aefa0859cdb12e0ae7188453b8644896",
+  "created_at": "2026-08-27T02:01:42.803128+00:00",
+  "entries": [
+    {
+      "path": "a0c914d7-d490-46f2-9a07-95d99074d95e",
+      "type": "directory"
+    },
+    {
+      "path": "a0c914d7-d490-46f2-9a07-95d99074d95e/data_level0.bin",
+      "sha256": "a87778a831ac571dbfddba7460b949b3ca70a69dab46e4724c7c55cb07c0bd52",
+      "size": 26800,
+      "type": "file"
+    },
+    {
+      "path": "a0c914d7-d490-46f2-9a07-95d99074d95e/header.bin",
+      "sha256": "63524b6444e42e9f31f2e3ace7062ddd3cbc0fa21114e5910fb9ce6717d92168",
+      "size": 100,
+      "type": "file"
+    },
+    {
+      "path": "a0c914d7-d490-46f2-9a07-95d99074d95e/length.bin",
+      "sha256": "22af0acbc670e94a3c56272fc05b85a7598b7009eb2c96895bead73a742ee871",
+      "size": 400,
+      "type": "file"
+    },
+    {
+      "path": "a0c914d7-d490-46f2-9a07-95d99074d95e/link_lists.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "type": "file"
+    },
+    {
+      "path": "chroma.sqlite3",
+      "sha256": "a3fe694c89798c086f17ce46baed10c5067da76a4741a66dad388211c66b9f84",
+      "size": 188416,
+      "type": "file"
+    },
+    {
+      "path": "d60e7e9d-f289-472f-a07d-81f6f534deda",
+      "type": "directory"
+    },
+    {
+      "path": "d60e7e9d-f289-472f-a07d-81f6f534deda/data_level0.bin",
+      "sha256": "b4ebbfc0d7291b39792c77355fa7b15d1a356447f4fa256f42f346028f99bc9c",
+      "size": 26800,
+      "type": "file"
+    },
+    {
+      "path": "d60e7e9d-f289-472f-a07d-81f6f534deda/header.bin",
+      "sha256": "63524b6444e42e9f31f2e3ace7062ddd3cbc0fa21114e5910fb9ce6717d92168",
+      "size": 100,
+      "type": "file"
+    },
+    {
+      "path": "d60e7e9d-f289-472f-a07d-81f6f534deda/length.bin",
+      "sha256": "b0303b9cecfeb5f0a440c09469768b2c3628dd69cd452a86e64b36ab8324fc51",
+      "size": 400,
+      "type": "file"
+    },
+    {
+      "path": "d60e7e9d-f289-472f-a07d-81f6f534deda/link_lists.bin",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "type": "file"
+    }
+  ],
+  "schema_version": 1,
+  "source_format": "directory-tree"
+}

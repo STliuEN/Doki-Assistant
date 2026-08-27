@@ -1,7 +1,7 @@
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import Depends, File, HTTPException, UploadFile
+from fastapi import Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
+from app.rag.vector_store import (
+    CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
+    VectorStoreService,
+)
 from app.router.knowledge_service import KnowledgeService, get_knowledge_service
 from app.schemas.api import ApiResponse
 from app.schemas.models import (
@@ -30,6 +34,17 @@ from app.utils.knowledge_image_paths import (
 )
 
 knowledge_router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+CHROMA_PROJECTION_UNAVAILABLE_RESPONSE = {
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ApiResponse[None],
+        "description": CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
+    }
+}
+
+
+def ensure_chroma_projection_available() -> None:
+    """Fail before a streaming response or config mutation starts."""
+    VectorStoreService()
 
 
 class EmbeddingSwitchRequest(BaseModel):
@@ -52,7 +67,11 @@ class RerankerSwitchRequest(BaseModel):
     trust_remote_code: bool = False
 
 
-@knowledge_router.post("/add/single", response_model=ApiResponse[None])
+@knowledge_router.post(
+    "/add/single",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def add_vector_single(
         file: UploadFile = File(...),
         user_id: str = Depends(get_current_user_id),
@@ -65,7 +84,11 @@ async def add_vector_single(
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
 
 
-@knowledge_router.post("/add/multiple", response_model=ApiResponse[None])
+@knowledge_router.post(
+    "/add/multiple",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def add_vector_multiple(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"),
         user_id: str = Depends(get_current_user_id),
@@ -81,14 +104,15 @@ async def add_vector_multiple(
 @knowledge_router.post(
     "/add/multiple/stream",
     response_class=StreamingResponse,
-    responses=SSE_OPENAPI_RESPONSE,
+    responses={**SSE_OPENAPI_RESPONSE, **CHROMA_PROJECTION_UNAVAILABLE_RESPONSE},
 )
 async def add_vector_multiple_stream(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF、TXT、MD、PPTX、DOCX格式"),
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
-        _: None = Depends(rate_limit(limit=3, window=60))
+        _: None = Depends(rate_limit(limit=3, window=60)),
+        _projection: None = Depends(ensure_chroma_projection_available),
 ):
     """上传多个文件，流式返回处理进度，仅支持TXT、PDF、MD、PPTX、DOCX"""
     return StreamingResponse(
@@ -101,7 +125,11 @@ async def add_vector_multiple_stream(
     )
 
 
-@knowledge_router.delete("/clean", response_model=ApiResponse[None])
+@knowledge_router.delete(
+    "/clean",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def clean_user_vectors(
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
@@ -112,7 +140,11 @@ async def clean_user_vectors(
     return success_response(message="已成功删除用户上传的所有向量")
 
 
-@knowledge_router.delete("/md5/clear", response_model=ApiResponse[None])
+@knowledge_router.delete(
+    "/md5/clear",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def clear_user_md5(
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
@@ -129,7 +161,11 @@ async def clear_user_md5(
         return success_response(message="已成功清空用户的MD5记录（保留知识库文档）")
 
 
-@knowledge_router.delete("/md5/delete/{md5_value}", response_model=ApiResponse[None])
+@knowledge_router.delete(
+    "/md5/delete/{md5_value}",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def delete_single_md5(
         md5_value: str,
         delete_documents: bool = True,
@@ -151,7 +187,11 @@ async def delete_single_md5(
         raise HTTPException(status_code=404, detail=f"MD5记录 {md5_value} 不存在")
 
 
-@knowledge_router.delete("/delete/filename", response_model=ApiResponse[None])
+@knowledge_router.delete(
+    "/delete/filename",
+    response_model=ApiResponse[None],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def delete_by_filename(
         filename: str,
         delete_documents: bool = True,
@@ -174,7 +214,11 @@ async def delete_by_filename(
         raise HTTPException(status_code=404, detail=f"文件 {filename} 不存在")
 
 
-@knowledge_router.get("/md5/list", response_model=ApiResponse[MD5ListResponse])
+@knowledge_router.get(
+    "/md5/list",
+    response_model=ApiResponse[MD5ListResponse],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def get_all_md5_records(
         user_id: str = Depends(get_current_user_id),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
@@ -188,7 +232,11 @@ async def get_all_md5_records(
     ))
 
 
-@knowledge_router.get("/md5/{md5_value}", response_model=ApiResponse[MD5Record])
+@knowledge_router.get(
+    "/md5/{md5_value}",
+    response_model=ApiResponse[MD5Record],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def get_md5_info(
         md5_value: str,
         user_id: str = Depends(get_current_user_id),
@@ -242,13 +290,18 @@ async def list_embedding_ollama_models(
     return success_response(message="embedding models fetched", data={**result, "user_id": user_id})
 
 
-@knowledge_router.post("/embedding/switch", response_model=ApiResponse[Any])
+@knowledge_router.post(
+    "/embedding/switch",
+    response_model=ApiResponse[Any],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def switch_embedding_and_rebuild(
         payload: EmbeddingSwitchRequest,
         user_id: str = Depends(get_current_user_id),
         db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=5, window=60)),
+        _projection: None = Depends(ensure_chroma_projection_available),
 ):
     svc = get_embedding_config_service()
     config = await svc.save_user_config(
@@ -297,7 +350,11 @@ async def switch_reranker(
     return success_response(message="reranker switched", data={**config.to_dict(), "user_id": user_id})
 
 
-@knowledge_router.get("/detail", response_model=ApiResponse[KnowledgeDocumentDetail])
+@knowledge_router.get(
+    "/detail",
+    response_model=ApiResponse[KnowledgeDocumentDetail],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def get_document_detail(
         filename: str,
         user_id: str = Depends(get_current_user_id),
@@ -309,7 +366,11 @@ async def get_document_detail(
     return success_response(data=document)
 
 
-@knowledge_router.get("/chunks", response_model=ApiResponse[DocumentChunksResponse])
+@knowledge_router.get(
+    "/chunks",
+    response_model=ApiResponse[DocumentChunksResponse],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def get_document_chunks(
         filename: str,
         user_id: str = Depends(get_current_user_id),

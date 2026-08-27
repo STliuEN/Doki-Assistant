@@ -17,6 +17,7 @@ from app.core.logger_handler import logger
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
+from app.rag.vector_store import CHROMA_PROJECTION_UNAVAILABLE_MESSAGE
 from app.schemas.api import ApiResponse
 from app.schemas.models import (
     ConfirmActionRequest,
@@ -55,6 +56,12 @@ SKILL_REGISTRY_UNAVAILABLE_RESPONSE = {
 PENDING_ACTION_GONE_RESPONSE = {
     status.HTTP_410_GONE: {
         "description": "Pending action expired, was consumed, or no longer matches its run authorization snapshot",
+    }
+}
+CHROMA_PROJECTION_UNAVAILABLE_RESPONSE = {
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ApiResponse[None],
+        "description": CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
     }
 }
 
@@ -189,7 +196,11 @@ async def confirm_agent_action(
     )
 
 
-@chat_router.post("/rag/query", response_model=ApiResponse[RAGResponse])
+@chat_router.post(
+    "/rag/query",
+    response_model=ApiResponse[RAGResponse],
+    responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
+)
 async def query_rag(
     request: RAGRequest,
     user_id: str = Depends(get_current_user_id),
