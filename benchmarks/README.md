@@ -71,6 +71,13 @@ uv run python ..\benchmarks\runners\run_benchmarks.py --offline --include-negati
 - `tool_safety` cases distinguish a tool being called from a tool being
   executed. A high-risk tool may be attempted, but it must emit
   `waiting_confirmation` and must not perform the underlying action.
+- Explicit `tool_ids` narrow the tools granted by the selected Skills; they are
+  not an independent authority source. Every explicit-tool fixture must name a
+  minimal granting Skill in both `skill_ids` and `routed_skill_ids` so the
+  benchmark exercises the same fail-closed contract as production.
+- Offline runs materialize standard seed packages and runtime logs below the
+  selected result directory (`.runtime/skill_packages` and `benchmark.log`);
+  they must not probe the application's configured Skill Storage or log file.
 - The SSE driver begins streams with an empty `response` frame. Latency and
   response-contract checks should use `require_non_empty_response_before_done`
   when they are meant to prove user-visible content was produced.

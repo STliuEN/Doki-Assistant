@@ -1,10 +1,10 @@
 # E1 AR-0/SK-0 真实依赖与恢复证据
 
 日期：2026-08-27  
-状态：待验证  
+状态：已关闭
 负责人：Codex 架构重构协作代理  
 审阅/批准人：用户  
-用户确认：2026-08-27，用户允许进行更改并明确要求开始 E1；该确认授权隔离环境和证据工作，不代表阶段关闭。
+用户确认：2026-08-27，用户先授权隔离环境和证据工作；技术验证提交后，用户明确要求“确认关闭 E1 并更新相关记录”，批准本批从 `待验证` 转为 `已关闭`。该关闭不授权实施 E2/AR-1。
 
 ## 目标
 
@@ -22,7 +22,7 @@
 
 ## 依赖与入口条件
 
-- 上一阶段关闭证据：E0/S0 文档交接已关闭；主计划仍为 `AR-0 + SK-0`。
+- 上一阶段关闭证据：E0/S0 文档交接已关闭；本批入口阶段为 `AR-0 + SK-0`。
 - 固定代码基线：分支 `ai_document_assistant`，HEAD `d0b882683111adee4d6edfcec4d085cadf14a42a`；已有脏工作树由用户保留，本批不清理、不覆盖。
 - 主机：Windows 11 64-bit build 26100、PowerShell 5.1、Python 3.12.3、uv 0.8.17、Docker Engine 29.5.3。
 - 隔离拓扑：新建 `doki-e1-*` Docker 资源和本批专用目录；MySQL 仅绑定 loopback；Chroma 使用项目锁定的真实运行库和新持久目录。
@@ -38,7 +38,9 @@
 - [x] 执行 MySQL 合成数据的 dump、manifest bundle、恢复、行数/digest 对账和 restore-forward。
 - [x] 执行真实 Chroma 正常写入/查询、五类故障注入、进程重启、备份恢复和原目录保护验证。
 - [x] 补齐 API/UI/Prompt/route characterization、威胁模型、跨平台限制和审计关联记录。
-- [x] 汇总证据并将实现者状态改为 `待验证`；用户确认关闭仍未完成。
+- [x] 修复离线 benchmark 的 Skill/Tool fixture 授权冲突，不放宽生产授权或让 harness 自动补 Skill。
+- [x] 修复 pytest 对主应用 lifespan 和本机持久化资源的隐式依赖，并在隔离根目录复跑完整测试。
+- [x] 汇总证据并将实现者状态改为 `待验证`；用户已于 2026-08-27 明确确认关闭 E1。
 
 ## 风险与保护
 
@@ -55,17 +57,18 @@
 - [x] MySQL、Chroma 与受保护输入的备份、恢复、digest/行数校验和 restore-forward 已演练。
 - [x] 原 Chroma 目录与健康 projection 未被失败路径覆盖；查询失败语义符合 `degraded/503` 合同。
 - [x] characterization、威胁边界、真实依赖与替身限制已注明（见 `threat-model.md`、`characterization-matrix.md`、`platform-limitations.md`）。
-- [x] 实现者已提交 `待验证`；审阅人检查和用户确认关闭尚未完成。
+- [x] 实现者已提交 `待验证`；用户已审阅关闭结论并明确确认本批 `已关闭`。
 
 ## 回滚方案
 
-停止 E1 测试进程和 `doki-e1-20260827-*` 容器；保留日志、dump、manifest 和隔离 volume。若隔离数据发生错误，从本批只读 bundle 恢复到新的目标并核对行数、SHA-256、Chroma collection/count 和版本。任何容器、volume 或目录清理都需再次核对名称与绝对路径，并在阶段关闭后由用户确认。
+停止 E1 测试进程和 `doki-e1-20260827-*` 容器；保留日志、dump、manifest 和隔离 volume。若隔离数据发生错误，从本批只读 bundle 恢复到新的目标并核对行数、SHA-256、Chroma collection/count 和版本。任何容器、volume 或目录清理都需再次核对名称与绝对路径，并另行获得用户确认；本次关闭不授权清理。
 
-## 未完成与阻塞
+## 已解除阻塞与保留边界
 
-- **完整后端 pytest**：`280 passed, 1 failed`。唯一失败 `test_skill_import_idempotency_header_is_allowed_by_cors` 需要真实主应用 lifespan；当前数据库 schema revision 不满足 `20260824_0002`。E1 禁止 migration，也不能连接既有 `localhost:3306` 业务 MySQL，保持 `blocked`。
-- **离线 benchmark 合同**：smoke 4 cases 为 3 passed/1 error；regression 117 cases 为 78 passed/39 errors，集中在 `skill_tool_selection`/`tool_safety` 将 `skill_ids=["memory_write"]` 与未获该 Skill 授权的 `delete_memory` 等工具同时传入。需明确 fixture/Skill 合同后再修复，保持 `blocked`，本批不放宽授权。
-- **真实模型/Embedding/Reranker 质量**：不属于 E1 数据持久性证据，使用确定性 Embedding 测试桩并明确标注，后续在线质量门禁另行验证，状态 `not-run`。
-- **Linux/macOS 跨平台实机**：当前仅有 Windows 主机与 Docker Linux 内核；缺失平台保持 `not-run`，不能由路径 fixture 替代。
-- **真实后端 UI E2E**：Playwright 仅完成 Vite + mock/代理失败表征；真实业务后端因 schema gate 未启动，状态 `blocked`。
-- **AR-2 授权审计闭环**：合同可 characterization，完整实现必须等待 AR-2，不作为 E1 代码交付，状态 `not-run`。
+- **完整后端 pytest**：保留首次 `280 passed, 1 failed` 和一次误连本机环境所得的无效 `282 passed` 记录。修复后 CORS 单测不启动 lifespan，pytest 在收集前强制隔离 MySQL、Redis、Django API、Skill Storage、Chroma、知识文件和日志；当前代码最终 `284 passed`，且受保护目录与应用日志未变化。误触范围和证据限制见 `test-record.md`。
+- **离线 benchmark 合同**：保留首次 smoke `3/4`、regression `78/117`，以及一次行为全绿但仍触碰默认 Storage/日志的隔离失败记录。fixture 改为声明每个显式工具的最小授权 Skill，并由生产 `resolve_skills` 合同测试约束；runner 将 seed 包和日志写入结果目录。最终 smoke `4/4`、regression `117/117`，均为平均分 `1.0`、零 error/硬 veto，受保护资源未变化。
+- **真实模型/Embedding/Reranker 质量**：不属于 E1 数据持久性证据，使用确定性 Embedding/脚本模型并明确标注；状态 `not-run/non-blocking`。
+- **Linux/macOS 跨平台实机**：Windows 11 是唯一正式支持主机；原生 Linux/macOS 为 `out-of-scope/frozen`，不再作为 E1 或后续阶段门禁。
+- **真实后端 UI E2E**：Playwright 只完成 Vite + mock/代理失败表征；需要真实 schema 的业务 E2E 移交 E2，不阻塞 E1，也未在本批执行 migration。
+- **AR-2 授权审计闭环**：E1 只冻结并验证现有 fail-closed 合同；完整实现等待 AR-2，不作为 E1 代码交付。
+- **阶段状态**：E1 技术验证没有剩余阻塞，用户已于 2026-08-27 明确确认关闭；E1/AR-0/SK-0 状态为 `已关闭`。下一阶段 E2/AR-1 仅转为 `待你确认`，本次关闭不构成 E2 实施、migration 或数据变更授权。

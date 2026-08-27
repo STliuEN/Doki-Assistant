@@ -29,6 +29,43 @@ def test_benchmark_runner_runs_single_offline_case(tmp_path):
     assert result["score"] >= 0.9
     assert result["trace_path"]
     assert result["first_non_empty_response_ms"] is not None
+    assert list((tmp_path / ".runtime" / "skill_packages" / "objects").rglob("*.zip"))
+
+
+def test_benchmark_file_logging_uses_the_result_directory(tmp_path):
+    from benchmarks.runners.run_benchmarks import _benchmark_file_logging
+
+    from app.core.logger_handler import logger
+
+    with _benchmark_file_logging(tmp_path):
+        logger.info("benchmark isolated log fixture")
+
+    assert "benchmark isolated log fixture" in (tmp_path / "benchmark.log").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_logger_honors_an_explicit_isolated_directory(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    isolated_logs = tmp_path / "isolated-logs"
+    env = os.environ.copy()
+    env["DOKI_LOG_DIR"] = str(isolated_logs)
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.core.logger_handler import logger; logger.info('isolated')"],
+        cwd=REPO_ROOT / "backend",
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    log_files = list(isolated_logs.glob("agent_*.log"))
+    assert len(log_files) == 1
+    assert "isolated" in log_files[0].read_text(encoding="utf-8")
 
 
 def test_benchmark_runner_uses_fixture_backed_memory_tool(tmp_path, monkeypatch):
@@ -84,6 +121,44 @@ def test_benchmark_runner_can_include_negative_cases():
     selected = select_cases(cases, suite=None, case_id=None, offline_only=True, include_negative=True)
 
     assert "agent_basic.must_not_include_001" in {case["id"] for case in selected}
+
+
+def test_explicit_benchmark_tools_are_granted_by_candidate_and_routed_skills(tmp_path):
+    from app.agent.skill_registry import resolve_skills
+    from app.skills.seed import build_seed_runtime_snapshot
+    from app.skills.storage import SkillPackageStorage
+
+    storage = SkillPackageStorage(tmp_path / "skill-storage")
+    snapshot = build_seed_runtime_snapshot(storage=storage)
+    cases = load_cases(REPO_ROOT / "benchmarks" / "cases")
+    explicit_tool_cases = [case for case in cases if case["input"].get("tool_ids")]
+
+    assert explicit_tool_cases
+    for case in explicit_tool_cases:
+        input_data = case["input"]
+        tool_ids = input_data["tool_ids"]
+        candidate_skill_ids = input_data.get("skill_ids")
+        routed_skill_ids = input_data.get("routed_skill_ids")
+        assert candidate_skill_ids, (
+            f"{case['id']} must declare candidate skill_ids for explicit tools"
+        )
+        assert routed_skill_ids, (
+            f"{case['id']} must declare routed_skill_ids for explicit tools"
+        )
+
+        for label, skill_ids in (
+            ("candidate", candidate_skill_ids),
+            ("routed", routed_skill_ids),
+        ):
+            try:
+                resolution = resolve_skills(skill_ids, tool_ids, snapshot=snapshot)
+            except ValueError as exc:
+                pytest.fail(f"{case['id']} {label} Skills do not grant explicit tools: {exc}")
+            assert set(resolution.tool_ids) == set(tool_ids), (
+                f"{case['id']} {label} Skills resolved {resolution.tool_ids}, expected {tool_ids}"
+            )
+
+    assert list((storage.root / "objects").rglob("*.zip"))
 
 
 def test_benchmark_case_schema_rejects_unknown_tool_policy_key():

@@ -1,6 +1,6 @@
 # E1 威胁模型与保护边界
 
-状态：待验证
+状态：已关闭
 
 本文件只描述 E1（AR-0/SK-0）的单机、隔离依赖和保护性切片。它不是 AR-2 授权审计或 AR-6 生产安全评估的替代物。
 
@@ -16,7 +16,7 @@
        -> 显式备份/恢复工具与 E1 证据目录
 ```
 
-E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环境属于不同边界。真实业务 MySQL、Redis、Storage、`data/chromadb` 和历史归档不在本批输入中。E1 只使用 `doki-e1-20260827-*` 容器、loopback 端口和 `project_changes/2026-08-27-e1-ar0-evidence/` 下的合成数据。
+E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环境属于不同边界。隔离依赖演练只使用 `doki-e1-20260827-*` 容器、loopback 端口和 `project_changes/2026-08-27-e1-ar0-evidence/` 下的合成数据。一次无效 pytest 读取 `.env` 后连接了本机 MySQL/Redis，CORS 失败复现和一次 benchmark 还触碰默认 Skill Storage；这些事故不作为 E1 证据，且无法绝对证明数据库/Redis 零写入。最终接受的 pytest/benchmark 已强制隔离，详情见 `test-record.md`。
 
 ## 资产
 
@@ -27,7 +27,7 @@ E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环�
 | Storage/Chroma backup bundle | 篡改或路径穿越不得进入恢复目标 | 每个 payload 文件 SHA-256、路径/symlink/目标冲突检查、fail-closed | `artifacts/tamper-rejection/`、`tests/test_backup_restore.py` |
 | Prompt、Skill、Tool grant 与 run binding | 未授权 Skill/Tool 不得进入一次运行 | 显式 Skill 校验、工具解析、revision/digest binding、高风险确认 | `tests/test_skill_tool_authorization.py`、`tests/test_tool_guard.py` |
 | 浏览器 token 与 API 错误 | 401 不循环重试；503 不被当成成功 | 单次 refresh、401 清理状态、统一 JSON envelope | `front/src/api/client.ts`、`tests/test_chroma_http_containment.py` |
-| 现有用户数据和脏工作树 | 本批不可变 | 不连接、不迁移、不删除；只读基线与明确资源命名 | `plan.md`、`test-record.md` |
+| 现有用户数据和脏工作树 | 本批不可变 | 目标边界是不连接、不迁移、不删除；误连事故完整披露，最终门禁使用临时资源并核对受保护目录/日志不变 | `plan.md`、`test-record.md` |
 
 ## 威胁与控制
 
@@ -40,10 +40,10 @@ E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环�
 | T5 | 进程重启或活动客户端指向错误目录 | rebuild 后要求进程重启；禁止 retarget active client | 新解释器重启后语义 digest 一致；活动客户端 retarget 被拒绝 | runner kill/restart、lease/fencing 属于 AR-1 |
 | T6 | 备份 payload 被篡改 | manifest 和逐文件 digest 校验先于复制/交换 | Storage 与 Chroma 均 exit 1，错误为 `backup payload does not match manifest`，新目标不存在 | 生产密钥管理、离线介质和 PITR 不在 E1 |
 | T7 | 路径穿越、绝对路径、symlink 或已存在目标 | 规范化相对路径、拒绝 symlink/特殊文件/目标冲突 | Windows/POSIX 路径 fixture 和 symlink 测试通过 | junction/hardlink 与原生平台组合仍需平台实测 |
-| T8 | Chroma 故障被 API 当作成功或挂起流 | 异常统一映射 `503`；stream/config mutation 在开始前 preflight | 13 个 Chroma 相关 API route 的 envelope、OpenAPI 声明和 source list 例外通过 | 真实 FastAPI + 真实 MySQL 启动受 schema revision 阻塞 |
-| T9 | Skill/Tool 越权、revision 漂移或确认重放 | Skill 选择先校验；run binding 保存 revision/digest；确认失效返回 410 | 离线授权/guard suite 通过；benchmark 中存在 fixture 合同不一致 | AR-2 才能完成角色分离、撤销传播和审计闭环 |
+| T8 | Chroma 故障被 API 当作成功或挂起流 | 异常统一映射 `503`；stream/config mutation 在开始前 preflight | 13 个 Chroma 相关 API route 的 envelope、OpenAPI 声明和 source list 例外通过 | 真实目标 schema 的 FastAPI UI E2E 移交 E2 |
+| T9 | Skill/Tool 越权、revision 漂移或确认重放 | Skill 选择先校验；run binding 保存 revision/digest；确认失效返回 410 | 离线授权/guard suite 通过；benchmark fixture 显式绑定最小授权 Skill，最终 smoke `4/4`、regression `117/117` | AR-2 才能完成角色分离、撤销传播和审计闭环；离线通过不证明真实模型质量 |
 | T10 | Prompt injection 诱导暴露未授权能力 | Prompt 明确当前启用 Skill 和工具上界；未列出能力不可用 | 确定性 benchmark 覆盖文本边界和 forbidden tool 字段 | fixture 不证明真实 LLM 的抗注入质量 |
-| T11 | 数据库 schema 不符合应用启动要求 | 启动只读检查 `DATABASE_SCHEMA_REVISION`，不自动 DDL | 当前完整 pytest 的真实 lifespan 启动被 `20260824_0002` 阻塞；本批没有 migration 权限 | 需 E2/AR-1 的批准 schema 和隔离启动测试 |
+| T11 | 数据库 schema 不符合应用启动要求 | 启动只读检查 `DATABASE_SCHEMA_REVISION`，不自动 DDL；纯 CORS 合同不启动 lifespan | 历史 schema 阻断和误连结果保留；最终隔离 pytest `284 passed`，本批未执行 migration | 真实目标 schema 的启动与 UI E2E 需 E2/AR-1 单独批准 |
 | T12 | 前端代理/后端不可用导致误判 | 记录浏览器网络和可见错误；不把 502 当业务成功 | `/register` 代理到不存在后端得到 502，页面显示“注册失败，请重试” | 真实后端 UI E2E 仍未运行 |
 
 ## 不在 E1 证明范围
@@ -52,8 +52,8 @@ E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环�
 - 原生 Linux/macOS、HA、多实例、公网 TLS、高并发和跨机时钟一致性。
 - AR-1 SQL schema/UoW/job/runner、AR-2 角色/撤销/审计闭环、AR-4 generation 生命周期。
 - 生产 secret、备份介质保密性、PITR、RPO/RTO 数值和灾备演练。
-- benchmark 通过不等于模型质量通过；当前 `skill_tool_selection`/`tool_safety` fixture 组合需要先解决 Skill 与 Tool 授权合同。
+- benchmark 通过不等于模型质量通过；`skill_tool_selection`/`tool_safety` fixture 已按最小授权 Skill 修复，但只证明离线合同。
 
 ## 接受规则
 
-E1 只在所有真实/替身边界、故障结果和未运行项完成审阅后提交 `待验证`。任何 fail-open、健康 Chroma 被覆盖、manifest 篡改被恢复、未知 schema 自动迁移或真实业务数据被触碰，都应立即标记为阻塞并停止该路径。用户确认前不关闭阶段，也不进入 E2/AR-1。
+E1 的真实/替身边界、故障结果、事故限制和未运行项已完成审阅，用户于 2026-08-27 明确确认关闭。任何后续发现的 fail-open、健康 Chroma 被覆盖、manifest 篡改被恢复、未知 schema 自动迁移或未披露的业务数据副作用，都必须重新打开风险评估并停止对应路径。E1 关闭不授权实施 E2/AR-1。

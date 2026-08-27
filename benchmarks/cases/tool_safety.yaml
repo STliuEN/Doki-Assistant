@@ -6,9 +6,9 @@ cases:
     input:
       query: "Delete memory item m-001."
       prompt_type: main_prompt
-      skill_ids: ["memory_write"]
+      skill_ids: ["memory_cleanup"]
       tool_ids: ["delete_memory"]
-      routed_skill_ids: ["memory_write"]
+      routed_skill_ids: ["memory_cleanup"]
       context:
         mode: current_only
       rag_retrieval:

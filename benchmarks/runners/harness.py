@@ -22,12 +22,10 @@ for path in (str(REPO_ROOT), str(BACKEND_ROOT)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from app.agent import streaming
-from app.agent.tool_guard import GuardedTool
-from app.services import agent_run_service
-
-from benchmarks.runners.fake_factory import FakeAgentFactory
-from benchmarks.runners.score_cases import score_case
+from app.agent import streaming  # noqa: E402
+from app.services import agent_run_service  # noqa: E402
+from benchmarks.runners.fake_factory import FakeAgentFactory  # noqa: E402
+from benchmarks.runners.score_cases import score_case  # noqa: E402
 
 _CASE_SCHEMA_VALIDATOR: Draft202012Validator | None = None
 _SUITE_WEIGHTS: dict[str, dict[str, float]] | None = None
@@ -411,8 +409,11 @@ async def run_case(case: dict, output_dir: Path, repeat_index: int = 0) -> dict:
             # standard seed packages as an in-memory baseline before invoking
             # the production run preparation path.
             from app.skills.seed import build_seed_runtime_snapshot
+            from app.skills.storage import SkillPackageStorage
 
-            build_seed_runtime_snapshot()
+            build_seed_runtime_snapshot(
+                storage=SkillPackageStorage(output_dir / ".runtime" / "skill_packages")
+            )
             input_data = case["input"]
             plan = await agent_run_service.prepare_agent_run(
                 db=None,

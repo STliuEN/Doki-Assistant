@@ -5,8 +5,10 @@ from datetime import datetime
 # 获取项目根目录
 project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 
-# 如果没有logs文件夹，则创建
-logs_dir = os.path.join(project_path, 'logs')
+# Allow isolated tooling to keep logs out of the application data tree.
+logs_dir = os.path.abspath(
+    os.getenv("DOKI_LOG_DIR", "").strip() or os.path.join(project_path, "logs")
+)
 os.makedirs(logs_dir, exist_ok=True)
 
 # 日志模式
@@ -40,7 +42,6 @@ def get_logger(
         log_file = f"{name}_{datetime.now().strftime('%Y%m%d')}.log"
 
     # 确保logs目录存在
-    logs_dir = os.path.join(project_path, 'logs')
     os.makedirs(logs_dir, exist_ok=True)
 
     file_handler = logging.FileHandler(os.path.join(logs_dir, log_file), encoding='utf-8')

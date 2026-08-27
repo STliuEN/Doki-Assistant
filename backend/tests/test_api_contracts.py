@@ -63,7 +63,8 @@ def test_production_rejects_missing_or_wildcard_cors(origins: list[str]) -> None
 def test_skill_import_idempotency_header_is_allowed_by_cors() -> None:
     from main import app
 
-    with TestClient(app) as client:
+    client = TestClient(app)
+    try:
         response = client.options(
             "/skills/imports",
             headers={
@@ -72,6 +73,8 @@ def test_skill_import_idempotency_header_is_allowed_by_cors() -> None:
                 "Access-Control-Request-Headers": "content-type,idempotency-key",
             },
         )
+    finally:
+        client.close()
 
     assert response.status_code == 200
     allowed_headers = response.headers["access-control-allow-headers"].lower()

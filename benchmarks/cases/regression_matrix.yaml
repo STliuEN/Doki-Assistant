@@ -210,16 +210,16 @@ matrices:
       input:
         query: assemble selected tool
         prompt_type: main_prompt
-        skill_ids: []
+        skill_ids: [system_context]
         tool_ids: [current_time]
-        routed_skill_ids: []
+        routed_skill_ids: [system_context]
         context: {mode: current_only}
         rag_retrieval: {mode: auto}
       fixtures:
         model_script: fixtures/scripts/shared_benchmark_response.json
       expect:
         must_include: [benchmark]
-        routing_contract: {exact_skill_ids: [], exact_tool_ids: [current_time]}
+        routing_contract: {exact_skill_ids: [system_context], exact_tool_ids: [current_time]}
         event_contract: {exactly_once: [done], terminal_type: done, require_done_session_id: true}
         state_contract: {created_messages: 1}
         efficiency_contract: {max_tool_calls: 0}
@@ -227,24 +227,24 @@ matrices:
         min_score: 0.95
       tags: [regression, tool_assembly, no_external_network]
     rows:
-      - {id: current_time, title: Assemble current time, input: {tool_ids: [current_time]}, expect: {routing_contract: {exact_tool_ids: [current_time]}}}
-      - {id: user_info, title: Assemble user info, input: {tool_ids: [user_info]}, expect: {routing_contract: {exact_tool_ids: [user_info]}}}
-      - {id: list_memories, title: Assemble memory list, input: {tool_ids: [list_memories]}, expect: {routing_contract: {exact_tool_ids: [list_memories]}}}
-      - {id: get_memory, title: Assemble memory detail, input: {tool_ids: [get_memory]}, expect: {routing_contract: {exact_tool_ids: [get_memory]}}}
-      - {id: create_memory, title: Assemble memory create, input: {tool_ids: [create_memory]}, expect: {routing_contract: {exact_tool_ids: [create_memory]}}}
-      - {id: update_memory, title: Assemble memory update, input: {tool_ids: [update_memory]}, expect: {routing_contract: {exact_tool_ids: [update_memory]}}}
-      - {id: complete_memory, title: Assemble memory complete, input: {tool_ids: [complete_memory]}, expect: {routing_contract: {exact_tool_ids: [complete_memory]}}}
-      - {id: mark_memory_reviewed, title: Assemble reviewed marker, input: {tool_ids: [mark_memory_reviewed]}, expect: {routing_contract: {exact_tool_ids: [mark_memory_reviewed]}}}
-      - {id: postpone_memory, title: Assemble memory postpone, input: {tool_ids: [postpone_memory]}, expect: {routing_contract: {exact_tool_ids: [postpone_memory]}}}
-      - {id: archive_memory, title: Assemble memory archive, input: {tool_ids: [archive_memory]}, expect: {routing_contract: {exact_tool_ids: [archive_memory]}}}
-      - {id: delete_memory, title: Assemble memory delete, input: {tool_ids: [delete_memory]}, expect: {routing_contract: {exact_tool_ids: [delete_memory]}}}
-      - {id: today_reviews, title: Assemble today reviews, input: {tool_ids: [today_reviews]}, expect: {routing_contract: {exact_tool_ids: [today_reviews]}}}
-      - {id: generate_review_question, title: Assemble review question, input: {tool_ids: [generate_review_question]}, expect: {routing_contract: {exact_tool_ids: [generate_review_question]}}}
-      - {id: create_note, title: Assemble note create, input: {tool_ids: [create_note]}, expect: {routing_contract: {exact_tool_ids: [create_note]}}}
-      - {id: search_notes, title: Assemble note search, input: {tool_ids: [search_notes]}, expect: {routing_contract: {exact_tool_ids: [search_notes]}}}
-      - {id: related_notes, title: Assemble related notes, input: {tool_ids: [related_notes]}, expect: {routing_contract: {exact_tool_ids: [related_notes]}}}
-      - {id: note_stats, title: Assemble note stats, input: {tool_ids: [note_stats]}, expect: {routing_contract: {exact_tool_ids: [note_stats]}}}
-      - {id: rag_summary, title: Assemble RAG summary, input: {tool_ids: [rag_summary]}, expect: {routing_contract: {exact_tool_ids: [rag_summary]}}}
+      - {id: current_time, title: Assemble current time, input: {skill_ids: [system_context], tool_ids: [current_time], routed_skill_ids: [system_context]}, expect: {routing_contract: {exact_skill_ids: [system_context], exact_tool_ids: [current_time]}}}
+      - {id: user_info, title: Assemble user info, input: {skill_ids: [system_context], tool_ids: [user_info], routed_skill_ids: [system_context]}, expect: {routing_contract: {exact_skill_ids: [system_context], exact_tool_ids: [user_info]}}}
+      - {id: list_memories, title: Assemble memory list, input: {skill_ids: [memory_read], tool_ids: [list_memories], routed_skill_ids: [memory_read]}, expect: {routing_contract: {exact_skill_ids: [memory_read], exact_tool_ids: [list_memories]}}}
+      - {id: get_memory, title: Assemble memory detail, input: {skill_ids: [memory_read], tool_ids: [get_memory], routed_skill_ids: [memory_read]}, expect: {routing_contract: {exact_skill_ids: [memory_read], exact_tool_ids: [get_memory]}}}
+      - {id: create_memory, title: Assemble memory create, input: {skill_ids: [memory_write], tool_ids: [create_memory], routed_skill_ids: [memory_write]}, expect: {routing_contract: {exact_skill_ids: [memory_write], exact_tool_ids: [create_memory]}}}
+      - {id: update_memory, title: Assemble memory update, input: {skill_ids: [memory_write], tool_ids: [update_memory], routed_skill_ids: [memory_write]}, expect: {routing_contract: {exact_skill_ids: [memory_write], exact_tool_ids: [update_memory]}}}
+      - {id: complete_memory, title: Assemble memory complete, input: {skill_ids: [memory_write], tool_ids: [complete_memory], routed_skill_ids: [memory_write]}, expect: {routing_contract: {exact_skill_ids: [memory_write], exact_tool_ids: [complete_memory]}}}
+      - {id: mark_memory_reviewed, title: Assemble reviewed marker, input: {skill_ids: [review_planner], tool_ids: [mark_memory_reviewed], routed_skill_ids: [review_planner]}, expect: {routing_contract: {exact_skill_ids: [review_planner], exact_tool_ids: [mark_memory_reviewed]}}}
+      - {id: postpone_memory, title: Assemble memory postpone, input: {skill_ids: [memory_write], tool_ids: [postpone_memory], routed_skill_ids: [memory_write]}, expect: {routing_contract: {exact_skill_ids: [memory_write], exact_tool_ids: [postpone_memory]}}}
+      - {id: archive_memory, title: Assemble memory archive, input: {skill_ids: [memory_cleanup], tool_ids: [archive_memory], routed_skill_ids: [memory_cleanup]}, expect: {routing_contract: {exact_skill_ids: [memory_cleanup], exact_tool_ids: [archive_memory]}}}
+      - {id: delete_memory, title: Assemble memory delete, input: {skill_ids: [memory_cleanup], tool_ids: [delete_memory], routed_skill_ids: [memory_cleanup]}, expect: {routing_contract: {exact_skill_ids: [memory_cleanup], exact_tool_ids: [delete_memory]}}}
+      - {id: today_reviews, title: Assemble today reviews, input: {skill_ids: [review_planner], tool_ids: [today_reviews], routed_skill_ids: [review_planner]}, expect: {routing_contract: {exact_skill_ids: [review_planner], exact_tool_ids: [today_reviews]}}}
+      - {id: generate_review_question, title: Assemble review question, input: {skill_ids: [review_planner], tool_ids: [generate_review_question], routed_skill_ids: [review_planner]}, expect: {routing_contract: {exact_skill_ids: [review_planner], exact_tool_ids: [generate_review_question]}}}
+      - {id: create_note, title: Assemble note create, input: {skill_ids: [note_writer], tool_ids: [create_note], routed_skill_ids: [note_writer]}, expect: {routing_contract: {exact_skill_ids: [note_writer], exact_tool_ids: [create_note]}}}
+      - {id: search_notes, title: Assemble note search, input: {skill_ids: [note_research], tool_ids: [search_notes], routed_skill_ids: [note_research]}, expect: {routing_contract: {exact_skill_ids: [note_research], exact_tool_ids: [search_notes]}}}
+      - {id: related_notes, title: Assemble related notes, input: {skill_ids: [note_research], tool_ids: [related_notes], routed_skill_ids: [note_research]}, expect: {routing_contract: {exact_skill_ids: [note_research], exact_tool_ids: [related_notes]}}}
+      - {id: note_stats, title: Assemble note stats, input: {skill_ids: [note_research], tool_ids: [note_stats], routed_skill_ids: [note_research]}, expect: {routing_contract: {exact_skill_ids: [note_research], exact_tool_ids: [note_stats]}}}
+      - {id: rag_summary, title: Assemble RAG summary, input: {skill_ids: [knowledge_research], tool_ids: [rag_summary], routed_skill_ids: [knowledge_research]}, expect: {routing_contract: {exact_skill_ids: [knowledge_research], exact_tool_ids: [rag_summary]}}}
 
   - id_prefix: tool_safety.delete_boundary
     defaults:
@@ -254,9 +254,9 @@ matrices:
       input:
         query: delete memory item
         prompt_type: main_prompt
-        skill_ids: []
+        skill_ids: [memory_cleanup]
         tool_ids: [delete_memory]
-        routed_skill_ids: []
+        routed_skill_ids: [memory_cleanup]
         context: {mode: current_only}
         rag_retrieval: {mode: auto}
       fixtures:
@@ -268,7 +268,7 @@ matrices:
           allowed: [delete_memory]
           forbidden_execute: [delete_memory]
           expect_blocked: [delete_memory]
-        routing_contract: {exact_skill_ids: [], exact_tool_ids: [delete_memory]}
+        routing_contract: {exact_skill_ids: [memory_cleanup], exact_tool_ids: [delete_memory]}
         event_contract:
           ordered_types: [response, waiting_confirmation, done]
           exactly_once: [done, waiting_confirmation]

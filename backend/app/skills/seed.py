@@ -27,12 +27,12 @@ from app.skills.service import (
     _manifest,
     _requested_capabilities,
 )
-from app.skills.storage import skill_package_storage
+from app.skills.storage import SkillPackageStorage, skill_package_storage
 
 logger = logging.getLogger(__name__)
 
 
-def build_seed_runtime_snapshot():
+def build_seed_runtime_snapshot(*, storage: SkillPackageStorage | None = None):
     """Build a deterministic in-memory snapshot from standard seed packages.
 
     This is intentionally separate from database installation.  Production
@@ -49,9 +49,10 @@ def build_seed_runtime_snapshot():
     )
     from app.skills.service import _manifest
 
+    package_storage = storage or skill_package_storage
     runtime_skills: list[RuntimeSkill] = []
     for seed in SEED_SKILL_MANIFEST:
-        stored = skill_package_storage.store_directory(seed.package_source)
+        stored = package_storage.store_directory(seed.package_source)
         manifest = _manifest(stored.package)
         compatibility = manifest["compatibility"]
         resources = tuple(
