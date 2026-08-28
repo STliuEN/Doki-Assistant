@@ -6,7 +6,7 @@
 
 | ID | 表面 | 输入/拓扑 | 期望合同 | 实际观察/证据 | 状态与限制 |
 |---|---|---|---|---|---|
-| API-01 | `GET /health/live`、`GET /health/ready` | FastAPI health router；Chroma 可为 ready/degraded | live 返回 envelope；ready 区分核心依赖与 Chroma projection 状态 | `health.py` 保留 `ready/degraded` 字段；Chroma API containment 与 probe 覆盖降级结构 | verified-local；真实目标 schema 的完整 lifespan/E2E 移交 E2 |
+| API-01 | `GET /health/live`、`GET /health/ready` | FastAPI health router；Chroma 可为 ready/degraded | live 返回 envelope；ready 区分核心依赖与 Chroma projection 状态 | `health.py` 保留 `ready/degraded` 字段；Chroma API containment 与 probe 覆盖降级结构 | verified-local；真实目标 schema 的 lifespan/startup readiness 归 E2，认证/业务/RAG 成功流归后续阶段 |
 | API-02 | Chroma 相关 Knowledge routes | TestClient + `ChromaProjectionUnavailable` 替身 | HTTP 503，`{"code":503,"message":"Chroma projection is unavailable; retry after recovery","data":null}` | 单/多文件、stream、清理、MD5、embedding switch、detail/chunks 等 13 条路径通过 | verified-local；异常来自替身，不是 live HTTP server |
 | API-03 | `POST /chat/rag/query` | TestClient + RAG service unavailable 替身 | 同一 503 envelope | `tests/test_chroma_http_containment.py` 通过；OpenAPI 含 503 | verified-local |
 | API-04 | `GET /knowledge/list` | Chroma 不可用，source-only service | SQL/source list 仍可返回 200，不把 projection 故障扩大为所有读操作 | 空文档列表返回 200；OpenAPI 未声明 Chroma 503 | verified-local；不证明真实 DB 可用 |
@@ -24,7 +24,7 @@
 | ROUTE-01 | Knowledge stream/config mutation | Chroma preflight dependency 在 response/写入前运行 | projection 不可用时不启动流、不写配置，直接 503 | stream 和 embedding switch route 增加 preflight；定向测试通过 | verified-local |
 | ROUTE-02 | Agent SSE | `POST /chat/agent/query/stream` + deterministic stream | 首帧/终止事件遵循 SSE schema；registry stale 返回 503 | chat stream contract tests 和前端 SSE 客户端测试通过 | verified-local；完整真实模型未跑 |
 | ROUTE-03 | 应用启动 schema gate | 主应用 schema gate + 隔离 pytest | 只读校验 revision `20260824_0002`，不自动 migration；纯 CORS 合同不启动 lifespan | 历史 `280 passed, 1 failed` 和无效 `282 passed` 保留；测试边界修复后最终隔离 pytest `284 passed`，受保护资源未变化 | verified-local；真实目标 schema 启动移交 E2，E1 未执行 migration |
-| ROUTE-04 | 认证/业务真实 E2E | Vite proxy + 真实 Django/FastAPI/MySQL | 登录、注册、刷新、注销和业务写入可对账 | E1 只完成页面/代理失败表征；未连接现有业务服务 | not-run；不得用 mock 替代真实授权证据 |
+| ROUTE-04 | 认证/业务真实 E2E | Vite proxy + 真实 Django/FastAPI/MySQL | 登录、注册、刷新、注销和业务写入可对账 | E1 只完成页面/代理失败表征；未连接现有业务服务 | not-run；认证成功流归 E3、业务写入归 E4，不得用 mock 替代真实授权证据 |
 
 ## 解释规则
 
@@ -32,4 +32,4 @@
 - `verified-local` 可以是代码、TestClient、SQLite、确定性 Embedding、mock 或离线 benchmark；它只能证明合同和隔离逻辑。
 - `blocked` 表示有可复现失败且当前阶段明确禁止采取会改变权威数据的修复动作。
 - `not-run` 表示环境未提供或不属于 E1，不得从缺少失败推断为通过。
-- E1 范围内没有剩余 `blocked` 项；`ROUTE-04` 明确移交 E2，且 E1 关闭不授权自动启动 E2。
+- E1 范围内没有剩余 `blocked` 项；`ROUTE-04` 按认证/业务边界移交 E3/E4，目标 schema bootstrap/revision gate 留在 E2，且 E1 关闭不授权自动启动任何后续阶段。

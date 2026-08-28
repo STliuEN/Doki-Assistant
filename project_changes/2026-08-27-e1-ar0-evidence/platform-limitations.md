@@ -21,7 +21,7 @@
 | 原生 Linux | out-of-scope/frozen | Windows 11 是唯一正式支持主机；Docker Linux 内核结果不外推，且不设原生 Linux 门禁 |
 | 原生 macOS | out-of-scope/frozen | Windows 11 是唯一正式支持主机；未提供 macOS 主机，且不设原生 macOS 门禁 |
 | Chrome/Chromium 浏览器 | not-run | 本机 Chrome 不存在，改用 Firefox；需在目标浏览器复跑截图、console 和网络表征 |
-| 真实 Django/FastAPI + 业务 MySQL UI E2E | deferred-to-E2 | E1 不执行 migration；需要真实目标 schema 的业务 E2E 在 E2 隔离数据库上验证，不阻塞 E1 |
+| 真实 Django/FastAPI + 业务 MySQL UI E2E | deferred-to-E3/E4/E5 | E1 不执行 migration；E2 只验证 schema/runner/恢复，认证、业务写入和 RAG 成功流分别在 E3、E4、E5 的批准环境验证，不阻塞 E1 |
 | 真实 LLM/Embedding/Reranker | not-run | E1 使用确定性向量，仅验证持久化/恢复合同；在线质量应另设门禁 |
 | 高并发、HA、多实例和跨机时钟 | not-run | 目标是单机低并发；runner lease/fencing 属于 AR-1/E2 |
 | RPO/RTO 数值 | not-run | 已完成 dump/restore/restore-forward，但未在批准的生产窗口测量时间目标 |

@@ -81,6 +81,8 @@
 
 ## `test-record.md` 模板
 
+证据状态只使用 `verified-local`、`verified-live`、`blocked`、`not-run`。`fixture`、`mock`、`historical` 是证据类型，`passed`、`failed`、`invalid`、`limitation` 写在“结果/处置”，不能再扩展成第二套状态枚举。
+
 ```markdown
 # <阶段编号> 测试与迁移证据
 
@@ -94,9 +96,9 @@
 
 ## 证据表
 
-| ID | 环境/版本 | 拓扑 | fixture/真实依赖 | 命令 | 阈值 | 实际结果 | 日志/文件 | owner | approver | 状态 |
-|---|---|---|---|---|---|---|---|---|---|---|
-|  |  |  |  |  |  |  |  |  |  | verified-local / verified-live / blocked |
+| ID | 环境/版本 | 拓扑 | 证据类型 | 命令 | 阈值 | 实际结果 | 结果/处置 | 日志/文件 | owner | approver | 状态 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+|  |  |  |  |  |  |  |  |  |  |  | verified-local / verified-live / blocked / not-run |
 
 ## 数据对账
 

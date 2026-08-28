@@ -12,6 +12,14 @@
 - [下一阶段路线图归档](../docs/archive/2026-08-26/roadmap_next.md)
 - [架构重写计划](../docs/architecture_rewrite_plan.md)
 
+## 2026-08-28 E2 AR-1/S1 统一 SQL 基础准备
+
+本批已完成 E1 关闭复核、现有 Alembic/SQLAlchemy/UoW/outbox/backup 静态盘点，并提交 E2 的隔离拓扑、schema/UoW/job/runner 不变量、任务顺序、回滚边界和证据矩阵。状态为 `待你确认`；当前只授权文档、静态盘点和只读环境核对，未创建 E2 容器，未修改代码/schema，未运行 migration，也未连接任何数据库。
+
+| 主题 | 方案 | 变更记录 | 验证记录 | 补充盘点 |
+|------|------|----------|----------|----------|
+| E2 AR-1/S1 统一 SQL 基础与 durable runner | [plan](./2026-08-28-e2-ar1-sql-foundation/plan.md) | [change log](./2026-08-28-e2-ar1-sql-foundation/change-log.md) | [test record](./2026-08-28-e2-ar1-sql-foundation/test-record.md) | [目标 Schema Ownership 草案](./2026-08-28-e2-ar1-sql-foundation/schema-map.md)、[当前 SQL 与运行时盘点](./2026-08-28-e2-ar1-sql-foundation/current-sql-inventory.md) |
+
 ## 2026-08-27 E1 AR-0/SK-0 真实依赖与恢复证据
 
 本批已完成隔离 MySQL/Chroma、故障注入、备份恢复、API/UI/Prompt/route characterization、隔离完整 pytest `284 passed` 和 offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 明确确认关闭，当前状态为 `已关闭`。历史失败、误连事故和无法绝对证明数据库/Redis 零写入的限制继续保留；原生 Linux/macOS 为 `out-of-scope/frozen`，真实模型质量不属于 E1 门禁。E2/AR-1 仅为 `待你确认`，尚未实施，也未执行 migration 或业务数据迁移。
@@ -22,7 +30,7 @@
 
 ## 2026-08-25 工作计划与代码现实校准
 
-本批只校准活计划与当前代码现实，不修改业务实现，也不表示任何 AR/SK 门禁已经通过。当前停留在 `AR-0 + SK-0`：发布原子性、Registry 单包隔离、授权撤销/审计、Skill OpenAPI、Chroma 安全恢复、通用 worker/UoW 和真实依赖基线仍是阻断项。本地 A/B `SKILL-GATE`、本地 `ARCH-GATE`、可选 `EXEC-SKILL-GATE` 与 `PUBLIC-HA-GATE` 相互分开；工作包 `7-10` 只暂停到本地门，通过本地门不会解锁 C 级或公网/HA。当前阶段状态和门禁定义以[架构重写计划](../docs/architecture_rewrite_plan.md)为唯一事实源。
+本批只校准 2026-08-25 当时的活计划与代码现实，不修改业务实现，也不表示任何 AR/SK 门禁已经通过。当时停留在 `AR-0 + SK-0`：发布原子性、Registry 单包隔离、授权撤销/审计、Skill OpenAPI、Chroma 安全恢复、通用 worker/UoW 和真实依赖基线仍是阻断项。本地 A/B `SKILL-GATE`、本地 `ARCH-GATE`、可选 `EXEC-SKILL-GATE` 与 `PUBLIC-HA-GATE` 相互分开；工作包 `7-10` 只暂停到本地门，通过本地门不会解锁 C 级或公网/HA。当前阶段状态和门禁定义以[架构重写计划](../docs/architecture_rewrite_plan.md)为唯一事实源。
 
 | 主题 | 方案 | 变更记录 | 验证记录 |
 |------|------|----------|----------|

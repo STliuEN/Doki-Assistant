@@ -18,6 +18,7 @@
 | 2026-08-27 | `backend/conftest.py`、`backend/tests/test_api_contracts.py` | pytest 收集前隔离外部服务/持久化路径/日志；CORS 预检不再启动 lifespan | 防止合同测试读取 `.env` 后连接本机服务或探测真实 Storage | 当前完整 pytest `284 passed`；受保护 Chroma、Skill Storage、对象 ZIP 和应用日志在最终复跑中未变化 | 恢复两处测试文件；不涉及生产 migration 或 schema | Codex | `test-record.md` 的 `E1-09d-final-isolated-pytest` |
 | 2026-08-27 | 测试/benchmark 隔离事故审计 | 记录无隔离 pytest 误连 `localhost:3306`/已配置 Redis、CORS 失败复现触发 Storage probe，以及首次全绿 benchmark 触碰默认 Storage/日志 | 无效绿色结果和资源误触不得隐藏或作为最终隔离证据 | 未再查询业务库；不能绝对证明数据库/Redis 零写入；对象 ZIP 与 Chroma 未变化，`staging` 和应用日志最终误触时间为 `2026-08-27 16:09:33` | 审计事实不可回滚；后续 pytest/benchmark 均强制隔离 | Codex | `backend/logs/agent_20260827.log`、`test-record.md` |
 | 2026-08-27 | E1 阶段状态与活计划记录 | 用户明确要求确认关闭 E1 并更新相关记录；将 E1/AR-0/SK-0 从 `待验证` 转为 `已关闭`，下一阶段 E2/AR-1 标为 `待你确认` | 满足阶段状态机的用户关闭确认要求，同时防止关闭 E1 被误解为自动实施 E2 | 仅更新阶段与交接文档；不启动 E2、不执行 migration、不清理 E1 容器/volume/network/证据 | 文档状态可通过 Git 回退；技术证据和事故事实保持不变 | Codex；批准人：用户 | `plan.md`、`test-record.md`、`docs/architecture_rewrite_plan.md` |
+| 2026-08-28 | E1 后续阶段归属勘误 | 将“真实业务 UI E2E 整体移交 E2”更正为 E2 schema/runner/recovery、E3 认证、E4 业务写入、E5 RAG 成功流 | 防止 E2 准备阶段越权实施认证、业务迁移或 RAG | 只修正后续阶段归属；E1 证据、关闭结论和未执行事实不变 | 恢复相关说明文字 | Codex | E2 计划审阅；`plan.md`、`platform-limitations.md`、`characterization-matrix.md`、`threat-model.md` |
 
 ## 明确未做
 

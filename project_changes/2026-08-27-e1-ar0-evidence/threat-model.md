@@ -40,10 +40,10 @@ E1 中浏览器、应用进程、Docker 容器、备份目录和现有业务环�
 | T5 | 进程重启或活动客户端指向错误目录 | rebuild 后要求进程重启；禁止 retarget active client | 新解释器重启后语义 digest 一致；活动客户端 retarget 被拒绝 | runner kill/restart、lease/fencing 属于 AR-1 |
 | T6 | 备份 payload 被篡改 | manifest 和逐文件 digest 校验先于复制/交换 | Storage 与 Chroma 均 exit 1，错误为 `backup payload does not match manifest`，新目标不存在 | 生产密钥管理、离线介质和 PITR 不在 E1 |
 | T7 | 路径穿越、绝对路径、symlink 或已存在目标 | 规范化相对路径、拒绝 symlink/特殊文件/目标冲突 | Windows/POSIX 路径 fixture 和 symlink 测试通过 | junction/hardlink 与原生平台组合仍需平台实测 |
-| T8 | Chroma 故障被 API 当作成功或挂起流 | 异常统一映射 `503`；stream/config mutation 在开始前 preflight | 13 个 Chroma 相关 API route 的 envelope、OpenAPI 声明和 source list 例外通过 | 真实目标 schema 的 FastAPI UI E2E 移交 E2 |
+| T8 | Chroma 故障被 API 当作成功或挂起流 | 异常统一映射 `503`；stream/config mutation 在开始前 preflight | 13 个 Chroma 相关 API route 的 envelope、OpenAPI 声明和 source list 例外通过 | 目标 schema startup/readiness 归 E2；真实 Chroma-backed API/UI 成功流归 E5 |
 | T9 | Skill/Tool 越权、revision 漂移或确认重放 | Skill 选择先校验；run binding 保存 revision/digest；确认失效返回 410 | 离线授权/guard suite 通过；benchmark fixture 显式绑定最小授权 Skill，最终 smoke `4/4`、regression `117/117` | AR-2 才能完成角色分离、撤销传播和审计闭环；离线通过不证明真实模型质量 |
 | T10 | Prompt injection 诱导暴露未授权能力 | Prompt 明确当前启用 Skill 和工具上界；未列出能力不可用 | 确定性 benchmark 覆盖文本边界和 forbidden tool 字段 | fixture 不证明真实 LLM 的抗注入质量 |
-| T11 | 数据库 schema 不符合应用启动要求 | 启动只读检查 `DATABASE_SCHEMA_REVISION`，不自动 DDL；纯 CORS 合同不启动 lifespan | 历史 schema 阻断和误连结果保留；最终隔离 pytest `284 passed`，本批未执行 migration | 真实目标 schema 的启动与 UI E2E 需 E2/AR-1 单独批准 |
+| T11 | 数据库 schema 不符合应用启动要求 | 启动只读检查 `DATABASE_SCHEMA_REVISION`，不自动 DDL；纯 CORS 合同不启动 lifespan | 历史 schema 阻断和误连结果保留；最终隔离 pytest `284 passed`，本批未执行 migration | 真实目标 schema startup/readiness 需 E2 单独批准；认证/业务/RAG UI E2E 分属 E3/E4/E5 |
 | T12 | 前端代理/后端不可用导致误判 | 记录浏览器网络和可见错误；不把 502 当业务成功 | `/register` 代理到不存在后端得到 502，页面显示“注册失败，请重试” | 真实后端 UI E2E 仍未运行 |
 
 ## 不在 E1 证明范围

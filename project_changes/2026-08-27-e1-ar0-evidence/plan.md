@@ -69,6 +69,6 @@
 - **离线 benchmark 合同**：保留首次 smoke `3/4`、regression `78/117`，以及一次行为全绿但仍触碰默认 Storage/日志的隔离失败记录。fixture 改为声明每个显式工具的最小授权 Skill，并由生产 `resolve_skills` 合同测试约束；runner 将 seed 包和日志写入结果目录。最终 smoke `4/4`、regression `117/117`，均为平均分 `1.0`、零 error/硬 veto，受保护资源未变化。
 - **真实模型/Embedding/Reranker 质量**：不属于 E1 数据持久性证据，使用确定性 Embedding/脚本模型并明确标注；状态 `not-run/non-blocking`。
 - **Linux/macOS 跨平台实机**：Windows 11 是唯一正式支持主机；原生 Linux/macOS 为 `out-of-scope/frozen`，不再作为 E1 或后续阶段门禁。
-- **真实后端 UI E2E**：Playwright 只完成 Vite + mock/代理失败表征；需要真实 schema 的业务 E2E 移交 E2，不阻塞 E1，也未在本批执行 migration。
+- **真实后端 UI E2E**：Playwright 只完成 Vite + mock/代理失败表征；E2 只验证目标 schema bootstrap/revision gate、runner 和恢复，认证成功流归 E3、业务写入归 E4、RAG 成功流归 E5。上述 E2E 均不阻塞 E1，本批也未执行 migration。
 - **AR-2 授权审计闭环**：E1 只冻结并验证现有 fail-closed 合同；完整实现等待 AR-2，不作为 E1 代码交付。
 - **阶段状态**：E1 技术验证没有剩余阻塞，用户已于 2026-08-27 明确确认关闭；E1/AR-0/SK-0 状态为 `已关闭`。下一阶段 E2/AR-1 仅转为 `待你确认`，本次关闭不构成 E2 实施、migration 或数据变更授权。
