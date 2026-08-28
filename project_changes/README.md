@@ -14,7 +14,7 @@
 
 ## 2026-08-28 E2 AR-1/S1 统一 SQL 基础准备
 
-本批已完成 E1 关闭复核、现有 Alembic/SQLAlchemy/UoW/outbox/backup 静态盘点，并提交 E2 的隔离拓扑、schema/UoW/job/runner 不变量、任务顺序、回滚边界和证据矩阵。状态为 `待你确认`；当前只授权文档、静态盘点和只读环境核对，未创建 E2 容器，未修改代码/schema，未运行 migration，也未连接任何数据库。
+本批已完成 E1 关闭复核、现有 Alembic/SQLAlchemy/UoW/outbox/backup 静态盘点，并提交 E2 的隔离拓扑、schema/UoW/job/runner 不变量、任务顺序、回滚边界和证据矩阵。用户已完成 Q1-Q91 grilling 并明确授权实施；当前状态为 `实施中`，后续写入仅限批准的 E2 隔离资源和合成数据。
 
 | 主题 | 方案 | 变更记录 | 验证记录 | 补充盘点 |
 |------|------|----------|----------|----------|
@@ -22,7 +22,7 @@
 
 ## 2026-08-27 E1 AR-0/SK-0 真实依赖与恢复证据
 
-本批已完成隔离 MySQL/Chroma、故障注入、备份恢复、API/UI/Prompt/route characterization、隔离完整 pytest `284 passed` 和 offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 明确确认关闭，当前状态为 `已关闭`。历史失败、误连事故和无法绝对证明数据库/Redis 零写入的限制继续保留；原生 Linux/macOS 为 `out-of-scope/frozen`，真实模型质量不属于 E1 门禁。E2/AR-1 仅为 `待你确认`，尚未实施，也未执行 migration 或业务数据迁移。
+本批已完成隔离 MySQL/Chroma、故障注入、备份恢复、API/UI/Prompt/route characterization、隔离完整 pytest `284 passed` 和 offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 明确确认关闭，当前状态为 `已关闭`。历史失败、误连事故和无法绝对证明数据库/Redis 零写入的限制继续保留；原生 Linux/macOS 为 `out-of-scope/frozen`，真实模型质量不属于 E1 门禁。E2/AR-1 已于 2026-08-28 获得实施授权并进入 `实施中`，仍未宣称完成。
 
 | 主题 | 方案 | 变更记录 | 验证记录 | 补充证据 |
 |------|------|----------|----------|----------|

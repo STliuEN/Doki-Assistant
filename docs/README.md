@@ -11,7 +11,7 @@
 
 ## 当前状态
 
-- E1/AR-0/SK-0 已于 2026-08-27 经用户明确确认关闭；下一阶段 E2/S1/AR-1 为 `待你确认`，尚未授权实施。
+- E1/AR-0/SK-0 已于 2026-08-27 经用户明确确认关闭；下一阶段 E2/S1/AR-1 已于 2026-08-28 获用户授权，当前 `实施中`。
 - E1 的隔离依赖、故障矩阵、恢复、characterization、最终回归和事故边界位于 [`project_changes/2026-08-27-e1-ar0-evidence/`](../project_changes/2026-08-27-e1-ar0-evidence/)，批次状态为 `已关闭`。
 - E2 的可审阅边界、隔离拓扑、UoW/job 不变量、任务顺序和证据矩阵位于 [`project_changes/2026-08-28-e2-ar1-sql-foundation/`](../project_changes/2026-08-28-e2-ar1-sql-foundation/)；该目录是准备产物，不构成实施授权。
 - P0-0 至 P0-6 已完成 E1 范围收口；这不表示 `SKILL-GATE`、`ARCH-GATE` 或任何发布门禁已经通过。

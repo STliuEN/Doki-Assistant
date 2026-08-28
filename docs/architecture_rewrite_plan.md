@@ -1,6 +1,6 @@
 # 架构重写计划
 
-状态：`AR-0 + SK-0` 已关闭；下一阶段 `E2/S1/AR-1` 为 `待你确认`，尚未授权实施。
+状态：`AR-0 + SK-0` 已关闭；下一阶段 `E2/S1/AR-1` 已获授权，当前 `实施中`。
 
 最近复核：2026-08-28
 适用分支：`ai_document_assistant`
@@ -28,7 +28,7 @@
 | 阶段 | 当前状态 | 已有事实 | 未收口/入口条件 |
 |---|---|---|---|
 | AR-0 + SK-0：P0 containment 与证据收口 | `已关闭` | Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具、当前环境 R7、E1 隔离 MySQL/Chroma 故障与恢复证据已记录；隔离完整 pytest `284 passed`，offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 确认关闭 | E1 范围无剩余阻塞。真实模型质量和 AR-2 审计实现不属于 E1；原生 Linux/macOS 为 `out-of-scope/frozen`；本状态不表示后续门禁通过。 |
-| AR-1：统一 SQL 基础与运行时合同 | `待你确认` | 局部 Alembic、局部 outbox 和 API/SSE 合同存在；E1/AR-0/SK-0 已关闭；E2 批次边界和静态代码盘点已提交 | 实施前必须单独确认[E2 批次计划](../project_changes/2026-08-28-e2-ar1-sql-foundation/plan.md)、隔离 MySQL、owner/approver、备份与回滚边界；统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 尚未交付。 |
+| AR-1：统一 SQL 基础与运行时合同 | `实施中` | E1/AR-0/SK-0 已关闭；E2 批次计划、schema map 和隔离边界已获用户授权 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 正在交付；真实业务迁移仍延后。 |
 | AR-2：FastAPI 身份、角色与审计 | `草案` | access/refresh/token-version 和部分 grant 数据结构存在 | users/sessions/refresh/revocation 全部 SQL 化、角色分离、approve/revoke 传播和完整审计未完成。 |
 | AR-3：业务数据与迁移权威收敛 | `草案` | 当前 Django/FastAPI 分表和文件/Chroma 事实已盘点 | 同库分表过渡、稳定 UUID/FK、源文档/图片/MD5 入 SQL、旧输入对账和唯一写入口未完成。 |
 | AR-4：RAG/Chroma projection | `草案` | Chroma 失败隔离、staging/rebuild fixture 已有 | RAG port、generation 表、用户声明式切片/检索、SQL 重建和真实 Chroma E2E 未完成。 |

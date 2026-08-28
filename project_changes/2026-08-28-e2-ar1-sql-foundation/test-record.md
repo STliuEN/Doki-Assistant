@@ -1,11 +1,11 @@
 # E2/AR-1/S1 测试与迁移证据
 
-状态：待你确认
+状态：实施中
 
 ## 环境限制
 
 - 准备平台：Windows 11 / PowerShell；Git 分支 `ai_document_assistant`，HEAD `33a8054dedd62745fb9fe0528efa2880a5fcc8a8`。
-- 当前工作仅为文档、Git/代码静态盘点和 Docker 元数据只读核对。
+- 当前已获 E2 实施授权；实现和验证仍只允许使用批准的 E2 隔离拓扑与合成数据。
 - E2 MySQL/restore 拓扑尚未批准或创建；本文件没有 `verified-live` 的 E2 SQL 证据。
 - 未读取项目 `.env`，未连接或修改 MySQL、Redis、Chroma、Storage、文件/MD5 sidecar。
 - E1 两个 stopped 容器、两个 volume 和一个 network 只做名称/状态核对，未启动、挂载、修改或清理。
@@ -19,7 +19,7 @@
 
 | ID | 环境/版本 | 拓扑 | 证据类型 | 命令/动作 | 阈值 | 实际结果 | 结果/处置 | 日志/文件 | owner | approver | 状态 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `E2-PREP-01` | Git | 当前工作树 | 只读本地 | `git rev-parse HEAD`、`git branch --show-current`、`git status --porcelain=v1 -uall` | 固定基线；准备前干净 | HEAD `33a8054dedd62745fb9fe0528efa2880a5fcc8a8`；分支 `ai_document_assistant`；porcelain 无条目 | passed | 本文件、命令输出 | Codex | 用户 pending | verified-local |
+| `E2-PREP-01` | Git | 当前工作树 | 只读本地 | `git rev-parse HEAD`、`git branch --show-current`、`git status --porcelain=v1 -uall` | 固定基线；准备前干净 | HEAD `33a8054dedd62745fb9fe0528efa2880a5fcc8a8`；分支 `ai_document_assistant`；porcelain 无条目 | passed | 本文件、命令输出 | Codex | 用户 approved | verified-local |
 | `E2-PREP-02` | Markdown/rg | 活计划、交接手册、E1 证据 | 静态本地 | 核对 E1/E2 状态和关闭确认 | E1 所有当前事实源一致为已关闭；E2 未实施 | E1 计划/测试/日志、主计划、蓝图、手册和索引均为 `已关闭`；E2 为 `待你确认`。仅根 README 有 2026-08-25 旧“当前”口径 | passed；本批同步 README | `plan.md`、活计划 | Codex | 用户 pending | verified-local |
 | `E2-PREP-03` | Python source/Alembic | source tree only | 静态本地 | 盘点 models、migrations、DB session、outbox、backup 工具和测试 | 明确可复用切片与缺口，不声称 runtime 通过 | 2 条 Alembic revision/18 张 FastAPI 表；Django user 表独立；无通用 job/runner/UoW；局部 outbox 无 lease/fencing/DLQ；backup 工具只封装离线 dump | passed；见 `current-sql-inventory.md` | 盘点文档 | Codex | 用户 pending | verified-local |
 | `E2-PREP-04` | Docker metadata | 本机 Docker | 只读本地 | `docker ps -a --filter name=doki-e1`、volume/network list | E1 资源存在且 stopped；不得变更 | 两个 E1 MySQL 容器均 `Exited (0)`；两个 volume 和 `doki-e1-20260827-net` 保留 | passed；E2 禁止复用 | 本文件、命令输出 | Codex | 用户 pending | verified-local |

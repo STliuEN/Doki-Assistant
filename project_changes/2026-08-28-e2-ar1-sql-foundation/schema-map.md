@@ -1,8 +1,8 @@
-# E2 目标 Schema Ownership 草案
+# E2 目标 Schema Ownership
 
 日期：2026-08-28  
-状态：待你确认  
-性质：设计草案，不是 Alembic revision，不授权 DDL 或数据迁移
+状态：实施中（已冻结）
+性质：E2 schema 合同；对应实现仍须通过 model/migration parity，不授权访问真实业务数据
 
 ## 目的
 
@@ -38,6 +38,8 @@
 | `migration_maps` | 建立稳定映射结构 | E3 用户、E4 业务、E6 Legacy Skill | E2 只验证合成映射 |
 | `rag_generations` | 建立 generation/config/status 指针骨架 | E5 激活/rebuild/cleanup | E2 不连接 Chroma |
 | `skill_packages` | 建立 raw package/digest/manifest 目标骨架 | E6 导入/发布/授权 | E2 不迁移 Storage 对象 |
+| `skill_package_uploads` | 保存验证成功的原始上传归档及 request digest | E6 导入/保留策略 | E2 不接收真实上传；与 `skill_packages` 多对一 |
+| `rag_generation_heads` | 保存 active/staging 指针和 CAS revision | E5 generation 切换 | E2 保持 dormant，不连接 Chroma |
 | 现有 Skill 表 | 盘点并保持兼容 | E6 完成 package/grant 语义 | E2 不宣称现有 outbox 是通用 job |
 | 现有 chat/note/knowledge/memory/config 表 | 盘点目标 UUID/FK/时间/delete 差异 | E4 迁移和唯一写权威 | E2 不改 populated keys/rows |
 
@@ -115,11 +117,12 @@ E2 只建立不含向量的 SQL 骨架；`active + staging`、Chroma collection 
 - 激活 RAG generation、写 Chroma、删除旧 generation。
 - 将 raw Skill package 从 Storage/Legacy 输入写入 SQL 并切换发布权威。
 
-## 待确认决策
+## 已冻结决策
 
-1. `CHAR(36)` UUID 与排序规则，是否采用 UUIDv7 生成但保持通用 UUID 格式。
-2. `audit_events` 是否只 append，以及 payload/diff 的保留和大小上限。
-3. job payload/result 的大小上限与大对象外置规则。
-4. lease duration、heartbeat interval、retry backoff、max attempts、backpressure 阈值。
-5. auth/RAG/Skill 空结构是否全部在一个 E2 revision，或拆为可独立审阅的多个线性 revision。
-6. E2 隔离 schema 验证通过后，何时允许对后续批准环境升级 head；默认不自动推广。
+1. UUIDv4、小写规范格式、`CHAR(36)`、ASCII binary collation；UTC `DATETIME(6)`；SHA-256 `CHAR(64)`。
+2. `audit_events` append-only；job payload/result 各 256 KiB、worker metadata 64 KiB、error detail 16 KiB、单 audit JSON 合计 256 KiB、reason 4 KiB。
+3. Skill 保留验证成功的原始与规范化归档；现有限额不变；归档列使用 `LONGBLOB`，`max_allowed_packet=256M`。
+4. lease 60s、heartbeat 15s、poll 1s、drain 30s；最多 5 次 attempt，退避 `5s/30s/2m/10m`；backpressure 全局 1000、每 owner/type 100。
+5. 三条线性 revision：`20260828_0003_identity_auth`、`20260828_0004_jobs_audit`、`20260828_0005_rag_skill`；head 不自动推广。
+6. runner 内置 FastAPI lifespan、并发 1、预注册 handler、MySQL `GET_LOCK`；claim transaction 使用 `READ COMMITTED`，其他业务隔离级别不变。
+7. 仅合成数据；现有 populated 表不做 DDL；认证/RAG/Skill 内部原语不可从产品路径访问；完成后状态只能为 `待验证`。

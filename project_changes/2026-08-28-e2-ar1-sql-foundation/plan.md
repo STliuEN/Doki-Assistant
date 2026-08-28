@@ -1,10 +1,18 @@
 # E2/AR-1/S1 统一 SQL 基础与 durable runner
 
 日期：2026-08-28  
-状态：待你确认  
+状态：实施中
 负责人：Codex 架构重构协作代理  
 审阅/批准人：用户  
-用户确认：2026-08-28 用户授权审阅执行计划并准备下一批 execution；该授权仅覆盖文档、静态代码盘点和只读环境核对。E2 实施、容器创建、AR-1 代码/schema 变更、migration 和任何数据库写入仍为 pending。
+用户确认：2026-08-28 用户先授权审阅执行计划和准备下一批 execution；随后完成 Q1-Q91 grilling，并于 2026-08-28 明确回复 `批准 E2 按共享理解实施`。该回复授权本批文档提交、AR-1 代码、专用 E2 容器、合成数据、migration、dump/restore、故障注入和分片 commits；任何越界或停线条件仍需重新请示。
+
+## 实施授权记录
+
+- 授权人：用户（最终 approver）；执行 owner：Codex。
+- 授权范围：本计划、已冻结 schema map、E2 隔离拓扑、三条线性 revision、UoW/job/runner、内部 auth/RAG/Skill 状态原语、备份/恢复工具、合成数据和证据测试。
+- 明确禁止：真实业务数据、现有 MySQL/Django/Redis/Storage/Chroma、E1 容器/volume/network、前端、Django 和现有业务 service/router；不读取项目 `.env`，不自动 DDL，不 push。
+- 状态规则：开始实施前改为 `实施中`；实现者完成后只能改为 `待验证`；用户审阅后才可改为 `已关闭`。
+- 授权时间：2026-08-28；授权口令原文：`批准 E2 按共享理解实施`。
 
 ## 审阅结论
 
@@ -135,8 +143,8 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 
 ## 当前未完成与待确认
 
-- E2 实施授权：`pending`；需要用户明确回复确认本计划及拟议隔离拓扑。
-- schema map：ownership、核心列和 deferred DDL 草案已提交；精确类型/索引/限额和 revision 拆分仍待用户审阅冻结。
+- E2 实施授权：`已批准`；用户于 2026-08-28 明确回复 `批准 E2 按共享理解实施`。
+- schema map：ownership、核心列、双 Skill 归档、RAG head、精确类型/索引/限额和三条 revision 已冻结，实施中持续以该文件为合同。
 - E2 MySQL/restore 容器与 volume：`not-created`。
 - AR-1 代码、Alembic revision、UoW、jobs 和 runner：`not-started`。
 - migration、dump/restore、kill/restart 和 MySQL 证据：`not-run`。
