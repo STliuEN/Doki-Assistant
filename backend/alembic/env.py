@@ -5,17 +5,21 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.db.db_config import ASYNC_DATABASE_URL, Base
+from app.db.e2_guard import load_guard_from_environment, verify_database_fingerprint
 from app.models import (
     chat_history,
     embedding_config,
+    identity_domain,
+    job_domain,
     knowledge_document,
     memory_item,
     model_config,
     note,
     note_template,
+    projection_domain,
     skill_domain,
 )
+from app.models.chat_history import Base
 
 _MODELS = (
     chat_history,
@@ -25,11 +29,15 @@ _MODELS = (
     model_config,
     note,
     note_template,
+    identity_domain,
+    job_domain,
+    projection_domain,
     skill_domain,
 )
 
 config = context.config
-config.set_main_option("sqlalchemy.url", ASYNC_DATABASE_URL.replace("%", "%%"))
+guard = load_guard_from_environment("migrate")
+config.set_main_option("sqlalchemy.url", guard.database_url.replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
@@ -38,7 +46,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=ASYNC_DATABASE_URL,
+        url=guard.database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -49,6 +57,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
+    verify_database_fingerprint(connection, guard)
     context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
     with context.begin_transaction():
         context.run_migrations()

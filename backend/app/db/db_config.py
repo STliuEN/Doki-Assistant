@@ -8,7 +8,7 @@ from app.models.chat_history import Base as Base
 
 load_dotenv()
 
-DATABASE_SCHEMA_REVISION = "20260824_0002"
+DATABASE_SCHEMA_REVISION = "20260828_0005_rag_skill"
 
 ASYNC_DATABASE_URL = (
     f"mysql+aiomysql://{os.getenv('MYSQL_USER', 'root')}:{os.getenv('MYSQL_PASSWORD', '')}"
@@ -37,17 +37,16 @@ async def verify_database_schema() -> None:
     try:
         async with async_engine.connect() as connection:
             result = await connection.execute(text("SELECT version_num FROM alembic_version"))
-            current = result.scalar_one_or_none()
+            revisions = tuple(result.scalars())
     except Exception as exc:
         raise RuntimeError(
             "Database schema is not versioned; run 'alembic upgrade head' for an empty "
             "database or audit and stamp an existing database before startup"
         ) from exc
 
-    if current != DATABASE_SCHEMA_REVISION:
+    if revisions != (DATABASE_SCHEMA_REVISION,):
         raise RuntimeError(
-            f"Database schema revision {current!r} does not match required "
-            f"revision {DATABASE_SCHEMA_REVISION!r}; run 'alembic upgrade head'"
+            f"Database schema revisions {revisions!r} do not match required revision {DATABASE_SCHEMA_REVISION!r}; run 'alembic upgrade head'"
         )
 
 

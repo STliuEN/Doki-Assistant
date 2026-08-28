@@ -54,6 +54,7 @@ media/
 **/migrations/*.pyc
 
 # Build artifacts
+.runtime/
 build/
 dist/
 *.egg-info/
