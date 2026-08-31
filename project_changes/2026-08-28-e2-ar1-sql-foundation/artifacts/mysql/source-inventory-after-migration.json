@@ -1,0 +1,4977 @@
+{
+  "alembic_revision": "20260828_0004_jobs_audit",
+  "database": "doki_e2",
+  "inventory_sha256": "ff0e5170a2bfd08df24339fff8c469c04261e901344cc29695d627b42450fbe1",
+  "schema_version": 1,
+  "tables": {
+    "alembic_version": {
+      "content_sha256": "63faad8f0643f68fcf24474190f0aaedc83f735ab81608889759537ce6c385a3",
+      "row_count": 1,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "version_num",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "columns": [
+            "version_num"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "audit_events": {
+      "content_sha256": "5464d34040c33fb18252d853be8965e996006d851b2f012c51303ffa89d87a59",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_audit_events_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "action",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "actor_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "actor_role",
+            "nullable": true,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "actor_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "after_json",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "before_json",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content_digest",
+            "nullable": true,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "correlation_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "effective_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_code",
+            "nullable": true,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "expires_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "grant_diff_json",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "import_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "job_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "migration_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "policy_revision",
+            "nullable": true,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "reason",
+            "nullable": false,
+            "type": "VARCHAR(4096)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "result",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "run_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_type",
+            "nullable": true,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "subject_revision",
+            "nullable": true,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "target_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "target_type",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "job_id"
+            ],
+            "name": "audit_events_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "jobs"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "actor_type",
+              "actor_id",
+              "created_at"
+            ],
+            "name": "ix_audit_events_actor_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "correlation_id",
+              "created_at"
+            ],
+            "name": "ix_audit_events_correlation_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "job_id",
+              "created_at"
+            ],
+            "name": "ix_audit_events_job_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "target_type",
+              "target_id",
+              "created_at"
+            ],
+            "name": "ix_audit_events_target_created",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "auth_sessions": {
+      "content_sha256": "5138174b587fc02375b3bc6828eba1fc8e28b49081781311ea025613d1d5c686",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_auth_sessions_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_auth_sessions_status",
+            "sqltext": "(`status` in (_ascii'active',_ascii'revoked',_ascii'expired'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "expires_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "issued_token_version",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "last_seen_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "revoke_reason",
+            "nullable": true,
+            "type": "VARCHAR(4096)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "revoked_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "auth_sessions_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "status",
+              "expires_at"
+            ],
+            "name": "ix_auth_sessions_expires",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "status"
+            ],
+            "name": "ix_auth_sessions_user_status",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "chat_messages": {
+      "content_sha256": "a96e7494e0de803119686e06c5f021c74f4b1ac5d2b9dd02ec531b9fef40cb18",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content",
+            "nullable": false,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": true,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "metadata",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "role",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "session_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "session_id"
+            ],
+            "name": "chat_messages_ibfk_1",
+            "ondelete": null,
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "chat_sessions"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "id"
+            ],
+            "name": "ix_chat_messages_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "session_id"
+            ],
+            "name": "session_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "chat_sessions": {
+      "content_sha256": "f0abd251231b825286e92dfb667073acdee6cb50c5b3456c15207d1876b585bb",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "metadata",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "title",
+            "nullable": true,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "id"
+            ],
+            "name": "ix_chat_sessions_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_chat_sessions_user_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "job_attempts": {
+      "content_sha256": "6f790f70832fbd88d1d85425cba5a0cb3e3f30aa4ae3b5d5f47f20abbc435028",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_job_attempts_fencing",
+            "sqltext": "(`fencing_token` > 0)"
+          },
+          {
+            "name": "ck_job_attempts_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_job_attempts_number",
+            "sqltext": "(`attempt_number` > 0)"
+          },
+          {
+            "name": "ck_job_attempts_outcome",
+            "sqltext": "(`outcome` in (_ascii'leased',_ascii'running',_ascii'succeeded',_ascii'retry_wait',_ascii'cancelled',_ascii'dead_letter',_ascii'abandoned',_ascii'fenced'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "attempt_number",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_code",
+            "nullable": true,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_detail",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "fencing_token",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "finished_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "heartbeat_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "job_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "lease_owner",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'leased'",
+            "name": "outcome",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "started_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "worker_metadata_json",
+            "nullable": false,
+            "type": "JSON"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "job_id"
+            ],
+            "name": "job_attempts_ibfk_1",
+            "ondelete": "CASCADE",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "jobs"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "job_id",
+              "started_at"
+            ],
+            "name": "ix_job_attempts_job_started",
+            "unique": false
+          },
+          {
+            "columns": [
+              "lease_owner",
+              "fencing_token"
+            ],
+            "name": "ix_job_attempts_lease",
+            "unique": false
+          },
+          {
+            "columns": [
+              "job_id",
+              "attempt_number"
+            ],
+            "name": "uq_job_attempts_job_number",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "job_id",
+              "attempt_number"
+            ],
+            "name": "uq_job_attempts_job_number"
+          }
+        ]
+      }
+    },
+    "jobs": {
+      "content_sha256": "206d4c18915b1ca3348a6cf8ff8fc595ef1674f8b32c594055d01fc27b416181",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_jobs_attempts",
+            "sqltext": "((`attempt_count` >= 0) and (`max_attempts` > 0) and (`attempt_count` <= `max_attempts`))"
+          },
+          {
+            "name": "ck_jobs_fencing_token",
+            "sqltext": "(`fencing_token` >= 0)"
+          },
+          {
+            "name": "ck_jobs_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_jobs_payload_digest",
+            "sqltext": "regexp_like(`payload_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_jobs_status",
+            "sqltext": "(`status` in (_ascii'queued',_ascii'leased',_ascii'running',_ascii'retry_wait',_ascii'cancel_requested',_ascii'succeeded',_ascii'cancelled',_ascii'dead_letter'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "attempt_count",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "available_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "cancel_reason",
+            "nullable": true,
+            "type": "VARCHAR(4096)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "cancel_requested_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "cancelled_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "completed_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "correlation_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_code",
+            "nullable": true,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_detail",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "fencing_token",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "heartbeat_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "idempotency_key",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"utf8mb4_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "job_type",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "lease_expires_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "lease_owner",
+            "nullable": true,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'5'",
+            "name": "max_attempts",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_id",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "payload_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "payload_json",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "payload_schema_version",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "priority",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "replay_of_job_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "result_json",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "result_schema_version",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": "'queued'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "replay_of_job_id"
+            ],
+            "name": "jobs_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "jobs"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "status",
+              "available_at",
+              "priority",
+              "created_at",
+              "id"
+            ],
+            "name": "ix_jobs_claim",
+            "unique": false
+          },
+          {
+            "columns": [
+              "correlation_id"
+            ],
+            "name": "ix_jobs_correlation",
+            "unique": false
+          },
+          {
+            "columns": [
+              "status",
+              "lease_expires_at"
+            ],
+            "name": "ix_jobs_lease_expiry",
+            "unique": false
+          },
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "job_type",
+              "status"
+            ],
+            "name": "ix_jobs_owner_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "replay_of_job_id"
+            ],
+            "name": "replay_of_job_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "job_type",
+              "owner_scope_type",
+              "owner_scope_id",
+              "idempotency_key"
+            ],
+            "name": "uq_jobs_idempotency_scope",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "job_type",
+              "owner_scope_type",
+              "owner_scope_id",
+              "idempotency_key"
+            ],
+            "name": "uq_jobs_idempotency_scope"
+          }
+        ]
+      }
+    },
+    "knowledge_source_documents": {
+      "content_sha256": "75f05341280cd9357f1f444de605e297b693ffc6589dc06e8bbb098d1fdb17c5",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "chunk_count",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content_blob",
+            "nullable": false,
+            "type": "LONGBLOB"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "embedding_base_url",
+            "nullable": false,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "embedding_model",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "embedding_provider",
+            "nullable": false,
+            "type": "VARCHAR(100)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "embedding_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_message",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "file_ext",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "file_size",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "filename",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "md5",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "mime_type",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "original_filename",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "md5"
+            ],
+            "name": "ix_knowledge_source_documents_md5",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_knowledge_source_documents_user_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "md5"
+            ],
+            "name": "uq_knowledge_source_user_md5",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "user_id",
+              "md5"
+            ],
+            "name": "uq_knowledge_source_user_md5"
+          }
+        ]
+      }
+    },
+    "memory_items": {
+      "content_sha256": "b08d7ee4e18a8c7b1034fcf56b26dd75079ce10d8dc729afd650f54ed9f28c30",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "archived_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "completed_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "due_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "interval_days",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "metadata_json",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "priority",
+            "nullable": true,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "remind_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "review_count",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_type",
+            "nullable": true,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "status",
+            "nullable": true,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "title",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "type",
+            "nullable": true,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "due_at"
+            ],
+            "name": "ix_memory_items_due_at",
+            "unique": false
+          },
+          {
+            "columns": [
+              "priority"
+            ],
+            "name": "ix_memory_items_priority",
+            "unique": false
+          },
+          {
+            "columns": [
+              "remind_at"
+            ],
+            "name": "ix_memory_items_remind_at",
+            "unique": false
+          },
+          {
+            "columns": [
+              "source_id"
+            ],
+            "name": "ix_memory_items_source_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "source_type"
+            ],
+            "name": "ix_memory_items_source_type",
+            "unique": false
+          },
+          {
+            "columns": [
+              "status"
+            ],
+            "name": "ix_memory_items_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "type"
+            ],
+            "name": "ix_memory_items_type",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_memory_items_user_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "migration_maps": {
+      "content_sha256": "d75b0c7f6d9ec32e62e3b54ad73b14aa8d2285ea7b35736b027632139556b601",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_migration_maps_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_migration_maps_source_digest",
+            "sqltext": "regexp_like(`source_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_migration_maps_status",
+            "sqltext": "(`status` in (_ascii'mapped',_ascii'conflict',_ascii'error'))"
+          },
+          {
+            "name": "ck_migration_maps_target_uuid",
+            "sqltext": "regexp_like(`target_uuid`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "entity_type",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_detail",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "migration_batch_id",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_id",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_system",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'mapped'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "target_uuid",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "migration_batch_id",
+              "status"
+            ],
+            "name": "ix_migration_maps_batch_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "target_uuid"
+            ],
+            "name": "ix_migration_maps_target",
+            "unique": false
+          },
+          {
+            "columns": [
+              "source_system",
+              "entity_type",
+              "source_id"
+            ],
+            "name": "uq_migration_maps_source",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "source_system",
+              "entity_type",
+              "source_id"
+            ],
+            "name": "uq_migration_maps_source"
+          }
+        ]
+      }
+    },
+    "note_templates": {
+      "content_sha256": "c3a38788bf4c8fe9a54cff10ae6cc3db4f1e54ab09ee6832791440f7ce65ad80",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "category",
+            "nullable": true,
+            "type": "VARCHAR(50)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "icon",
+            "nullable": true,
+            "type": "VARCHAR(50)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "is_default",
+            "nullable": false,
+            "type": "TINYINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "name",
+            "nullable": false,
+            "type": "VARCHAR(100)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "sort_order",
+            "nullable": true,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "tags",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "title",
+            "nullable": true,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_note_templates_user_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "notes": {
+      "content_sha256": "bb762810cf98d07dfa16604583c89cca53805d2a70984f77046a5795f2fc4040",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "category",
+            "nullable": true,
+            "type": "VARCHAR(50)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "content",
+            "nullable": false,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "is_pinned",
+            "nullable": false,
+            "type": "TINYINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "tags",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "title",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_notes_user_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "rag_generation_heads": {
+      "content_sha256": "9cba87725b745c82d22c5ca0b1b0df69b88cc6b82985c0dc22b9cedc273b3b42",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_rag_generation_heads_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_rag_generation_heads_revision",
+            "sqltext": "(`revision` > 0)"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "active_generation_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "index_kind",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_id",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "staging_generation_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "active_generation_id"
+            ],
+            "name": "rag_generation_heads_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "rag_generations"
+          },
+          {
+            "columns": [
+              "staging_generation_id"
+            ],
+            "name": "rag_generation_heads_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "rag_generations"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "active_generation_id"
+            ],
+            "name": "ix_rag_generation_heads_active",
+            "unique": false
+          },
+          {
+            "columns": [
+              "staging_generation_id"
+            ],
+            "name": "ix_rag_generation_heads_staging",
+            "unique": false
+          },
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "index_kind"
+            ],
+            "name": "uq_rag_generation_heads_owner_index",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "index_kind"
+            ],
+            "name": "uq_rag_generation_heads_owner_index"
+          }
+        ]
+      }
+    },
+    "rag_generations": {
+      "content_sha256": "b5583adc53b7e0fcab31ac369074c80347bc6b16abde9efc42b02d768cfabafc",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_rag_generations_fingerprint",
+            "sqltext": "regexp_like(`embedding_fingerprint`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_rag_generations_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_rag_generations_status",
+            "sqltext": "(`status` in (_ascii'building',_ascii'ready',_ascii'failed',_ascii'retired'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "config_json",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "config_schema_version",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "embedding_fingerprint",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_detail",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "generation",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "index_kind",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "job_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_id",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "owner_scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "ready_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "retired_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "source_revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "'building'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "job_id"
+            ],
+            "name": "rag_generations_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "jobs"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "job_id"
+            ],
+            "name": "ix_rag_generations_job",
+            "unique": false
+          },
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "index_kind",
+              "status"
+            ],
+            "name": "ix_rag_generations_owner_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "index_kind",
+              "embedding_fingerprint",
+              "generation"
+            ],
+            "name": "uq_rag_generations_owner_index_generation",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "owner_scope_type",
+              "owner_scope_id",
+              "index_kind",
+              "embedding_fingerprint",
+              "generation"
+            ],
+            "name": "uq_rag_generations_owner_index_generation"
+          }
+        ]
+      }
+    },
+    "refresh_tokens": {
+      "content_sha256": "635da6b76a09196596e2a04d7f25aa0a8f25d5e4a7df019bab8bca5491e36c4a",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_refresh_tokens_family_uuid",
+            "sqltext": "regexp_like(`family_id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_refresh_tokens_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_refresh_tokens_jti_digest",
+            "sqltext": "regexp_like(`jti_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_refresh_tokens_status",
+            "sqltext": "(`status` in (_ascii'active',_ascii'consumed',_ascii'revoked'))"
+          },
+          {
+            "name": "ck_refresh_tokens_token_digest",
+            "sqltext": "regexp_like(`token_digest`,_ascii'^[0-9a-f]{64}$')"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "consumed_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "expires_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "family_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "issued_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "jti_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "parent_token_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "replaced_by_token_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "revoked_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "session_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "token_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "parent_token_id"
+            ],
+            "name": "refresh_tokens_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "refresh_tokens"
+          },
+          {
+            "columns": [
+              "replaced_by_token_id"
+            ],
+            "name": "refresh_tokens_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "refresh_tokens"
+          },
+          {
+            "columns": [
+              "session_id"
+            ],
+            "name": "refresh_tokens_ibfk_3",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "auth_sessions"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "status",
+              "expires_at"
+            ],
+            "name": "ix_refresh_tokens_expires",
+            "unique": false
+          },
+          {
+            "columns": [
+              "family_id",
+              "status"
+            ],
+            "name": "ix_refresh_tokens_family_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "session_id",
+              "status"
+            ],
+            "name": "ix_refresh_tokens_session_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "parent_token_id"
+            ],
+            "name": "parent_token_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "replaced_by_token_id"
+            ],
+            "name": "replaced_by_token_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "jti_digest"
+            ],
+            "name": "uq_refresh_tokens_jti_digest",
+            "unique": true
+          },
+          {
+            "columns": [
+              "token_digest"
+            ],
+            "name": "uq_refresh_tokens_token_digest",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "jti_digest"
+            ],
+            "name": "uq_refresh_tokens_jti_digest"
+          },
+          {
+            "columns": [
+              "token_digest"
+            ],
+            "name": "uq_refresh_tokens_token_digest"
+          }
+        ]
+      }
+    },
+    "role_bindings": {
+      "content_sha256": "7cc0da5ecce6432a16f2a6e5829ca9de276759e38e35aad55c9ca86f5cd0ae52",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_role_bindings_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_role_bindings_status",
+            "sqltext": "(`status` in (_ascii'active',_ascii'revoked'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "effective_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "expires_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "revoked_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "role_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_id",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "role_id"
+            ],
+            "name": "role_bindings_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "roles"
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "role_bindings_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "scope_type",
+              "scope_id",
+              "status"
+            ],
+            "name": "ix_role_bindings_scope_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "status"
+            ],
+            "name": "ix_role_bindings_user_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "role_id"
+            ],
+            "name": "role_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "role_id",
+              "scope_type",
+              "scope_id"
+            ],
+            "name": "uq_role_bindings_subject_scope",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "user_id",
+              "role_id",
+              "scope_type",
+              "scope_id"
+            ],
+            "name": "uq_role_bindings_subject_scope"
+          }
+        ]
+      }
+    },
+    "roles": {
+      "content_sha256": "bc3e50a9f4ef58897c84921db09d962075e8f7c241c7b891834f53cb2b1eaeb1",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_roles_id_uuid",
+            "sqltext": "regexp_like(`id`,_utf8mb4'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_roles_status",
+            "sqltext": "(`status` in (_utf8mb4'active',_utf8mb4'disabled'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "description",
+            "nullable": false,
+            "type": "VARCHAR(512)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "name",
+            "nullable": false,
+            "type": "VARCHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "name"
+            ],
+            "name": "uq_roles_name",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "name"
+            ],
+            "name": "uq_roles_name"
+          }
+        ]
+      }
+    },
+    "skill_aliases": {
+      "content_sha256": "743b01999f0b16e39e1ca5ac215fd9f5dd7b40b112479bda4f4ca726c45d1206",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "alias_name",
+            "nullable": false,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'legacy'",
+            "name": "alias_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_aliases_ibfk_1",
+            "ondelete": "CASCADE",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "ix_skill_aliases_skill_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "alias_name"
+            ],
+            "name": "uq_skill_aliases_alias_name",
+            "unique": true
+          },
+          {
+            "columns": [
+              "skill_id",
+              "alias_name"
+            ],
+            "name": "uq_skill_aliases_skill_alias",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "alias_name"
+            ],
+            "name": "uq_skill_aliases_alias_name"
+          },
+          {
+            "columns": [
+              "skill_id",
+              "alias_name"
+            ],
+            "name": "uq_skill_aliases_skill_alias"
+          }
+        ]
+      }
+    },
+    "skill_audit_events": {
+      "content_sha256": "135fe12c3249ac5e07be2165a9eb5310c1bc1c9eedb73112dcf01df89077d512",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "action",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "actor_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'user'",
+            "name": "actor_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "after_state",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "before_state",
+            "nullable": true,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "correlation_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "details",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "import_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "installation_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_version_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "target_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "target_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "import_id"
+            ],
+            "name": "skill_audit_events_ibfk_1",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_imports"
+          },
+          {
+            "columns": [
+              "installation_id"
+            ],
+            "name": "skill_audit_events_ibfk_2",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_installations"
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_audit_events_ibfk_3",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "skill_audit_events_ibfk_4",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "import_id"
+            ],
+            "name": "import_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "installation_id"
+            ],
+            "name": "installation_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "action",
+              "created_at"
+            ],
+            "name": "ix_skill_audit_events_action_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "actor_id"
+            ],
+            "name": "ix_skill_audit_events_actor_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "correlation_id"
+            ],
+            "name": "ix_skill_audit_events_correlation_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id",
+              "created_at"
+            ],
+            "name": "ix_skill_audit_events_skill_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "skill_version_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "skill_capability_grants": {
+      "content_sha256": "0651aa145eecb97a657576b68e6d5863f12677eedd6c92bccd16c7c9bbe5110f",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "granted_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "grants",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "installation_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "revoked_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_version_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "installation_id"
+            ],
+            "name": "skill_capability_grants_ibfk_1",
+            "ondelete": "CASCADE",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_installations"
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "skill_capability_grants_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "granted_by"
+            ],
+            "name": "ix_skill_capability_grants_granted_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "installation_id"
+            ],
+            "name": "ix_skill_capability_grants_installation_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "ix_skill_capability_grants_skill_version_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_version_id",
+              "revoked_at"
+            ],
+            "name": "ix_skill_capability_grants_version_revoked",
+            "unique": false
+          },
+          {
+            "columns": [
+              "installation_id",
+              "skill_version_id"
+            ],
+            "name": "uq_skill_capability_grants_installation_version",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "installation_id",
+              "skill_version_id"
+            ],
+            "name": "uq_skill_capability_grants_installation_version"
+          }
+        ]
+      }
+    },
+    "skill_imports": {
+      "content_sha256": "4d3fee1a5240516ffebc3555d8272183a2772769f9d083925bd7f396cd9c42aa",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "skill_import_status",
+            "sqltext": "(`status` in (_utf8mb4'received',_utf8mb4'staged',_utf8mb4'validation_queued',_utf8mb4'validating',_utf8mb4'rejected',_utf8mb4'quarantined',_utf8mb4'awaiting_approval',_utf8mb4'publishing',_utf8mb4'published',_utf8mb4'failed_retryable'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "attempt_count",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "completed_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "diagnostics",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "discovered_canonical_name",
+            "nullable": true,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_code",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "error_message",
+            "nullable": true,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "idempotency_key",
+            "nullable": false,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "package_digest",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "package_size_bytes",
+            "nullable": true,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "request_archive_digest",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "requested_by",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "requested_capabilities",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_version_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_kind",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source_reference",
+            "nullable": true,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "staged_storage_key",
+            "nullable": true,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "started_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "'received'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(17)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "target_revision",
+            "nullable": true,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_imports_ibfk_1",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "skill_imports_ibfk_2",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "package_digest"
+            ],
+            "name": "ix_skill_imports_package_digest",
+            "unique": false
+          },
+          {
+            "columns": [
+              "requested_by"
+            ],
+            "name": "ix_skill_imports_requested_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "ix_skill_imports_skill_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_version_id"
+            ],
+            "name": "ix_skill_imports_skill_version_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "status",
+              "created_at"
+            ],
+            "name": "ix_skill_imports_status_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "idempotency_key"
+            ],
+            "name": "uq_skill_imports_idempotency_key",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "idempotency_key"
+            ],
+            "name": "uq_skill_imports_idempotency_key"
+          }
+        ]
+      }
+    },
+    "skill_installations": {
+      "content_sha256": "888228e1b865f4662a1f91ed2122665a518045980cc85293ba936253d8adeb90",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "skill_installation_status",
+            "sqltext": "(`status` in (_utf8mb4'enabled',_utf8mb4'disabled'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "active_version_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "created_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "draft_version_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "'global'",
+            "name": "scope_key",
+            "nullable": false,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'system'",
+            "name": "scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "settings",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'disabled'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(8)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "updated_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "skill_id",
+              "active_version_id"
+            ],
+            "name": "fk_skill_installations_active_skill_version",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "skill_id",
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          },
+          {
+            "columns": [
+              "skill_id",
+              "draft_version_id"
+            ],
+            "name": "fk_skill_installations_draft_skill_version",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "skill_id",
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_installations_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "skill_id",
+              "active_version_id"
+            ],
+            "name": "fk_skill_installations_active_skill_version",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id",
+              "draft_version_id"
+            ],
+            "name": "fk_skill_installations_draft_skill_version",
+            "unique": false
+          },
+          {
+            "columns": [
+              "active_version_id"
+            ],
+            "name": "ix_skill_installations_active_version_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "draft_version_id"
+            ],
+            "name": "ix_skill_installations_draft_version_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "scope_type",
+              "scope_key",
+              "status"
+            ],
+            "name": "ix_skill_installations_scope_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "ix_skill_installations_skill_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id",
+              "scope_type",
+              "scope_key"
+            ],
+            "name": "uq_skill_installations_scope",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "skill_id",
+              "scope_type",
+              "scope_key"
+            ],
+            "name": "uq_skill_installations_scope"
+          }
+        ]
+      }
+    },
+    "skill_package_uploads": {
+      "content_sha256": "20f3cff11a8bde609682cac69a08d1cbbe0bf01e54bef936fda0fb17358b0823",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_skill_package_uploads_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_skill_package_uploads_request_digest",
+            "sqltext": "regexp_like(`request_archive_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_skill_package_uploads_size",
+            "sqltext": "((`original_size_bytes` >= 0) and (`original_size_bytes` <= 67108864))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'application/zip'",
+            "name": "media_type",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "original_size_bytes",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "package_id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "raw_archive",
+            "nullable": false,
+            "type": "LONGBLOB"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "request_archive_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "uploaded_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "package_id"
+            ],
+            "name": "skill_package_uploads_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_packages"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "package_id",
+              "created_at"
+            ],
+            "name": "ix_skill_package_uploads_package_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "uploaded_by"
+            ],
+            "name": "ix_skill_package_uploads_uploaded_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "request_archive_digest"
+            ],
+            "name": "uq_skill_package_uploads_request_digest",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "request_archive_digest"
+            ],
+            "name": "uq_skill_package_uploads_request_digest"
+          }
+        ]
+      }
+    },
+    "skill_packages": {
+      "content_sha256": "cbb4a3b92e2f75a58b08cfa6ef7db0db961552ca9d567ffdf048e68c8f855d32",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_skill_packages_archive_digest",
+            "sqltext": "regexp_like(`canonical_archive_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_skill_packages_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_skill_packages_package_digest",
+            "sqltext": "regexp_like(`package_digest`,_ascii'^[0-9a-f]{64}$')"
+          },
+          {
+            "name": "ck_skill_packages_size",
+            "sqltext": "((`canonical_size_bytes` >= 0) and (`canonical_size_bytes` <= 67108864))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "canonical_archive",
+            "nullable": false,
+            "type": "LONGBLOB"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "canonical_archive_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "canonical_size_bytes",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "created_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "manifest_json",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "manifest_schema_version",
+            "nullable": false,
+            "type": "INTEGER"
+          },
+          {
+            "autoincrement": null,
+            "default": "'application/zip'",
+            "name": "media_type",
+            "nullable": false,
+            "type": "VARCHAR(128) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "package_digest",
+            "nullable": false,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "created_by"
+            ],
+            "name": "ix_skill_packages_created_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "canonical_archive_digest"
+            ],
+            "name": "uq_skill_packages_archive_digest",
+            "unique": true
+          },
+          {
+            "columns": [
+              "package_digest"
+            ],
+            "name": "uq_skill_packages_package_digest",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "canonical_archive_digest"
+            ],
+            "name": "uq_skill_packages_archive_digest"
+          },
+          {
+            "columns": [
+              "package_digest"
+            ],
+            "name": "uq_skill_packages_package_digest"
+          }
+        ]
+      }
+    },
+    "skill_registry_events": {
+      "content_sha256": "dec3e8898341aa5041a66c6b163906b14cf3342929e4a7aee107c21a8fc94c7f",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "event_type",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "payload",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "processed_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_registry_events_ibfk_1",
+            "ondelete": "SET NULL",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "processed_at",
+              "created_at"
+            ],
+            "name": "ix_skill_registry_events_processed_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "ix_skill_registry_events_skill_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "revision"
+            ],
+            "name": "uq_skill_registry_events_revision",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "revision"
+            ],
+            "name": "uq_skill_registry_events_revision"
+          }
+        ]
+      }
+    },
+    "skill_registry_state": {
+      "content_sha256": "d70921ca8152c09b1107626f510b0a336f2f8f6d2f991b30a0585c136a2173f0",
+      "row_count": 1,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "skill_run_bindings": {
+      "content_sha256": "865ea515aab4801311d9f6cd0b6c04f350ae309907a41dd08a92b19d20e40ee1",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "effective_grants",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "registry_revision",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "run_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "session_id",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_bindings",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "session_id",
+              "created_at"
+            ],
+            "name": "ix_skill_run_bindings_session_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "created_at"
+            ],
+            "name": "ix_skill_run_bindings_user_created",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "run_id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "skill_versions": {
+      "content_sha256": "34ca4f1b99abf4d2cd90bfde348d8e02bcf7c7617d0af7780a3af2b79d778488",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "skill_package_format",
+            "sqltext": "(`package_format` = _utf8mb4'agent_skills_v1')"
+          },
+          {
+            "name": "skill_version_status",
+            "sqltext": "(`status` in (_utf8mb4'draft',_utf8mb4'validating',_utf8mb4'ready',_utf8mb4'rejected',_utf8mb4'quarantined',_utf8mb4'retired'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "created_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "description",
+            "nullable": false,
+            "type": "TEXT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "display_name",
+            "nullable": false,
+            "type": "VARCHAR(160)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "manifest",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "name",
+            "nullable": false,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "package_digest",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "package_format",
+            "nullable": false,
+            "type": "VARCHAR(15)"
+          },
+          {
+            "autoincrement": false,
+            "default": "'0'",
+            "name": "package_size_bytes",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "parent_version_id",
+            "nullable": true,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "published_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "requested_capabilities",
+            "nullable": false,
+            "type": "JSON"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "retired_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": "'1'",
+            "name": "schema_version",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "skill_id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "source",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'draft'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(11)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "storage_key",
+            "nullable": false,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "version_number",
+            "nullable": false,
+            "type": "INTEGER"
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "parent_version_id"
+            ],
+            "name": "skill_versions_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skill_versions"
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "skill_versions_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "skills"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "created_by"
+            ],
+            "name": "ix_skill_versions_created_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "parent_version_id"
+            ],
+            "name": "ix_skill_versions_parent_version_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id"
+            ],
+            "name": "ix_skill_versions_skill_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "skill_id",
+              "status"
+            ],
+            "name": "ix_skill_versions_skill_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "status"
+            ],
+            "name": "ix_skill_versions_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "package_digest"
+            ],
+            "name": "uq_skill_versions_package_digest",
+            "unique": true
+          },
+          {
+            "columns": [
+              "skill_id",
+              "id"
+            ],
+            "name": "uq_skill_versions_skill_id",
+            "unique": true
+          },
+          {
+            "columns": [
+              "skill_id",
+              "version_number"
+            ],
+            "name": "uq_skill_versions_skill_number",
+            "unique": true
+          },
+          {
+            "columns": [
+              "storage_key"
+            ],
+            "name": "uq_skill_versions_storage_key",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "package_digest"
+            ],
+            "name": "uq_skill_versions_package_digest"
+          },
+          {
+            "columns": [
+              "skill_id",
+              "id"
+            ],
+            "name": "uq_skill_versions_skill_id"
+          },
+          {
+            "columns": [
+              "skill_id",
+              "version_number"
+            ],
+            "name": "uq_skill_versions_skill_number"
+          },
+          {
+            "columns": [
+              "storage_key"
+            ],
+            "name": "uq_skill_versions_storage_key"
+          }
+        ]
+      }
+    },
+    "skills": {
+      "content_sha256": "0823a65958499bb3d6889ad6a862b5e43b59b9f168b09b5808b05cc1e9f61b12",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "skill_lifecycle_status",
+            "sqltext": "(`status` in (_utf8mb4'active',_utf8mb4'archived'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "archived_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "canonical_name",
+            "nullable": false,
+            "type": "VARCHAR(128)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "created_by",
+            "nullable": true,
+            "type": "VARCHAR(64)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(8)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "created_by"
+            ],
+            "name": "ix_skills_created_by",
+            "unique": false
+          },
+          {
+            "columns": [
+              "status"
+            ],
+            "name": "ix_skills_status",
+            "unique": false
+          },
+          {
+            "columns": [
+              "canonical_name"
+            ],
+            "name": "uq_skills_canonical_name",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "canonical_name"
+            ],
+            "name": "uq_skills_canonical_name"
+          }
+        ]
+      }
+    },
+    "token_revocations": {
+      "content_sha256": "66d6fdec78d06920871ea370b44d56dcbc08731f16a426f2e11ed7b47d0faf72",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_token_revocations_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_token_revocations_scope",
+            "sqltext": "(`scope_type` in (_ascii'token',_ascii'session',_ascii'user_version'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "correlation_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "expires_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "reason",
+            "nullable": false,
+            "type": "VARCHAR(4096)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_key",
+            "nullable": false,
+            "type": "VARCHAR(160) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "scope_type",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "session_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "token_digest",
+            "nullable": true,
+            "type": "CHAR(64) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "token_version",
+            "nullable": true,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": true,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          }
+        ],
+        "foreign_keys": [
+          {
+            "columns": [
+              "session_id"
+            ],
+            "name": "token_revocations_ibfk_1",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "auth_sessions"
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "token_revocations_ibfk_2",
+            "ondelete": "RESTRICT",
+            "referred_columns": [
+              "id"
+            ],
+            "referred_table": "users"
+          }
+        ],
+        "indexes": [
+          {
+            "columns": [
+              "expires_at"
+            ],
+            "name": "ix_token_revocations_expires",
+            "unique": false
+          },
+          {
+            "columns": [
+              "session_id",
+              "created_at"
+            ],
+            "name": "ix_token_revocations_session_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id",
+              "created_at"
+            ],
+            "name": "ix_token_revocations_user_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "scope_type",
+              "scope_key"
+            ],
+            "name": "uq_token_revocations_scope_key",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "scope_type",
+              "scope_key"
+            ],
+            "name": "uq_token_revocations_scope_key"
+          }
+        ]
+      }
+    },
+    "user_embedding_configs": {
+      "content_sha256": "e643eede024a910925189150cf63414fe613aa35109d1bc6723d871591b51daf",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "base_url",
+            "nullable": false,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "is_active",
+            "nullable": false,
+            "type": "TINYINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "model_name",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "model_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "provider",
+            "nullable": false,
+            "type": "VARCHAR(100)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_user_embedding_configs_user_id",
+            "unique": false
+          },
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "uq_user_embedding_config_user_id",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "uq_user_embedding_config_user_id"
+          }
+        ]
+      }
+    },
+    "user_model_configs": {
+      "content_sha256": "a56b6fd9e675cb957a8567a23d9ba71fa8fe8636cd65bb5a8cba8d3004dce392",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "api_key_encrypted",
+            "nullable": true,
+            "type": "VARCHAR(2048)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "base_url",
+            "nullable": false,
+            "type": "VARCHAR(500)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "created_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "VARCHAR(36)"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "is_active",
+            "nullable": false,
+            "type": "TINYINT"
+          },
+          {
+            "autoincrement": false,
+            "default": null,
+            "name": "is_default",
+            "nullable": false,
+            "type": "TINYINT"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "model_name",
+            "nullable": false,
+            "type": "VARCHAR(200)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "model_type",
+            "nullable": false,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "provider",
+            "nullable": false,
+            "type": "VARCHAR(100)"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP",
+            "name": "updated_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "user_id",
+            "nullable": false,
+            "type": "VARCHAR(64)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "user_id"
+            ],
+            "name": "ix_user_model_configs_user_id",
+            "unique": false
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": []
+      }
+    },
+    "users": {
+      "content_sha256": "c75733da10c8d17008a8504af4d4b98b15b51df51a28ef952f237692fa3778cd",
+      "row_count": 0,
+      "schema": {
+        "check_constraints": [
+          {
+            "name": "ck_users_id_uuid",
+            "sqltext": "regexp_like(`id`,_ascii'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')"
+          },
+          {
+            "name": "ck_users_status",
+            "sqltext": "(`status` in (_ascii'active',_ascii'disabled',_ascii'locked'))"
+          }
+        ],
+        "columns": [
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "created_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "disabled_at",
+            "nullable": true,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "email_display",
+            "nullable": false,
+            "type": "VARCHAR(254)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "email_normalized",
+            "nullable": false,
+            "type": "VARCHAR(254) COLLATE \"utf8mb4_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "id",
+            "nullable": false,
+            "type": "CHAR(36) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "password_hash",
+            "nullable": false,
+            "type": "VARCHAR(255)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "phone_display",
+            "nullable": true,
+            "type": "VARCHAR(32)"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "phone_e164",
+            "nullable": true,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": null,
+            "default": "'active'",
+            "name": "status",
+            "nullable": false,
+            "type": "VARCHAR(32) COLLATE \"ascii_bin\""
+          },
+          {
+            "autoincrement": false,
+            "default": "'1'",
+            "name": "token_version",
+            "nullable": false,
+            "type": "BIGINT"
+          },
+          {
+            "autoincrement": null,
+            "default": "CURRENT_TIMESTAMP(6)",
+            "name": "updated_at",
+            "nullable": false,
+            "type": "DATETIME"
+          },
+          {
+            "autoincrement": null,
+            "default": null,
+            "name": "username",
+            "nullable": false,
+            "type": "VARCHAR(150)"
+          }
+        ],
+        "foreign_keys": [],
+        "indexes": [
+          {
+            "columns": [
+              "status",
+              "created_at"
+            ],
+            "name": "ix_users_status_created",
+            "unique": false
+          },
+          {
+            "columns": [
+              "email_normalized"
+            ],
+            "name": "uq_users_email_normalized",
+            "unique": true
+          },
+          {
+            "columns": [
+              "phone_e164"
+            ],
+            "name": "uq_users_phone_e164",
+            "unique": true
+          }
+        ],
+        "primary_key": {
+          "columns": [
+            "id"
+          ],
+          "name": null
+        },
+        "unique_constraints": [
+          {
+            "columns": [
+              "email_normalized"
+            ],
+            "name": "uq_users_email_normalized"
+          },
+          {
+            "columns": [
+              "phone_e164"
+            ],
+            "name": "uq_users_phone_e164"
+          }
+        ]
+      }
+    }
+  }
+}

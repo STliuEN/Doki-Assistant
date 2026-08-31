@@ -22,7 +22,7 @@
 | 审计关联 | 全链路 `correlation_id`，并可关联 run/job/import/migration ID | 索引、查询和恢复对账 |
 | 向量 | SQL 不保存 embedding/vector BLOB | 静态 schema contract |
 
-这些类型是待确认目标。旧 `String(36/64)`、Django 22 字符 ShortUUID、整数 message ID 和 nullable timestamp 在 E2 不做 populated-row 改写。
+这些类型已由用户在 E2 授权前确认并作为本批实现合同冻结。旧 `String(36/64)`、Django 22 字符 ShortUUID、整数 message ID 和 nullable timestamp 在 E2 不做 populated-row 改写。
 
 ## Canonical 表名与 owner
 
@@ -102,7 +102,7 @@ E2 只建立不含向量的 SQL 骨架；`active + staging`、Chroma collection 
 
 ## Additive 与 Deferred DDL
 
-### E2 可实施（批准后）
+### E2 已实施并关闭（真实拓扑已验证）
 
 - 新建 canonical auth/audit/job/migration/RAG/Skill package 空结构。
 - 新建 UoW/job repository 所需索引、FK 和唯一约束。
@@ -125,4 +125,4 @@ E2 只建立不含向量的 SQL 骨架；`active + staging`、Chroma collection 
 4. lease 60s、heartbeat 15s、poll 1s、drain 30s；最多 5 次 attempt，退避 `5s/30s/2m/10m`；backpressure 全局 1000、每 owner/type 100。
 5. 三条线性 revision：`20260828_0003_identity_auth`、`20260828_0004_jobs_audit`、`20260828_0005_rag_skill`；head 不自动推广。
 6. runner 内置 FastAPI lifespan、并发 1、预注册 handler、MySQL `GET_LOCK`；claim transaction 使用 `READ COMMITTED`，其他业务隔离级别不变。
-7. 仅合成数据；现有 populated 表不做 DDL；认证/RAG/Skill 内部原语不可从产品路径访问；完成后状态只能为 `待验证`。
+7. 仅合成数据；现有 populated 表不做 DDL；认证/RAG/Skill 内部原语不可从产品路径访问；实现完成后由实现者标为 `待验证`，必须经用户审阅确认后才能关闭。

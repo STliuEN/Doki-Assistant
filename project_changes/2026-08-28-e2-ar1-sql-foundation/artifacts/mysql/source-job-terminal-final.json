@@ -1,0 +1,103 @@
+{
+  "active_attempts": [],
+  "all_jobs_terminal": true,
+  "all_synthetic_jobs_terminal": true,
+  "attempt_outcome_counts": [
+    {
+      "count": 17,
+      "outcome": "abandoned"
+    },
+    {
+      "count": 9,
+      "outcome": "cancelled"
+    },
+    {
+      "count": 10,
+      "outcome": "dead_letter"
+    },
+    {
+      "count": 9,
+      "outcome": "retry_wait"
+    },
+    {
+      "count": 31,
+      "outcome": "succeeded"
+    }
+  ],
+  "checked_at": "2026-08-28T10:30:49.898848+00:00",
+  "closed_retry_wait_attempt_count": 9,
+  "job_status_counts": [
+    {
+      "count": 22,
+      "status": "cancelled"
+    },
+    {
+      "count": 10,
+      "status": "dead_letter"
+    },
+    {
+      "count": 31,
+      "status": "succeeded"
+    }
+  ],
+  "no_active_attempts": true,
+  "no_orphan_attempts": true,
+  "nonterminal_jobs": [],
+  "operation": "e2-job-terminal-gate",
+  "orphan_attempts": [],
+  "schema_version": 1,
+  "synthetic_job_type_status_counts": [
+    {
+      "count": 18,
+      "job_type": "e2.echo",
+      "status": "succeeded"
+    },
+    {
+      "count": 9,
+      "job_type": "e2.live.cancel",
+      "status": "cancelled"
+    },
+    {
+      "count": 8,
+      "job_type": "e2.live.pressure",
+      "status": "cancelled"
+    },
+    {
+      "count": 9,
+      "job_type": "e2.live.retry",
+      "status": "succeeded"
+    },
+    {
+      "count": 9,
+      "job_type": "e2.live.unknown",
+      "status": "dead_letter"
+    },
+    {
+      "count": 5,
+      "job_type": "e2.restart.block",
+      "status": "cancelled"
+    },
+    {
+      "count": 1,
+      "job_type": "e2.restart.block",
+      "status": "dead_letter"
+    },
+    {
+      "count": 4,
+      "job_type": "e2.restart.block",
+      "status": "succeeded"
+    }
+  ],
+  "synthetic_nonterminal_jobs": [],
+  "target": {
+    "database": "doki_e2",
+    "host": "127.0.0.1",
+    "port": 33317,
+    "role": "source"
+  },
+  "terminal_job_statuses": [
+    "succeeded",
+    "cancelled",
+    "dead_letter"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "alembic_revision": null,
+  "database": "doki_e2",
+  "inventory_sha256": "e2539b7f1e4ca696de384325c7099c7d409c22f313300bf9aaaac6226c59ec54",
+  "schema_version": 1,
+  "tables": {}
+}

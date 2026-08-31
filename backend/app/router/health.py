@@ -4,6 +4,7 @@ from fastapi.routing import APIRouter
 from app.core.success_response import success_response
 from app.db.db_config import check_mysql_connection
 from app.db.redis_config import check_redis_connection
+from app.jobs.runner import get_default_runner_status
 from app.skills.storage import skill_package_storage
 
 health_router = APIRouter(prefix="/health")
@@ -55,3 +56,12 @@ async def get_health_readiness():
     else:
         raise HTTPException(status_code=503, detail="MySQL、Redis 或 Skill Storage 连接失败")
 
+
+
+@health_router.get("/runner", tags=["健康检查"], summary="E2 SQL runner status")
+async def get_health_runner_status():
+    """Expose runner liveness separately from API dependency readiness."""
+    return success_response(
+        message="E2 SQL runner status",
+        data=get_default_runner_status(),
+    )

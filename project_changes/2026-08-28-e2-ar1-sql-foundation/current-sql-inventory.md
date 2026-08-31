@@ -1,20 +1,20 @@
 # E2 当前 SQL 与运行时盘点
 
 日期：2026-08-28  
-性质：只读准备证据；不代表 E2 已实施
+性质：实施前只读盘点快照；其中的历史“待验证”描述已由本批 live 证据和用户关闭确认更新覆盖。E2 最终状态和事实见本批 `plan.md`、`change-log.md` 和 `test-record.md`。
 
 ## 当前结构
 
 | 范围 | 当前事实 | E2 处理 |
 |---|---|---|
-| Alembic | `20260817_0001_baseline` -> `20260824_0002_skill_domain`；启动要求精确 head，不自动 DDL | 保留 fail-closed revision gate；增加加法式 E2 revision 和 head/model parity |
+| Alembic（盘点时） | `20260817_0001_baseline` -> `20260824_0002_skill_domain`；启动要求精确 head，不自动 DDL | 当前代码已增加 `20260828_0003`、`0004`、`0005` 三条加法式 E2 revision 和 head/model parity；E2 source/restore live revision 均为 `20260828_0005_rag_skill` |
 | FastAPI schema | 18 张表：8 张聊天/知识/笔记/记忆/模型配置表，10 张 Skill/Registry 表 | 形成唯一 schema map；不在 E2 改写 populated legacy rows |
 | Django identity | `user_service` 独立数据库/ORM，22 字符 ShortUUID，含 username/email/telephone/password/status/token_version 等 | E2 设计目标 auth 表；真实用户迁移和认证切换归 E3 |
 | ID/FK | `String(36)`、`String(64)`、整数消息 ID 混用；跨服务 user_id 无物理 FK | 冻结目标 UUID/FK；旧 ID 通过后续 legacy map 对账 |
 | transaction | `get_db()` 自动 commit/rollback，但大量 service/tool 直接创建 session 或内部 commit | E2 提供 UoW 和迁移清单；先覆盖新 job 路径，业务回接归 E3/E4 |
 | outbox | `skill_registry_events` 有 revision/processed_at 和轮询 reconciler | 仅作局部 characterization；没有 claim/lease/heartbeat/fencing/retry/cancel/DLQ |
-| durable job | 无通用 jobs/job_attempts、repository、state machine 或 runner | E2 新增 SQL-only 实现，并发固定为 1 |
-| backup | `backup_restore.py` 能封装/校验 offline mysql dump、Storage tree、Chroma projection | 复用 manifest/tamper 基础；补 mysqldump/import、DB 语义对账和 restore-forward |
+| durable job（盘点时） | 无通用 jobs/job_attempts、repository、state machine 或 runner | 当前代码已新增 SQL-only jobs/job_attempts、repository/state machine 和并发固定为 1 的 runner；真实 MySQL probe、fencing、DLQ、backpressure 和 kill/restart 已记录 |
+| backup（盘点时） | `backup_restore.py` 能封装/校验 offline mysql dump、Storage tree、Chroma projection | 当前代码已增加 guarded preflight issuance、mysqldump/import、source provenance、DB 语义对账和 restore-forward；E2 source bundle/restore-forward 已完成零差异验证 |
 | readiness | FastAPI lifespan 校验 schema 后初始化 Skill、Redis、模型/Chroma；没有 runner 生命周期 | E2 接入 runner 但分离 runner liveness 与 API readiness |
 
 ## 现有 FastAPI 表
@@ -41,13 +41,13 @@
 - SQLAlchemy async engine/sessionmaker 和 dependency 已存在。
 - Skill transaction tests、idempotency key、revision/outbox 可作为语义参考。
 - offline backup bundle 已有 SHA-256 manifest、路径穿越/符号链接/篡改拒绝和原子恢复。
-- E1 已证明隔离 MySQL 8.4 dump/restore/restore-forward 的操作可行，但 E2 必须生成自己的 schema/runner 证据。
+- E1 已证明隔离 MySQL 8.4 dump/restore/restore-forward 的操作可行；E2 已补齐自己的 schema/runner/recovery 证据，见 `test-record.md`。
 
 ## 不能直接复用为完成证据
 
 - `skill_registry_events.processed_at` 不是通用 job claim，也没有 lease、heartbeat、fencing、retry、cancel、DLQ 或 backpressure。
 - `get_db()` 加 service 内部 `commit()` 不是可组合 UoW；外层无法保证 domain write 与 enqueue 原子。
-- `backup_restore.py` 不运行 mysqldump/import，也不核对数据库表、行、约束或 canonical row digest。
+- 准备快照时的 `backup_restore.py` 不运行 mysqldump/import，也不核对数据库表、行、约束或 canonical row digest；当前实现已补齐这些显式路径，真实命令结果见 E2 live artifacts。
 - SQLite 单测无法证明 MySQL `FOR UPDATE SKIP LOCKED`、数据库时钟租约和 crash recovery。
 - Django migration 与 FastAPI Alembic 属于两个数据库历史，不能直接 stamp 为统一 schema。
 
@@ -62,7 +62,7 @@
 | RAG port、Chroma generation/rebuild 和真实 RAG E2E | E5 |
 | Skill 发布授权闭环和核心业务回接 | E6/E7 |
 
-## 需要在 E2-01 冻结的决策
+## 已冻结、后续阶段仍需遵守的决策
 
 1. UUID 数据库表示、legacy ID 映射格式和 physical FK 激活阶段。
 2. UTC 时间精度、数据库时钟表达式、revision/fencing/digest 类型。

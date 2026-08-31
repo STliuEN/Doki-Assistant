@@ -1,6 +1,6 @@
 # 2026-08-26 架构重构执行交接手册
 
-状态：`E0/S0` 与 `E1/AR-0/SK-0` 已关闭；`E2/S1/AR-1` 为 `待你确认`（未授权实施）
+状态：`E0/S0`、`E1/AR-0/SK-0` 与 `E2/S1/AR-1` 已关闭；E3/S2/AR-2 等待单独计划和授权
 交接对象：下一位实施负责人、阶段审阅人和恢复操作人  
 最终批准人：用户
 
@@ -18,9 +18,9 @@
 
 - S0 文档和决策收束已完成，q85-q92 已固化。
 - P0-0 至 P0-6 和 E1 范围证据已完成；用户于 2026-08-27 明确确认关闭 E1/AR-0/SK-0，历史失败和隔离事故仍保留在证据包中。
-- 下一阶段只能是 **E2/S1/AR-1**，当前为 `待你确认`；下一位执行者必须先提交 E2 批次边界并获得单独实施确认，不得把 E1 关闭当作 migration 或数据变更授权。
+- E2/S1/AR-1 已是最近完成阶段；用户已于 2026-08-28 确认批次边界、实施授权并批准关闭，真实隔离验证已完成。该授权只覆盖批准的 E2 隔离拓扑、代码和合成数据，不把 E1/E2 证据当作现有数据 migration 授权。
 - 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 全部冻结。
-- 当前只允许维护已关闭 E1 证据，以及准备/审阅 E2 计划；未确认 E2 前不实施 AR-1 代码、schema 或真实依赖写入。
+- E2 代码、本地合同和真实 MySQL/container/migration/dump/restore/kill-restart 已按 preflight 和证据矩阵完成并关闭；E1 证据及资源继续只读保护，E2 容器已停止但 volume、network 和证据保留。
 
 ## 3. 最终目标边界
 
@@ -51,7 +51,7 @@
 |---|---|---|---|
 | E0 | S0 | 文档收束（无 AR 实施） | 文档、决策和冻结；已关闭 |
 | E1 | AR-0/SK-0（S0 之后的前置证据） | AR-0 + SK-0 | 真实依赖、故障注入、备份恢复和 characterization；已关闭 |
-| E2 | S1 | AR-1 | 统一 MySQL schema、UoW、SQL durable job、单并发 runner、备份/恢复和迁移工具；待你确认，不迁移现有业务数据 |
+| E2 | S1 | AR-1 | 统一 MySQL schema、UoW、SQL durable job、单并发 runner、备份/恢复和迁移工具；已关闭，真实证据已收口，不迁移现有业务数据 |
 | E3 | S2 | AR-2 | FastAPI 认证、会话、撤销、角色分离和完整授权审计 |
 | E4 | S3 | AR-3 | 业务源数据迁移、稳定 ID/FK、FastAPI 唯一写权威和旧输入对账 |
 | E5 | S4 | AR-4 | SQL 原文 + Chroma RAG projection、generation、重建和降级合同 |
@@ -64,7 +64,7 @@
 ```text
 E0 文档交接与冻结（已关闭）
   -> E1 AR-0/SK-0 真实依赖与恢复证据（已关闭）
-  -> E2/AR-1/S1 单 MySQL schema + SQL job/UoW/runner（待你确认，并发 1）
+  -> E2/AR-1/S1 单 MySQL schema + SQL job/UoW/runner（已关闭，真实证据已收口，并发 1）
   -> E3/AR-2/S2 FastAPI 认证、会话、撤销和角色审计
   -> E4/AR-3/S3 业务数据迁移与唯一写权威
   -> E5/AR-4/S4 SQL 原文 + Chroma RAG projection 收敛
@@ -100,9 +100,9 @@ E0 文档交接与冻结（已关闭）
 
 关闭：2026-08-27，用户明确确认 E1 关闭；证据位于 [`project_changes/2026-08-27-e1-ar0-evidence/`](../project_changes/2026-08-27-e1-ar0-evidence/)。关闭不代表真实模型质量、后续 AR 阶段或发布门禁通过。
 
-### E2：AR-1/S1 单 MySQL schema、UoW、durable job 与内置 runner（待你确认）
+### E2：AR-1/S1 单 MySQL schema、UoW、durable job 与内置 runner（已关闭）
 
-入口：E1 已关闭；E2 批次范围、owner/approver、专用隔离 MySQL、备份位置和回滚边界仍需单独批准。当前只满足上一阶段关闭条件，尚未获得实施授权。
+入口：E1 已关闭；E2 批次范围、owner/approver、专用隔离 MySQL、备份位置和回滚边界已获用户批准。代码、本地合同和真实隔离证据已完成，用户于 2026-08-28 批准关闭；这些证据仍不授权 E3/E4 业务 migration。
 任务：
 
 1. 设计同一实例/同一数据库的统一表：`users`、`sessions`、`revocations`、`roles`、`audit`、`jobs`、聊天/笔记/知识源、`skill_packages`、`skill_versions`、`rag_generations`、`migration_maps` 等。
@@ -113,6 +113,8 @@ E0 文档交接与冻结（已关闭）
 
 禁止：在未备份和未批准的现有库运行 migration；双写长期化；让文件、Redis、Chroma 或 Registry 成为表外权威。  
 退出：空库、快照库和恢复库的结构/行数/digest/约束对账通过；runner 的重复、租约、fencing、kill/restart、重试和 DLQ 证据通过；失败保留旧表只读并恢复快照。
+
+关闭：2026-08-28，用户明确回复 `批准关闭 E2`；两个 E2 容器已停止，volume、network 和全部证据保留。关闭不授权 E3/E4 业务 migration。
 
 ### E3：AR-2/S2 FastAPI 认证、会话、撤销和角色审计
 
@@ -214,22 +216,22 @@ E8 提交证据不等于门禁自动通过：实现者只能标 `待验证`，�
 7. 禁止 `git reset --hard`、`git checkout --`、无目标的递归删除和用生成文件覆盖事实源；历史用户改动必须保留并在批次中归属。
 8. 交接人不能自行把自己的阶段标为 `已关闭`；实现者提交 `待验证`，审阅人完成证据检查，用户确认后才关闭。
 
-## 8. E2 待确认清单
+## 8. E2 执行与关闭审阅清单
 
-下一位负责人按以下顺序准备，不得把准备动作解释为实施授权：
+审阅人按以下顺序核对，所有真实依赖操作已保留 preflight 和原始日志：
 
 1. 保留已关闭的[E1 证据包](../project_changes/2026-08-27-e1-ar0-evidence/)、历史失败、事故记录、停止的容器、volume 和 network；不得清理或重写。
-2. 依据[阶段执行记录模板](./stage-execution-record-template-2026-08-26.md)提出 E2 批次边界，明确 owner/approver、专用隔离 MySQL、备份位置、回滚点、禁止连接的现有资源和 migration 开关。
-3. 将统一 schema、UoW、durable job、单并发 runner、恢复和 kill/restart 证据拆成可审阅任务，提交用户确认。
-4. 用户明确确认 E2 前，不修改 AR-1 代码或 schema，不创建/执行 migration，不连接或迁移现有业务数据。
-5. E2 获得实施确认后才把状态改为 `实施中`；产品功能、C 级 Skill、公网和 HA 继续冻结。
+2. 依据[阶段执行记录模板](./stage-execution-record-template-2026-08-26.md)保留 E2 批次边界、owner/approver、专用隔离 MySQL、备份位置、回滚点、禁止连接的现有资源和 migration 开关。
+3. 核对显式 `issue-preflight` 已验证 container/network/port/database/server UUID，且所有目标都在批准 allowlist。
+4. 核对 E2 源库 dump/inventory/备份、空库 migration、runner 故障矩阵和恢复库 restore-forward 证据；确认未连接或迁移现有业务数据。
+5. 继续保持产品功能、C 级 Skill、公网和 HA 冻结；E2 已由审阅人和用户收口，后续阶段仍须单独授权。
 
 ## 9. 交接完成判据
 
-交接完成不是“代码已经重构”，而是 E1 已有可追溯的关闭证据，下一位执行者可以无歧义地准备 E2、等待单独确认，并知道何时必须停止。判据为：
+当前交接完成判据是 E1 关闭证据可追溯，E2 实现与 live 验证证据可审阅，并知道何时必须停止。判据为：
 
 - 唯一入口、目标拓扑、数据权威、RAG/Skill 合同和阶段顺序已固定。
 - 每阶段的输入、产物、测试、回滚、删除顺序和关闭责任已写明。
-- 当前未收口项和冻结范围未被完成声明覆盖。
+- 后续未收口项（E3-E8）和冻结范围未被 E2 完成声明覆盖。
 - 归档文档不再出现在 `docs/` 一级目录。
 - 文档链接和格式检查通过。

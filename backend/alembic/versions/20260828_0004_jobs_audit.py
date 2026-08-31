@@ -32,6 +32,10 @@ def _ascii(length: int):
     return sa.String(length).with_variant(mysql.VARCHAR(length=length, charset="ascii", collation="ascii_bin"), "mysql")
 
 
+def _binary(length: int):
+    return sa.String(length).with_variant(mysql.VARCHAR(length=length, charset="utf8mb4", collation="utf8mb4_bin"), "mysql")
+
+
 def _uuid():
     return sa.String(36).with_variant(mysql.CHAR(length=36, charset="ascii", collation="ascii_bin"), "mysql")
 
@@ -56,7 +60,7 @@ def upgrade() -> None:
         sa.Column("owner_scope_type", _ascii(32), nullable=False),
         sa.Column("owner_scope_id", _ascii(64), nullable=False),
         sa.Column("correlation_id", _uuid(), nullable=False),
-        sa.Column("idempotency_key", sa.String(length=128, collation="utf8mb4_bin"), nullable=False),
+        sa.Column("idempotency_key", _binary(128), nullable=False),
         sa.Column("payload_digest", _digest(), nullable=False),
         sa.Column("payload_json", sa.JSON(), nullable=False),
         sa.Column("payload_schema_version", sa.Integer(), nullable=False),
@@ -110,7 +114,7 @@ def upgrade() -> None:
         sa.Column("started_at", _utc_datetime(), server_default=_now(), nullable=False),
         sa.Column("heartbeat_at", _utc_datetime(), nullable=True),
         sa.Column("finished_at", _utc_datetime(), nullable=True),
-        sa.Column("outcome", _ascii(32), server_default="running", nullable=False),
+        sa.Column("outcome", _ascii(32), server_default="leased", nullable=False),
         sa.Column("error_code", _ascii(64), nullable=True),
         sa.Column("error_detail", sa.Text(), nullable=True),
         sa.Column("worker_metadata_json", sa.JSON(), nullable=False),
@@ -118,7 +122,7 @@ def upgrade() -> None:
         sa.CheckConstraint("attempt_number > 0", name="ck_job_attempts_number"),
         sa.CheckConstraint("fencing_token > 0", name="ck_job_attempts_fencing"),
         sa.CheckConstraint(
-            "outcome IN ('running', 'succeeded', 'retry_wait', 'cancelled', 'dead_letter', 'abandoned', 'fenced')",
+            "outcome IN ('leased', 'running', 'succeeded', 'retry_wait', 'cancelled', 'dead_letter', 'abandoned', 'fenced')",
             name="ck_job_attempts_outcome",
         ),
         sa.ForeignKeyConstraint(["job_id"], ["jobs.id"], ondelete="CASCADE"),

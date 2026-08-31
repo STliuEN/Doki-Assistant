@@ -7,7 +7,15 @@ from sqlalchemy.orm import validates
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
-from app.models.foundation_types import DIGEST_PATTERN, DIGEST_TYPE, UTC_DATETIME, UUID_PATTERN, UUID_TYPE, ascii_string
+from app.models.foundation_types import (
+    DIGEST_PATTERN,
+    DIGEST_TYPE,
+    UTC_DATETIME,
+    UUID_PATTERN,
+    UUID_TYPE,
+    ascii_string,
+    binary_string,
+)
 
 
 def _uuid() -> str:
@@ -27,7 +35,7 @@ class User(Base):
     id = Column(UUID_TYPE, primary_key=True, default=_uuid)
     username = Column(String(150), nullable=False)
     email_display = Column(String(254), nullable=False)
-    email_normalized = Column(String(254, collation="utf8mb4_bin"), nullable=False)
+    email_normalized = Column(binary_string(254), nullable=False)
     phone_display = Column(String(32), nullable=True)
     phone_e164 = Column(ascii_string(32), nullable=True)
     password_hash = Column(String(255), nullable=False)

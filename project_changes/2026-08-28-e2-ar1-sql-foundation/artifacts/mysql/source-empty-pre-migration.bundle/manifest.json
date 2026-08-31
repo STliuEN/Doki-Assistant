@@ -1,0 +1,50 @@
+{
+  "artifact_kind": "mysql-dump",
+  "content_sha256": "3ca4ba34316184cf0f47fa87013b1ededdcef4b77c9db8ed66dfbe417658b87b",
+  "created_at": "2026-08-28T08:33:29.549666+00:00",
+  "entries": [
+    {
+      "path": "dump.sql",
+      "sha256": "8bc216aac637b1bdcd0d39266f89c8d3168568eef719cf53434d2e2752ed565b",
+      "size": 1349,
+      "type": "file"
+    }
+  ],
+  "metadata": {
+    "database_url_sha256": "d8aa67aaebbbf51147c0f9a905f49a114887da2f123c1bf81950136bbda6a605",
+    "operation": "mysqldump",
+    "options": {
+      "client_mode": "container-exec",
+      "single_transaction": true,
+      "skip_lock_tables": true
+    },
+    "source_preflight": {
+      "container": {
+        "container_id": "b374a193e7dfba746bc779511ac66d595271bb6c0df985afcb4495b14dac187c",
+        "container_name": "doki-e2-20260828-mysql",
+        "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+        "image_reference": "mysql:8.4"
+      },
+      "database": {
+        "server_uuid": "49fd55e6-a2b9-11f1-8992-72bc47e055ac"
+      },
+      "schema_version": 1,
+      "target": {
+        "container_name": "doki-e2-20260828-mysql",
+        "database": "doki_e2",
+        "host": "127.0.0.1",
+        "port": 33317,
+        "role": "source"
+      }
+    },
+    "target": {
+      "container_name": "doki-e2-20260828-mysql",
+      "database": "doki_e2",
+      "host": "127.0.0.1",
+      "port": 33317,
+      "role": "source"
+    }
+  },
+  "schema_version": 1,
+  "source_format": "offline-sql-file"
+}

@@ -1,6 +1,6 @@
 # 架构重写计划
 
-状态：`AR-0 + SK-0` 已关闭；下一阶段 `E2/S1/AR-1` 已获授权，当前 `实施中`。
+状态：`AR-0 + SK-0` 与 `E2/S1/AR-1` 已关闭；E3/S2/AR-2 仍为后续草案。
 
 最近复核：2026-08-28
 适用分支：`ai_document_assistant`
@@ -28,7 +28,7 @@
 | 阶段 | 当前状态 | 已有事实 | 未收口/入口条件 |
 |---|---|---|---|
 | AR-0 + SK-0：P0 containment 与证据收口 | `已关闭` | Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具、当前环境 R7、E1 隔离 MySQL/Chroma 故障与恢复证据已记录；隔离完整 pytest `284 passed`，offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 确认关闭 | E1 范围无剩余阻塞。真实模型质量和 AR-2 审计实现不属于 E1；原生 Linux/macOS 为 `out-of-scope/frozen`；本状态不表示后续门禁通过。 |
-| AR-1：统一 SQL 基础与运行时合同 | `实施中` | E1/AR-0/SK-0 已关闭；E2 批次计划、schema map 和隔离边界已获用户授权 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 正在交付；真实业务迁移仍延后。 |
+| AR-1：统一 SQL 基础与运行时合同 | `已关闭` | E1/AR-0/SK-0 已关闭；E2 批次计划、schema map、隔离边界、真实 MySQL/runner/recovery 证据已完成；用户于 2026-08-28 批准关闭 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 已验证；真实业务迁移仍延后。 |
 | AR-2：FastAPI 身份、角色与审计 | `草案` | access/refresh/token-version 和部分 grant 数据结构存在 | users/sessions/refresh/revocation 全部 SQL 化、角色分离、approve/revoke 传播和完整审计未完成。 |
 | AR-3：业务数据与迁移权威收敛 | `草案` | 当前 Django/FastAPI 分表和文件/Chroma 事实已盘点 | 同库分表过渡、稳定 UUID/FK、源文档/图片/MD5 入 SQL、旧输入对账和唯一写入口未完成。 |
 | AR-4：RAG/Chroma projection | `草案` | Chroma 失败隔离、staging/rebuild fixture 已有 | RAG port、generation 表、用户声明式切片/检索、SQL 重建和真实 Chroma E2E 未完成。 |
@@ -49,7 +49,7 @@ AR-0/SK-0 文档确认、P0 证据和真实依赖基线
   -> SKILL-GATE -> ARCH-GATE
 ```
 
-每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先标 `待验证`，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，但 E2/AR-1 尚未获得实施确认；确认前不创建或执行 migration，不迁移/删除现有业务数据，也不解冻产品工作包 `7-10`。
+每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先标 `待验证`，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，E2/AR-1 已于 2026-08-28 获得实施确认、完成真实隔离验证并经用户批准关闭；业务数据迁移/删除和产品工作包 `7-10` 仍保持冻结，直到后续阶段另行授权。
 
 交接批次 `E0-E8` 和蓝图批次 `S0-S8` 只是执行别名，不是第二套状态机；规范对照与每批责任边界见[执行交接手册的映射表](./architecture-execution-handoff-2026-08-26.md)。其中 `E2=S1=AR-1` 必须先完成 SQL schema/UoW/job/runner，`E3=S2=AR-2` 才能做认证审计，`E4=S3=AR-3` 才能迁移业务数据。
 
@@ -106,8 +106,8 @@ RAG 的 collection 由 `index_kind + embedding_fingerprint + generation` 隔离�
 ## 8. 当前队列
 
 1. E1 批次已关闭；保留[E1 证据目录](../project_changes/2026-08-27-e1-ar0-evidence/)、停止的容器、volume 和 network，未获单独确认不得清理。
-2. E2/S1/AR-1 是唯一下一阶段，当前为 `待你确认`；[E2 批次计划与静态盘点](../project_changes/2026-08-28-e2-ar1-sql-foundation/)已准备，需先确认其中的隔离环境、owner/approver、备份、回滚和 runner 合同，再实施代码或 schema 变更。
-3. 未确认 E2 前不创建或执行 migration，不连接/迁移现有业务数据；后续仍严格按 E2 -> E3 -> E4 -> E5 -> E6 -> E7 -> E8 推进。
+2. E2/S1/AR-1 已关闭；[E2 批次记录](../project_changes/2026-08-28-e2-ar1-sql-foundation/)已记录授权、代码切片、真实隔离 MySQL、恢复、runner、kill-restart 证据和关闭确认。
+3. E2 只使用批准的隔离拓扑和合成数据，未执行现有业务 migration，未连接/迁移/删除现有业务数据；后续仍严格按 E2 -> E3 -> E4 -> E5 -> E6 -> E7 -> E8 推进，并须逐阶段另行授权。
 4. 0826 与 E1 批次继续作为 P0/AR-0 证据，不把 E1 关闭误报为 AR-1、`SKILL-GATE` 或 `ARCH-GATE` 完成。
 5. 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 在 `ARCH-GATE` 或其独立门禁前保持冻结。
 

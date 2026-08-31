@@ -4,7 +4,39 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
+# The deliberate import ordering below captures E2 variables before legacy
+# modules that call ``load_dotenv`` at import time.  Ruff's normal E402 rule
+# does not understand this security boundary.
+# ruff: noqa: E402, I001
+
 from dotenv import load_dotenv
+
+
+def _capture_e2_process_environment() -> dict[str, str]:
+    """Capture E2 variables before importing modules that load dotenv."""
+
+    names = {
+        "E2_RUNNER_ENABLED",
+        "E2_MIGRATION_ENABLED",
+        "E2_DATABASE_URL",
+        "E2_APPROVAL_TOKEN",
+        "E2_PREFLIGHT_FILE",
+        "JOB_LEASE_SECONDS",
+        "JOB_HEARTBEAT_SECONDS",
+        "JOB_POLL_SECONDS",
+        "JOB_SHUTDOWN_DRAIN_SECONDS",
+        "JOB_MAX_ATTEMPTS",
+        "JOB_GLOBAL_BACKPRESSURE",
+        "JOB_OWNER_TYPE_BACKPRESSURE",
+    }
+    return {name: os.environ[name] for name in names if name in os.environ}
+
+
+# A number of existing modules call ``load_dotenv`` at import time.  Keeping
+# this snapshot stdlib-only makes it impossible for those values to enable or
+# retune E2 later in startup.
+E2_PROCESS_ENVIRONMENT = _capture_e2_process_environment()
+
 from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 
@@ -17,6 +49,8 @@ from app.core.skill_body_limit import SkillDraftBodyLimitMiddleware
 from app.core.success_response import success_response
 from app.db.db_config import AsyncSessionLocal, verify_database_schema
 from app.db.redis_config import close_redis, connect_redis
+from app.jobs.e2_runtime import build_e2_runner
+from app.jobs.runner import configure_default_runner
 from app.router.chat import chat_router
 from app.router.health import health_router
 from app.router.knowledge_router import knowledge_router
@@ -34,7 +68,7 @@ from app.services.database_session_manager import init_database_session_manager
 from app.skills.storage import validate_skill_storage_configuration
 from app.utils.auth_utils import validate_security_configuration
 
-# Load environment variables before deriving process-level configuration.
+# Load application environment variables after the E2 process snapshot.
 load_dotenv()
 
 def _env_list(name: str, default: str = "") -> list[str]:
@@ -77,6 +111,7 @@ _validate_cors_origins(ENVIRONMENT, CORS_ALLOWED_ORIGINS)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Initialize runtime dependencies and release them on shutdown."""
+    e2_runtime = None
     validate_security_configuration()
     validate_skill_storage_configuration(ENVIRONMENT)
 
@@ -120,8 +155,31 @@ async def lifespan(_app: FastAPI):
         name="standard-skill-registry-reconciler",
     )
     try:
+        e2_runtime = build_e2_runner(environ=E2_PROCESS_ENVIRONMENT)
+        if e2_runtime is not None:
+            configure_default_runner(e2_runtime.runner)
+            await e2_runtime.start()
+            logger.info("E2 SQL runner lifecycle initialized: enabled=true")
+        else:
+            configure_default_runner(None)
+            logger.info("E2 SQL runner lifecycle initialized: enabled=false")
+    except BaseException:
+        # A rejected E2 preflight must not leave the already-started
+        # reconciler (or an engine created before runner.start failed) alive.
+        if e2_runtime is not None:
+            await e2_runtime.runner.stop()
+            await e2_runtime.engine.dispose()
+        configure_default_runner(None)
+        skill_registry_stop.set()
+        await skill_registry_task
+        raise
+    try:
         yield
     finally:
+        if e2_runtime is not None:
+            await e2_runtime.runner.stop()
+            await e2_runtime.engine.dispose()
+        configure_default_runner(None)
         from app.agent.mcp.provider import mcp_provider
         from app.db.db_config import async_engine
 

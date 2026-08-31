@@ -17,6 +17,13 @@ def ascii_string(length: int):
     )
 
 
+def binary_string(length: int):
+    return String(length).with_variant(
+        mysql.VARCHAR(length=length, charset="utf8mb4", collation="utf8mb4_bin"),
+        "mysql",
+    )
+
+
 UUID_TYPE = String(36).with_variant(
     mysql.CHAR(length=36, charset="ascii", collation="ascii_bin"),
     "mysql",

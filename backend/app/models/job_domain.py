@@ -6,7 +6,15 @@ from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, ForeignKey, In
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
-from app.models.foundation_types import DIGEST_PATTERN, DIGEST_TYPE, UTC_DATETIME, UUID_PATTERN, UUID_TYPE, ascii_string
+from app.models.foundation_types import (
+    DIGEST_PATTERN,
+    DIGEST_TYPE,
+    UTC_DATETIME,
+    UUID_PATTERN,
+    UUID_TYPE,
+    ascii_string,
+    binary_string,
+)
 
 JOB_STATUSES = (
     "queued",
@@ -51,7 +59,7 @@ class Job(Base):
     owner_scope_type = Column(ascii_string(32), nullable=False)
     owner_scope_id = Column(ascii_string(64), nullable=False)
     correlation_id = Column(UUID_TYPE, nullable=False, default=_uuid)
-    idempotency_key = Column(String(128, collation="utf8mb4_bin"), nullable=False)
+    idempotency_key = Column(binary_string(128), nullable=False)
     payload_digest = Column(DIGEST_TYPE, nullable=False)
     payload_json = Column(JSON, nullable=False)
     payload_schema_version = Column(Integer, nullable=False)
@@ -84,7 +92,7 @@ class JobAttempt(Base):
         CheckConstraint("attempt_number > 0", name="ck_job_attempts_number"),
         CheckConstraint("fencing_token > 0", name="ck_job_attempts_fencing"),
         CheckConstraint(
-            "outcome IN ('running', 'succeeded', 'retry_wait', 'cancelled', 'dead_letter', 'abandoned', 'fenced')",
+            "outcome IN ('leased', 'running', 'succeeded', 'retry_wait', 'cancelled', 'dead_letter', 'abandoned', 'fenced')",
             name="ck_job_attempts_outcome",
         ),
         UniqueConstraint("job_id", "attempt_number", name="uq_job_attempts_job_number"),
@@ -100,7 +108,7 @@ class JobAttempt(Base):
     started_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
     heartbeat_at = Column(UTC_DATETIME, nullable=True)
     finished_at = Column(UTC_DATETIME, nullable=True)
-    outcome = Column(ascii_string(32), nullable=False, default="running", server_default="running")
+    outcome = Column(ascii_string(32), nullable=False, default="leased", server_default="leased")
     error_code = Column(ascii_string(64), nullable=True)
     error_detail = Column(Text, nullable=True)
     worker_metadata_json = Column(JSON, nullable=False, default=dict)

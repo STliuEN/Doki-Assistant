@@ -1,0 +1,29 @@
+{
+  "approval_token_sha256": "deb2a4d737dbae537b1b73c0486b2a83062c055d8a2447d26322ed7aab580eb0",
+  "container": {
+    "container_id": "b374a193e7dfba746bc779511ac66d595271bb6c0df985afcb4495b14dac187c",
+    "container_name": "doki-e2-20260828-mysql",
+    "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+    "image_reference": "mysql:8.4"
+  },
+  "database": {
+    "server_uuid": "49fd55e6-a2b9-11f1-8992-72bc47e055ac"
+  },
+  "dsn_sha256": "d8aa67aaebbbf51147c0f9a905f49a114887da2f123c1bf81950136bbda6a605",
+  "expires_at": "2026-08-28T09:40:35.749463+00:00",
+  "issued_at": "2026-08-28T09:25:35.749463+00:00",
+  "purposes": [
+    "dump",
+    "inventory",
+    "migrate",
+    "runner"
+  ],
+  "schema_version": 1,
+  "target": {
+    "container_name": "doki-e2-20260828-mysql",
+    "database": "doki_e2",
+    "host": "127.0.0.1",
+    "port": 33317,
+    "role": "source"
+  }
+}

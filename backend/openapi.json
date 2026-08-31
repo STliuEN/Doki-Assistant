@@ -4846,6 +4846,28 @@
         ]
       }
     },
+    "/health/runner": {
+      "get": {
+        "description": "Expose runner liveness separately from API dependency readiness.",
+        "operationId": "get_health_runner_status_health_runner_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Any_"
+                }
+              }
+            },
+            "description": "Successful response using the canonical API envelope"
+          }
+        },
+        "summary": "E2 SQL runner status",
+        "tags": [
+          "健康检查"
+        ]
+      }
+    },
     "/hello/{name}": {
       "get": {
         "operationId": "say_hello_hello__name__get",

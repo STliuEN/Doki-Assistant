@@ -1,0 +1,366 @@
+{
+  "audit_actions_for_probe_jobs": [
+    "job.enqueued",
+    "job.enqueued",
+    "job.enqueued",
+    "job.enqueued",
+    "job.claimed",
+    "job.started",
+    "job.succeeded",
+    "job.claimed",
+    "job.started",
+    "job.dead_letter",
+    "job.claimed",
+    "job.started",
+    "job.retry_wait",
+    "job.claimed",
+    "job.started",
+    "job.cancel_requested",
+    "job.cancelled",
+    "job.claimed",
+    "job.started",
+    "job.succeeded",
+    "job.enqueued",
+    "job.claimed",
+    "job.lease_expired",
+    "job.claimed",
+    "job.fenced_rejected",
+    "job.started",
+    "job.succeeded",
+    "job.enqueued",
+    "job.cancelled",
+    "job.enqueued",
+    "job.claimed",
+    "job.started",
+    "job.lease_expired",
+    "job.claimed",
+    "job.started",
+    "job.succeeded"
+  ],
+  "database_counts_after_probe": {
+    "attempts": 76,
+    "audit_events": 312,
+    "jobs": 63
+  },
+  "idempotency": {
+    "conflict_error": "idempotency key already exists with a different payload digest",
+    "duplicate_created": false,
+    "duplicate_job_id": "6d7b795c-d376-4afa-a8c2-ea8eedf5fd4b",
+    "original_job_id": "6d7b795c-d376-4afa-a8c2-ea8eedf5fd4b"
+  },
+  "matrix": {
+    "backpressure": {
+      "cleanup": {
+        "attempt_count": 0,
+        "attempts": [],
+        "error_code": null,
+        "fencing_token": 0,
+        "id": "d43d51bc-7e28-4dc7-b1a9-62e4e47b65e0",
+        "job_type": "e2.live.pressure",
+        "lease_owner": null,
+        "result_json": null,
+        "status": "cancelled"
+      },
+      "error": "global SQL job backlog limit reached"
+    },
+    "cancel": {
+      "final": {
+        "attempt_count": 1,
+        "attempts": [
+          {
+            "attempt_number": 1,
+            "error_code": "cancel_requested",
+            "fencing_token": 1,
+            "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+            "outcome": "cancelled"
+          }
+        ],
+        "error_code": "cancel_requested",
+        "fencing_token": 1,
+        "id": "372d6e81-0dcd-4ba6-a1ff-71e29879fbbc",
+        "job_type": "e2.live.cancel",
+        "lease_owner": null,
+        "result_json": null,
+        "status": "cancelled"
+      },
+      "request": "cancel_requested"
+    },
+    "echo": {
+      "attempt_count": 1,
+      "attempts": [
+        {
+          "attempt_number": 1,
+          "error_code": null,
+          "fencing_token": 1,
+          "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+          "outcome": "succeeded"
+        }
+      ],
+      "error_code": null,
+      "fencing_token": 1,
+      "id": "6d7b795c-d376-4afa-a8c2-ea8eedf5fd4b",
+      "job_type": "e2.echo",
+      "lease_owner": null,
+      "result_json": {
+        "echo": {
+          "schema_version": 1,
+          "value": "live-echo"
+        },
+        "schema_version": 1
+      },
+      "status": "succeeded"
+    },
+    "fencing": {
+      "final": {
+        "attempt_count": 2,
+        "attempts": [
+          {
+            "attempt_number": 1,
+            "error_code": "lease_expired",
+            "fencing_token": 1,
+            "lease_owner": "e2-fence-a",
+            "outcome": "abandoned"
+          },
+          {
+            "attempt_number": 2,
+            "error_code": null,
+            "fencing_token": 2,
+            "lease_owner": "e2-fence-b",
+            "outcome": "succeeded"
+          }
+        ],
+        "error_code": null,
+        "fencing_token": 2,
+        "id": "235644b4-5e64-4db7-bfa6-4891c0083790",
+        "job_type": "e2.echo",
+        "lease_owner": null,
+        "result_json": {
+          "fenced": "accepted",
+          "schema_version": 1
+        },
+        "status": "succeeded"
+      },
+      "new_claim_token": 2,
+      "new_start_accepted": true,
+      "new_success_accepted": true,
+      "old_claim_token": 1,
+      "recovered": 1,
+      "stale_transition_accepted": false,
+      "stale_transition_reason": "stale_fencing_token"
+    },
+    "kill_restart": {
+      "event_file": "C:\\codes_projects\\Doki-Assistant-main\\project_changes\\2026-08-28-e2-ar1-sql-foundation\\artifacts\\logs\\e2-live-1787911709-restart-events.jsonl",
+      "events": [
+        {
+          "at": "2026-08-28T10:08:36.774542+00:00",
+          "event": "runner_started",
+          "status": "starting"
+        },
+        {
+          "at": "2026-08-28T10:08:36.813700+00:00",
+          "attempt": 1,
+          "event": "handler_started",
+          "fencing_token": 1,
+          "job_id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8"
+        },
+        {
+          "at": "2026-08-28T10:08:44.842165+00:00",
+          "event": "runner_started",
+          "status": "starting"
+        },
+        {
+          "at": "2026-08-28T10:08:49.592192+00:00",
+          "attempt": 2,
+          "event": "handler_started",
+          "fencing_token": 2,
+          "job_id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8"
+        }
+      ],
+      "final": {
+        "attempt_count": 2,
+        "attempts": [
+          {
+            "attempt_number": 1,
+            "error_code": "lease_expired",
+            "fencing_token": 1,
+            "lease_owner": "runner-7f3eb4d7-7756-491c-b905-17a1c7acc3e9",
+            "outcome": "abandoned"
+          },
+          {
+            "attempt_number": 2,
+            "error_code": null,
+            "fencing_token": 2,
+            "lease_owner": "runner-f31c30e9-ea28-45e1-b555-d07420d72931",
+            "outcome": "succeeded"
+          }
+        ],
+        "error_code": null,
+        "fencing_token": 2,
+        "id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8",
+        "job_type": "e2.restart.block",
+        "lease_owner": null,
+        "result_json": {
+          "attempt": 2,
+          "schema_version": 1
+        },
+        "status": "succeeded"
+      },
+      "first_process_exit": 1,
+      "job_id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8",
+      "running_after_claim": {
+        "attempt_count": 1,
+        "attempts": [
+          {
+            "attempt_number": 1,
+            "error_code": null,
+            "fencing_token": 1,
+            "lease_owner": "runner-7f3eb4d7-7756-491c-b905-17a1c7acc3e9",
+            "outcome": "running"
+          }
+        ],
+        "error_code": null,
+        "fencing_token": 1,
+        "id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8",
+        "job_type": "e2.restart.block",
+        "lease_owner": "runner-7f3eb4d7-7756-491c-b905-17a1c7acc3e9",
+        "result_json": null,
+        "status": "running"
+      },
+      "second_process_exit": 0,
+      "still_running_after_lease_wait": {
+        "attempt_count": 1,
+        "attempts": [
+          {
+            "attempt_number": 1,
+            "error_code": null,
+            "fencing_token": 1,
+            "lease_owner": "runner-7f3eb4d7-7756-491c-b905-17a1c7acc3e9",
+            "outcome": "running"
+          }
+        ],
+        "error_code": null,
+        "fencing_token": 1,
+        "id": "ef2296ac-bdfa-4a91-91cc-54d03865abb8",
+        "job_type": "e2.restart.block",
+        "lease_owner": "runner-7f3eb4d7-7756-491c-b905-17a1c7acc3e9",
+        "result_json": null,
+        "status": "running"
+      },
+      "worker_log": "C:\\codes_projects\\Doki-Assistant-main\\project_changes\\2026-08-28-e2-ar1-sql-foundation\\artifacts\\logs\\e2-live-1787911709-restart-worker.log"
+    },
+    "retry": {
+      "attempt_count": 2,
+      "attempts": [
+        {
+          "attempt_number": 1,
+          "error_code": "synthetic_retry",
+          "fencing_token": 1,
+          "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+          "outcome": "retry_wait"
+        },
+        {
+          "attempt_number": 2,
+          "error_code": null,
+          "fencing_token": 2,
+          "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+          "outcome": "succeeded"
+        }
+      ],
+      "error_code": null,
+      "fencing_token": 2,
+      "id": "0c48b130-99c6-4d1a-a1ca-6f9a97f931ad",
+      "job_type": "e2.live.retry",
+      "lease_owner": null,
+      "result_json": {
+        "attempt": 2,
+        "retry": "succeeded",
+        "schema_version": 1
+      },
+      "status": "succeeded"
+    },
+    "unknown_dead_letter": {
+      "attempt_count": 1,
+      "attempts": [
+        {
+          "attempt_number": 1,
+          "error_code": "unknown_job_type",
+          "fencing_token": 1,
+          "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+          "outcome": "dead_letter"
+        }
+      ],
+      "error_code": "unknown_job_type",
+      "fencing_token": 1,
+      "id": "38b820d4-2054-4495-a1aa-c2cd4eb7bb45",
+      "job_type": "e2.live.unknown",
+      "lease_owner": null,
+      "result_json": null,
+      "status": "dead_letter"
+    }
+  },
+  "operation": "e2-live-runner-probe",
+  "prefix": "e2-live-1787911709",
+  "runner": {
+    "concurrency": 1,
+    "process_lock": {
+      "first": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 0,
+        "concurrency": 1,
+        "enabled": true,
+        "failed_count": 0,
+        "last_completed_at": null,
+        "last_error": null,
+        "last_poll_at": "2026-08-28T10:08:36.132041+00:00",
+        "lease_owner": "runner-e6af454d-3345-443a-8746-00acd0a8703f",
+        "rejected_count": 0,
+        "status": "running",
+        "succeeded_count": 0
+      },
+      "second": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 0,
+        "concurrency": 1,
+        "enabled": true,
+        "failed_count": 0,
+        "last_completed_at": null,
+        "last_error": "runner process lock is held by another instance",
+        "last_poll_at": null,
+        "lease_owner": "runner-87706158-5586-42a8-82bb-98d37e0b0cf0",
+        "rejected_count": 0,
+        "status": "failed",
+        "succeeded_count": 0
+      }
+    },
+    "snapshot_after_matrix": {
+      "active_attempt": null,
+      "active_fencing_token": null,
+      "active_job_id": null,
+      "active_job_type": null,
+      "claimed_count": 5,
+      "concurrency": 1,
+      "enabled": true,
+      "failed_count": 3,
+      "last_completed_at": "2026-08-28T10:08:35.604010+00:00",
+      "last_error": null,
+      "last_poll_at": "2026-08-28T10:08:35.789724+00:00",
+      "lease_owner": "runner-a836d242-e947-4416-8a94-3460565b6eaf",
+      "rejected_count": 0,
+      "status": "running",
+      "succeeded_count": 2
+    }
+  },
+  "schema_version": 1,
+  "target": {
+    "database": "doki_e2",
+    "host": "127.0.0.1",
+    "port": 33317,
+    "role": "source"
+  }
+}

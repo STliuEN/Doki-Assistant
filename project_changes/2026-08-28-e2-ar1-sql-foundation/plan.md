@@ -1,7 +1,7 @@
 # E2/AR-1/S1 统一 SQL 基础与 durable runner
 
 日期：2026-08-28  
-状态：实施中
+状态：已关闭
 负责人：Codex 架构重构协作代理  
 审阅/批准人：用户  
 用户确认：2026-08-28 用户先授权审阅执行计划和准备下一批 execution；随后完成 Q1-Q91 grilling，并于 2026-08-28 明确回复 `批准 E2 按共享理解实施`。该回复授权本批文档提交、AR-1 代码、专用 E2 容器、合成数据、migration、dump/restore、故障注入和分片 commits；任何越界或停线条件仍需重新请示。
@@ -16,7 +16,7 @@
 
 ## 审阅结论
 
-E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_changes/2026-08-27-e1-ar0-evidence/`。E2 是唯一下一阶段，但在本计划获单独确认前不得从 `待你确认` 转为 `实施中`。
+E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_changes/2026-08-27-e1-ar0-evidence/`。E2 是随后唯一实施阶段；用户已于 2026-08-28 明确批准按共享理解实施。本批实现、真实隔离 MySQL 证据和最终本地门禁已完成，用户于 2026-08-28 审阅并批准关闭，现状态为 `已关闭`。
 
 现行总体计划方向正确，但实施前必须补齐以下约束：
 
@@ -48,9 +48,9 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 ## 依赖与入口条件
 
 - 上一阶段关闭证据：E1 `plan.md`、`test-record.md`、`change-log.md` 均为 `已关闭`；权威计划和交接手册一致。
-- 固定准备基线：分支 `ai_document_assistant`，HEAD `33a8054dedd62745fb9fe0528efa2880a5fcc8a8`；准备开始时工作树干净。
+- 固定准备基线：准备复核时分支为 `ai_document_assistant`、基线 HEAD 为 `33a8054dedd62745fb9fe0528efa2880a5fcc8a8` 且工作树干净；当前实现 HEAD 为 `01fc34b`，本批仍有未提交的 E2 变更，不能把当前工作树误写为干净基线。
 - E1 保护资源：`doki-e1-20260827-mysql*` 容器保持 stopped，两个 E1 volume 和 `doki-e1-20260827-net` 保留；E2 禁止复用、启动、修改或清理。
-- 拟议 E2 隔离拓扑（待批准后才创建）：
+- 已执行的 E2 隔离拓扑（仅本批合成数据）：
 
 | 用途 | 拟议资源 | 端口/数据库 | 写入边界 |
 |---|---|---|---|
@@ -60,7 +60,7 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 | 证据/备份 | `project_changes/2026-08-28-e2-ar1-sql-foundation/artifacts/` | 仓库内 E2 合成证据 | 不存 secret，不含现有业务数据 |
 
 - 允许的数据库目标必须同时满足资源名、loopback 端口和数据库名 allowlist；`localhost:3306`、`127.0.0.1:3306`、E1 端口/volume、`backend/.env`、`DjangoUserService/.env` 以及未列出的 DSN 全部 deny。
-- 实施前需用户明确确认：本计划、owner/approver、MySQL `8.4.x`、上述资源名/端口、备份位置、恢复目标、禁止资源和显式 migration 开关。
+- 上述计划、owner/approver、MySQL `8.4.x`、资源名/端口、备份位置、恢复目标、禁止资源和显式 migration 开关已由用户确认；创建拓扑或执行真实写入前仍须按本计划逐项运行 preflight。
 
 ## 冻结合同
 
@@ -93,14 +93,14 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 ## 任务清单
 
 - [x] `E2-00` 核对 E1 关闭状态、Git 基线、E1 资源保护和 E2 禁止边界；产物为本批三份记录与 `current-sql-inventory.md`。
-- [ ] `E2-01` 审阅并冻结已提交的 `schema-map.md` 草案：现有/目标表、列、ID/FK、唯一约束、删除策略、revision/digest、owner 阶段和 deferred DDL；完成判据为用户确认且无命名/阶段归属漂移。
-- [ ] `E2-02` 增加加法式 SQLAlchemy models/Alembic revision、空库 bootstrap、head/model parity 和 unknown-revision fail-closed；不更新任何现有业务库。
-- [ ] `E2-03` 实现 UoW/session ownership、transactional repository 和原子 job enqueue；新增 rollback/cancellation/constraint 测试。
-- [ ] `E2-04` 实现 job schema/repository/state machine、数据库时钟 lease、heartbeat、fencing、idempotency、retry、cancel、DLQ 和 backpressure。
-- [ ] `E2-05` 实现 FastAPI lifespan 内置单并发 runner、graceful shutdown、kill/restart 恢复和独立 liveness/readiness 观测；不接业务/RAG handler。
-- [ ] `E2-06` 扩展运维脚本：只读 schema inventory/dry-run、`mysqldump --single-transaction`、manifest、空目标 restore、schema/row/digest/constraint diff 和显式 restore-forward。
-- [ ] `E2-07` 在批准的 E2 源库、合成快照库和恢复库运行 migration/runner/恢复矩阵；记录每个故障点、阈值、实际结果和原始日志。
-- [ ] `E2-08` 跑隔离完整 pytest、Ruff、OpenAPI、`uv lock --check`、文档检查和 scoped diff；实现者只提交 `待验证`，由用户确认后关闭。
+- [x] `E2-01` 审阅并冻结 `schema-map.md`：现有/目标表、列、ID/FK、唯一约束、删除策略、revision/digest、owner 阶段和 deferred DDL；用户已确认无命名/阶段归属漂移。
+- [x] `E2-02` 增加加法式 SQLAlchemy models/Alembic revision、空库 bootstrap 合同、head/model parity 和 unknown-revision fail-closed；未更新任何现有业务库。
+- [x] `E2-03` 实现 UoW/session ownership、transactional repository 和原子 job enqueue；已加入 rollback/cancellation/constraint 测试。
+- [x] `E2-04` 实现 job schema/repository/state machine、数据库时钟 lease、heartbeat、fencing、idempotency、retry、cancel、DLQ 和 backpressure 的本地合同。
+- [x] `E2-05` 实现 FastAPI lifespan 内置单并发 runner、graceful shutdown、独立 liveness/readiness 观测和恢复切片；真实 kill/restart 仍留在 E2-07。
+- [x] `E2-06` 扩展运维脚本：只读 schema inventory/dry-run、受 guard 保护的 `mysqldump --single-transaction`、带 E2 source metadata 的 manifest、空目标 restore、schema/row/digest/constraint diff、显式 restore-forward 和 preflight issuance CLI。
+- [x] `E2-07` 在批准的 E2 源库、合成快照库和恢复库运行 migration/runner/恢复矩阵；记录每个故障点、阈值、实际结果和原始日志。成功证据、失败 probe、非空 restore 拒绝和 fixture 收束均已分开保存。
+- [x] `E2-08` 跑隔离完整 pytest、Ruff、OpenAPI、`uv lock --check`、文档检查和 scoped diff；实现者先转为 `待验证`，后由用户确认关闭。
 
 ## 预期代码与证据影响面
 
@@ -117,21 +117,21 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 
 - 最大风险是再次读取 `.env` 误连现有资源。所有 E2 命令必须显式设置完整 DSN，并先运行 denylist/allowlist preflight；发现未列入目标立即停止。
 - MySQL DDL 非完全事务化。每次 migration 前必须有可验证 dump，目标只允许 E2 隔离库；失败时停止写入并恢复到新的 restore 库，不覆盖原库。
-- 当前两条 Alembic revision 只覆盖 FastAPI 18 张表，Django user 表在另一数据库；现有 ID 长度、FK 和 commit 边界不统一。E2 先形成兼容结构，不以一次大改消除差异。
+- 原有两条 Alembic revision 只覆盖 FastAPI 18 张表，Django user 表在另一数据库；E2 现在以三条线性 revision 形成兼容的新增结构，现有 ID 长度、FK 和 commit 边界仍不在本批一次性消除。
 - 当前 `skill_registry_events` 是局部 outbox，不具备通用 claim/lease/fencing/DLQ；不得直接把它宣称为 durable runner。
-- `backend/scripts/backup_restore.py` 只封装和校验离线 dump 文件，不负责调用 mysqldump、导入或数据库语义对账；E2 必须补齐这些显式步骤。
+- `backend/scripts/backup_restore.py` 现在封装显式 preflight、`mysqldump`/导入、manifest provenance 和数据库语义对账；这些路径已在批准的 E2 MySQL 拓扑上完成真实证据验证。
 - 任何 fail-open、自动 DDL、unknown revision、digest 漂移、孤儿 job、旧 fencing token 成功提交、审计缺字段、E1/现有资源被访问或恢复不可执行，立即标 `阻塞`。
 
 ## 退出条件
 
-- [ ] `schema-map.md`、SQLAlchemy models 和 Alembic head 对应一致；空库、合成快照库和恢复库的结构/约束对账通过。
-- [ ] UoW 原子提交/回滚、job enqueue 与 audit/outbox 同事务证据通过。
-- [ ] runner 的 claim、lease、heartbeat、fencing、重复 enqueue、retry、cancel、DLQ、backpressure、kill/restart 和 graceful shutdown 均达到冻结阈值。
-- [ ] SQL dump bundle、manifest/tamper rejection、恢复、行数/content digest/约束和 restore-forward 对账通过。
-- [ ] 启动只校验精确 Alembic head；空库、旧 revision、未知 revision 均 fail-closed 且不执行 DDL。
-- [ ] 真实依赖与 fixture/mock 边界明确；SQLite 结果不替代 MySQL 8.4 行锁、`SKIP LOCKED`、lease 或恢复证据。
-- [ ] 现有业务资源、E1 容器/volume/network 和业务写路径未被修改；未执行项完整列出。
-- [ ] 实现者状态先转为 `待验证`；审阅证据后由用户明确确认关闭。
+- [x] `schema-map.md`、SQLAlchemy models 和 Alembic head 对应一致；source/restore 均为 33 张表、`20260828_0005_rag_skill`，最终 inventory 零差异。
+- [x] UoW 原子提交/回滚、job enqueue 与 audit/outbox 同事务证据通过本地合同和真实 runner audit 事件矩阵。
+- [x] runner 的 claim、lease、heartbeat、fencing、重复 enqueue、retry、cancel、DLQ、backpressure、kill/restart 和 graceful shutdown 达到冻结阈值；并发固定为 1。
+- [x] SQL dump bundle、manifest/tamper rejection、恢复、行数/content digest/约束和 restore-forward 对账通过；最终 bundle content SHA-256 为 `7fa3e0888b99823cbb4650dc792e34c352d8fd9b5308ae0da331d50be3f20b9d`。
+- [x] 启动只校验精确 Alembic head；空库、旧 revision、未知 revision 的 fail-closed 合同通过，live migration 只在批准 E2 库执行且未自动迁移业务库。
+- [x] 真实依赖与 fixture/mock 边界明确；SQLite 结果未替代 MySQL 8.4 行锁、`SKIP LOCKED`、lease 或恢复证据。
+- [x] 现有业务资源、E1 容器/volume/network 和业务写路径未被修改；未执行项和历史失败已分开列出。
+- [x] 实现者已提交 `待验证`；用户于 2026-08-28 完成证据审阅并明确批准关闭，状态已转为 `已关闭`。
 
 ## 回滚方案
 
@@ -141,11 +141,18 @@ E1/AR-0/SK-0 已于 2026-08-27 经用户确认关闭，证据位于 `project_cha
 4. 若恢复一致，保留故障源库只读供审阅；由用户决定 restore-forward、修复后重试或退回已批准 commit。
 5. populated database 不运行破坏性 downgrade；任何容器/volume/证据清理另行申请。
 
-## 当前未完成与待确认
+## 当前状态与后续边界
 
-- E2 实施授权：`已批准`；用户于 2026-08-28 明确回复 `批准 E2 按共享理解实施`。
+- E2 实施授权：`已批准`；用户于 2026-08-28 明确回复 `批准 E2 按共享理解实施`，并于同日回复 `批准关闭 E2`。
 - schema map：ownership、核心列、双 Skill 归档、RAG head、精确类型/索引/限额和三条 revision 已冻结，实施中持续以该文件为合同。
-- E2 MySQL/restore 容器与 volume：`not-created`。
-- AR-1 代码、Alembic revision、UoW、jobs 和 runner：`not-started`。
-- migration、dump/restore、kill/restart 和 MySQL 证据：`not-run`。
+- E2 MySQL/restore 容器与 volume：已完成本批验证并在关闭动作中停止两个容器；source/restore volume、`doki-e2-20260828-net` 和全部证据保留。E1 资源仍保持 stopped 且未复用。
+- AR-1 代码、三条 Alembic revision、UoW、jobs、runner 和备份工具：已实现本地切片（当前 HEAD `01fc34b` 及未提交工作树变更）；版本控制由用户管理，本批不执行 Git 操作。
+- 本地 SQLite/fixture 合同和真实 MySQL 8.4 migration、dump/restore、`GET_LOCK`/`SKIP LOCKED`、runner kill/restart 均已通过；最终证据见 `test-record.md`。
+- preflight issuance：已提供显式 CLI 和负向测试；用于最终 inventory 的 source/restore 短时记录见 `artifacts/preflight/source-gate-final.json`、`artifacts/preflight/restore-gate-final.json`。
 - 真实业务 UI、认证、业务迁移和 RAG E2E：分别归 E3/E4/E5，不是 E2 阻塞项。
+
+## 关闭确认
+
+- 用户于 2026-08-28 明确回复 `批准关闭 E2`；本批退出条件全部满足，状态由 `待验证` 转为 `已关闭`。
+- 关闭动作仅停止 E2 source/restore 容器，保留 E2 volume、network、日志和证据；未删除或清理任何资源，E1 资源保持原状。
+- E2 关闭不自动授权 E3/E4/E5、业务数据迁移、认证切换、Skill/RAG 发布或其他门禁。

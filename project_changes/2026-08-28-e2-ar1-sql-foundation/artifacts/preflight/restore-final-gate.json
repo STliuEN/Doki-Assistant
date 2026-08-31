@@ -1,0 +1,28 @@
+{
+  "approval_token_sha256": "6c8de6a096f721e54e8c5021cb5a8bd93cbb4abf4d3962140dc59d799a790052",
+  "container": {
+    "container_id": "eb63fc135faa014cb1feffb80974436de47bf7f5749b3527e4f20348950e4504",
+    "container_name": "doki-e2-20260828-mysql-restore",
+    "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+    "image_reference": "mysql:8.4"
+  },
+  "database": {
+    "server_uuid": "4a1c7cce-a2b9-11f1-b6c3-12c36774a212"
+  },
+  "dsn_sha256": "05322776397e4ea84e99eb749f31852d6afdc0b68d9222b0e157e58c897a6c27",
+  "expires_at": "2026-08-28T10:37:40.818828+00:00",
+  "issued_at": "2026-08-28T10:22:40.818828+00:00",
+  "purposes": [
+    "restore",
+    "restore-forward",
+    "inventory"
+  ],
+  "schema_version": 1,
+  "target": {
+    "container_name": "doki-e2-20260828-mysql-restore",
+    "database": "doki_e2",
+    "host": "127.0.0.1",
+    "port": 33318,
+    "role": "restore"
+  }
+}

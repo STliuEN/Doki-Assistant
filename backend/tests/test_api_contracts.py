@@ -52,6 +52,22 @@ def test_real_fastapi_response_matches_the_published_envelope() -> None:
     assert isinstance(response.json()["data"], list)
 
 
+def test_runner_health_is_independent_and_default_off() -> None:
+    from main import app
+
+    client = TestClient(app)
+    try:
+        response = client.get("/health/runner")
+    finally:
+        client.close()
+
+    assert response.status_code == 200
+    assert response.json()["code"] == 200
+    assert response.json()["data"]["enabled"] is False
+    assert response.json()["data"]["status"] == "disabled"
+    assert response.json()["data"]["concurrency"] == 1
+
+
 @pytest.mark.parametrize("origins", [[], ["*"]])
 def test_production_rejects_missing_or_wildcard_cors(origins: list[str]) -> None:
     from main import _validate_cors_origins

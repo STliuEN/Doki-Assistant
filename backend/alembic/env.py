@@ -69,7 +69,11 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
+    # Keep the final Alembic version-row update inside an explicit transaction.
+    # MySQL commits each DDL statement implicitly; without this outer context
+    # the last revision's bookkeeping update can be rolled back when the async
+    # connection closes even though all of its tables were created.
+    async with connectable.begin() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()
 

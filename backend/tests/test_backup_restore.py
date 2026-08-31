@@ -6,12 +6,17 @@ import sys
 from pathlib import Path
 
 import pytest
+from sqlalchemy import create_engine, text
 
 from scripts.backup_restore import (
     BackupRestoreError,
+    build_schema_inventory,
+    canonical_row_digest,
+    compare_sql_inventories,
     create_backup,
     rebuild_projection,
     restore_backup,
+    restore_mysql_database,
     verify_backup,
     verify_restored,
 )
@@ -277,3 +282,152 @@ def test_cli_rebuild_projection_performs_verified_atomic_swap(tmp_path: Path) ->
     assert result.returncode == 0, result.stderr
     assert "chroma-projection" in result.stdout
     assert (target / "chroma.sqlite3").read_bytes() == b"candidate"
+
+
+def test_canonical_row_digest_is_order_independent_and_type_stable() -> None:
+    columns = ("id", "amount", "payload")
+    first = [
+        {"id": 2, "amount": "2.00", "payload": b"two"},
+        {"id": 1, "amount": "1.00", "payload": b"one"},
+    ]
+    second = list(reversed(first))
+    assert canonical_row_digest(first, columns) == canonical_row_digest(second, columns)
+    assert canonical_row_digest(first, columns) != canonical_row_digest(
+        [{"id": 1, "amount": "1.00", "payload": b"changed"}, first[0]], columns
+    )
+
+
+def test_canonical_row_digest_rejects_unknown_sql_value_types() -> None:
+    class UnstableValue:
+        pass
+
+    with pytest.raises(BackupRestoreError, match="unsupported SQL value type"):
+        canonical_row_digest([{"value": UnstableValue()}], ["value"])
+
+
+def test_mysql_restore_rejects_legacy_bundle_without_e2_source_metadata(tmp_path: Path) -> None:
+    fixture = tmp_path / "fixture.sql"
+    fixture.write_text("SELECT 1;\n", encoding="utf-8")
+    bundle = tmp_path / "legacy-bundle"
+    create_backup(artifact_kind="mysql-dump", source=fixture, output=bundle)
+
+    with pytest.raises(BackupRestoreError, match="E2 mysqldump source metadata"):
+        restore_mysql_database(
+            bundle=bundle,
+            database_url="mysql+aiomysql://e2_migrator:secret@127.0.0.1:33318/doki_e2?charset=utf8mb4",
+            approval_token="approval",
+            preflight_file=tmp_path / "missing-preflight.json",
+        )
+
+
+def test_issue_preflight_cli_writes_explicit_record_without_echoing_secret(tmp_path: Path, monkeypatch, capsys) -> None:
+    from scripts import backup_restore
+
+    output = tmp_path / "preflight.json"
+    expected = {"schema_version": 1, "issued_at": "now", "expires_at": "later", "purposes": ["dump"]}
+
+    def fake_issue(**kwargs):
+        assert kwargs["issuance_switch"] == "I_UNDERSTAND_E2_PREFLIGHT_ISSUANCE"
+        assert kwargs["approval_token"] == "approval-secret"
+        assert kwargs["purposes"] == ["dump", "inventory"]
+        return expected
+
+    monkeypatch.setattr(backup_restore, "issue_e2_preflight", fake_issue)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "backup_restore.py",
+            "issue-preflight",
+            "--database-url",
+            "mysql+aiomysql://e2_migrator:secret@127.0.0.1:33317/doki_e2?charset=utf8mb4",
+            "--approval-token",
+            "approval-secret",
+            "--issuance-switch",
+            "I_UNDERSTAND_E2_PREFLIGHT_ISSUANCE",
+            "--purpose",
+            "dump",
+            "--purpose",
+            "inventory",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert backup_restore.main() == 0
+    assert json.loads(output.read_text(encoding="utf-8")) == expected
+    assert "approval-secret" not in capsys.readouterr().out
+
+
+def test_sql_inventory_records_schema_rows_constraints_and_digest(tmp_path: Path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'inventory.db'}")
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE TABLE sample (id INTEGER PRIMARY KEY, value TEXT NOT NULL, "
+                    "CONSTRAINT uq_sample_value UNIQUE (value))"
+                )
+            )
+            connection.execute(text("INSERT INTO sample (id, value) VALUES (1, 'one'), (2, 'two')"))
+        with engine.connect() as connection:
+            inventory = build_schema_inventory(connection)
+        sample = inventory["tables"]["sample"]
+        assert sample["row_count"] == 2
+        assert sample["content_sha256"]
+        assert sample["schema"]["primary_key"]["columns"] == ["id"]
+        assert any(item["name"] == "uq_sample_value" for item in sample["schema"]["unique_constraints"])
+        assert inventory["inventory_sha256"]
+    finally:
+        engine.dispose()
+
+
+def test_sql_inventory_comparison_is_fail_closed_for_digest_and_constraint_drift() -> None:
+    expected = {
+        "alembic_revision": "head",
+        "tables": {
+            "sample": {
+                "schema": {"columns": [], "primary_key": {}, "indexes": [], "unique_constraints": [], "foreign_keys": [], "check_constraints": []},
+                "row_count": 1,
+                "content_sha256": "a" * 64,
+            }
+        },
+    }
+    actual = json.loads(json.dumps(expected))
+    actual["tables"]["sample"]["content_sha256"] = "b" * 64
+    actual["tables"]["sample"]["schema"]["indexes"] = [{"name": "drift", "unique": False, "columns": ["id"]}]
+    diff = compare_sql_inventories(expected, actual)
+    assert diff["equal"] is False
+    assert "sample" in diff["changed_tables"]
+
+
+def test_mysql_dump_requires_explicit_valid_e2_preflight_before_invoking_cli(tmp_path: Path, monkeypatch) -> None:
+    from scripts import backup_restore
+
+    invoked = False
+
+    def forbidden_run(*_args, **_kwargs):
+        nonlocal invoked
+        invoked = True
+        raise AssertionError("mysqldump must not run after guard rejection")
+
+    monkeypatch.setattr(backup_restore.subprocess, "run", forbidden_run)
+    with pytest.raises(BackupRestoreError, match="preflight file does not exist"):
+        backup_restore.dump_mysql_database(
+            database_url="mysql+aiomysql://e2:secret@127.0.0.1:33317/doki_e2?charset=utf8mb4",
+            approval_token="synthetic-approval",
+            preflight_file=tmp_path / "missing.json",
+            output=tmp_path / "bundle",
+        )
+    assert invoked is False
+
+
+def test_mysql_cli_args_never_put_password_in_argv() -> None:
+    from scripts.backup_restore import _mysql_cli_args
+
+    args, password = _mysql_cli_args(
+        "mysql+aiomysql://e2-user:p%40ss@127.0.0.1:33317/doki_e2?charset=utf8mb4",
+        "mysqldump",
+    )
+    assert "p@ss" not in args
+    assert password == "p@ss"

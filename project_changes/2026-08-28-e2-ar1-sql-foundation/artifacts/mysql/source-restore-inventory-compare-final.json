@@ -1,0 +1,12 @@
+{
+  "diff": {
+    "changed_tables": {},
+    "equal": true,
+    "extra_tables": [],
+    "missing_tables": []
+  },
+  "operation": "source-restore-inventory-compare",
+  "restore_inventory_sha256": "df1bad4c3e31b51b5b7e73da3f69f129524b4192ea70549249d9dc696469071f",
+  "schema_version": 1,
+  "source_inventory_sha256": "df1bad4c3e31b51b5b7e73da3f69f129524b4192ea70549249d9dc696469071f"
+}
