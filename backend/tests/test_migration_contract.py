@@ -48,7 +48,16 @@ def test_required_revision_matches_the_alembic_head() -> None:
         assert namespace["down_revision"] == expected_parent
         namespaces.append(namespace)
 
-    assert namespaces[-1]["revision"] == db_config.DATABASE_SCHEMA_REVISION
+    assert namespaces[-1]["revision"] == db_config.E2_DATABASE_SCHEMA_REVISION
+
+    e3_chain = (
+        ("20260831_0006_e3_auth_runtime.py", db_config.E2_DATABASE_SCHEMA_REVISION),
+        ("20260901_0007_e3_auth_constraints.py", "20260831_0006_e3_auth_runtime"),
+    )
+    for filename, expected_parent in e3_chain:
+        namespace = runpy.run_path(str(BACKEND_ROOT / "alembic" / "versions" / filename))
+        assert namespace["down_revision"] == expected_parent
+    assert namespace["revision"] == db_config.DATABASE_SCHEMA_REVISION
 
 
 def test_baseline_unique_constraints_match_original_models() -> None:
@@ -198,6 +207,8 @@ def test_e2_foundation_migrations_match_model_contract_without_altering_legacy_t
             for constraint_type in (UniqueConstraint, CheckConstraint):
                 migration_names = {element.name for element in elements if isinstance(element, constraint_type) and element.name}
                 model_names = {element.name for element in model.__table__.constraints if isinstance(element, constraint_type) and element.name}
+                if model is User and constraint_type is UniqueConstraint:
+                    model_names.remove("uq_users_username")
                 assert migration_names == model_names
 
             migration_foreign_keys = {

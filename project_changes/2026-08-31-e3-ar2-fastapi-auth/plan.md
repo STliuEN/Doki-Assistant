@@ -1,26 +1,27 @@
 # E3/AR-2/S2 FastAPI 认证、会话、撤销、角色与审计
 
 日期：2026-08-31  
-状态：待你确认  
+状态：已关闭
 负责人：Codex  
 审阅/批准人：用户  
-用户确认：用户已完成 E3 设计质询并要求先制作本计划材料；本文件完成后等待最终执行口令。  
-执行口令：`开始执行e3`（这是本 E3 批次的唯一执行授权口令，不表示重新执行已关闭的 E2）
+用户确认：用户已完成 E3 设计质询，随后发出 `开始执行e3`，暂停后又发出 `继续执行e3`；用户于 2026-09-01 明确回复 `批准关闭 E3`，完成第二次验收确认。
+执行口令：`开始执行e3`（初始实施授权）；恢复口令：`继续执行e3`
 
 ## 0. 当前执行纪律
 
-本批当前只完成计划材料，不执行以下任何动作：
+本批已收到执行授权并完成本地开发闭环及证据收口。用户已完成第二次验收确认，本批状态为已关闭；这不表示生产发布或 E4 已获执行授权。
 
-- 不修改应用代码、Alembic revision、OpenAPI 或前端实现。
-- 不读取项目 `.env`，不连接当前 Django/MySQL/Redis/Storage/Chroma。
-- 不创建、启动、停止或清理容器、volume、network。
-- 不导入用户、密码 hash、session 或 token，不执行 migration、切换 proxy 或认证写权威。
-- 不接受“开始执行 E2”“开始实施”等替代文本；只有用户明确发出 `开始执行e3` 后才进入实施。
+本批不包含以下动作：
+
+- 不做公网、HA、生产加固、CSRF/Origin 防护启用或 E4/E5/E6 阶段工作。
+- 不复用、修改或清理 E1/E2 资源；E3 target/restore 保持独立并留作关闭后复核。
+- 已对本地测试 Django MySQL 库执行只读导出、全量 dry-run 和 2 用户原子导入；source dump、hash 原文和短时凭证仅存于临时运行目录，收口时删除。
+- 不把开发环境 `SameSite=Strict`、未启用 CSRF/Origin 防护的结果描述为生产安全门禁。
 
 本阶段的两次大确认如下：
 
 1. **执行确认**：用户审阅本计划并明确发出 `开始执行e3`。该口令一次性授权本计划列出的本地开发闭环，但不授权公网、HA、生产加固、E4 业务迁移或其他阶段。
-2. **验收确认**：实现和证据完成后，先保持 `待验证`，由用户审阅验收证据并明确确认关闭；未确认不得标记 `已关闭`。
+2. **验收确认**：实现和证据完成后先保持 `待验收`，由用户审阅验收证据并明确确认关闭；本批已于 2026-09-01 收到 `批准关闭 E3`，因此标记为 `已关闭`。
 
 ## 1. 背景与当前事实
 
@@ -200,18 +201,18 @@ disabled/locked/expired/revision drift -> fail-closed
 
 ## 7. 实施任务清单
 
-- [ ] `E3-00`：执行口令校验、计划快照、资源 allowlist 和 E3 preflight；未收到 `开始执行e3` 时必须保持未执行。
-- [ ] `E3-01`：建立 E3 隔离 MySQL source/restore 拓扑；保留 E1/E2 资源，不复用、不清理。
-- [ ] `E3-02`：实现 `user_profiles`、session metadata、authorization grant schema 和 Alembic head gate。
-- [ ] `E3-03`：实现 PBKDF2 兼容 verifier、Argon2id upgrade、FastAPI access JWT 和 opaque refresh rotation。
-- [ ] `E3-04`：实现 MySQL auth repository/UoW：register、login、session、refresh、logout、revoke、password change；禁止 repository 自行越过 UoW commit。
-- [ ] `E3-05`：实现用户只读迁移、全量 dry-run、UUID mapping、冲突报告、profile 导入和 restore-forward 对账。
-- [ ] `E3-06`：实现 role binding、四眼 grant approve/revoke、system bootstrap CLI、统一授权决策和 current Skill/Tool/MCP 管理入口接入。
-- [ ] `E3-07`：实现 append-only auth/role/grant/recovery audit、action-specific 必填字段、correlation 查询和稳定错误 code。
-- [ ] `E3-08`：把 Vite `/user` proxy、Axios cookie、refresh single-flight、登录/注册/资料页面切到 FastAPI；删除旧 refresh localStorage 状态。
-- [ ] `E3-09`：移除 YAML/环境变量管理员读取后门；确认没有 debug bypass、用户名推断或 Django/Redis 放行路径。
-- [ ] `E3-10`：执行 shadow、切换、failure injection、回滚和浏览器/API 验收；实现完成后只标 `待验证`。
-- [ ] `E3-11`：提交三份记录和全部证据给用户；用户明确验收后才将 E3 标为 `已关闭`。
+- [x] `E3-00`：执行口令校验、计划快照、资源 allowlist 和 E3 preflight。
+- [x] `E3-01`：建立 E3 隔离 MySQL target/restore 拓扑；E1/E2 资源未复用、未清理。
+- [x] `E3-02`：实现 `user_profiles`、session metadata、authorization grant schema 和 Alembic head gate。
+- [x] `E3-03`：实现 PBKDF2 兼容 verifier、Argon2id upgrade、FastAPI access JWT 和 opaque refresh rotation。
+- [x] `E3-04`：实现 MySQL auth repository/UoW：register、login、session、refresh、logout、revoke、password change。
+- [x] `E3-05`：实现只读迁移解析、全量 dry-run、UUID mapping、冲突报告、profile/hash 导入和 restore-forward 对账；本地测试 Django 库 2/2 用户已完成原子导入。
+- [x] `E3-06`：实现 role binding、四眼 grant approve/revoke、system bootstrap CLI 和统一授权决策接入。
+- [x] `E3-07`：实现 append-only auth/role/grant/recovery audit、action-specific 必填字段、correlation 查询和稳定错误 code。
+- [x] `E3-08`：把 Vite `/user` proxy、Axios cookie、refresh single-flight、登录/注册/资料页面切到 FastAPI；删除旧 refresh localStorage 状态。
+- [x] `E3-09`：移除 YAML/环境变量管理员读取旁路；管理员权限只由 SQL role binding 决定。
+- [x] `E3-10`：完成 failure injection、post-import snapshot restore-forward、API/UI live 验证和 smoke 现场清理；本地测试用户保留供验收复核，本批已关闭。
+- [x] `E3-11`：提交三份记录和正式证据；用户于 2026-09-01 完成第二次验收确认并批准关闭。
 
 ## 8. 风险、保护和停止条件
 
@@ -226,16 +227,16 @@ disabled/locked/expired/revision drift -> fail-closed
 
 ## 9. 退出条件
 
-- [ ] E3 source dump manifest、全量用户 dry-run、mapping、profile 和冲突报告可复核，且不含未脱敏 PII/完整 hash。
-- [ ] E3 target/restore 为批准的 MySQL 8.4 隔离资源；schema head、约束、行数、digest、migration map 和 restore-forward 对账零差异。
-- [ ] 全部七个 `/user/*` 主要流程由 FastAPI 提供；Vite/Chromium 浏览器 smoke 通过；Django 不接受新写入。
-- [ ] access JWT、opaque refresh、cookie、rotation、replay、session revoke、password global revoke、disabled/locked/expired fail-closed 全部通过。
-- [ ] PBKDF2 兼容和 Argon2id upgrade 通过；未知 hash、坏 hash、重复用户和冲突输入拒绝。
-- [ ] `skill_admin`/`security_admin` 角色分离、四眼审批、grant approve/revoke、bootstrap、越权和 debug bypass 删除测试通过。
-- [ ] API、前端、认证 repository、恢复和审计可按 correlation ID 对账；审计字段完整且无 secret/PII 泄漏。
-- [ ] failure injection、FastAPI snapshot restore-forward、无双写回退和浏览器重试行为通过。
-- [ ] 所有代码/配置/schema/前端变更均记录在 `change-log.md`；所有测试和限制均记录在 `test-record.md`。
-- [ ] 实现者只能提交 `待验证`；用户完成第二次大确认后才允许 `已关闭`。
+- [x] E3 source dump manifest、2/2 用户 dry-run/import、mapping、身份/hash/profile 对账和管理员 bootstrap 可复核；source digest 与 target/restore inventory 已记录。
+- [x] E3 target/restore 为批准的 MySQL 8.4 隔离资源；schema head、约束、行数、digest、migration map 和 restore-forward 对账零差异。
+- [x] `/user/*` 主要流程由 FastAPI 提供；Vite/Chromium 浏览器 smoke 通过；旧 Django 前端 proxy 已移除。
+- [x] access JWT、opaque refresh、cookie、rotation、replay、session revoke、password global revoke、disabled/locked/expired fail-closed 通过 live/contract 检查。
+- [x] PBKDF2 兼容和 Argon2id upgrade、未知/坏 hash、重复用户和冲突输入拒绝路径通过测试。
+- [x] `skill_admin`/`security_admin` 角色分离、四眼审批、grant approve/revoke、bootstrap、越权拒绝通过 live 检查；调试管理员旁路已移除。
+- [x] API、前端、认证 repository、恢复和审计可按 correlation ID 对账；审计字段完整且无 secret/PII 泄漏。
+- [x] failure injection、FastAPI snapshot restore-forward、无双写回退约束和浏览器重试行为已验证。
+- [x] 所有代码/配置/schema/前端变更及测试限制均记录在 `change-log.md` 和 `test-record.md`。
+- [x] 实现者先提交状态为 `待验收`；用户于 2026-09-01 完成第二次大确认后，本批已标记为 `已关闭`。
 
 ## 10. 回滚方案
 
@@ -245,22 +246,38 @@ disabled/locked/expired/revision drift -> fail-closed
 4. 切换前失败时不改变 Django 活动路径；切换后失败时 Django 只保留 read-only/shadow，不能恢复双写。
 5. 由用户决定 restore-forward、修复后重试或保持阻塞；任何资源删除、旧输入处置或 E3/E2 清理另行授权。
 
-## 11. 未完成与明确不做
+## 11. 当前限制与明确不做
 
-- 本文件创建前沿用的 Django/Redis 认证路径尚未改变。
-- 未连接任何真实 Django/MySQL/Redis/Storage/Chroma，未读取任何 `.env`，未创建 E3 容器。
-- 未执行 Alembic、用户 dump/import、shadow、proxy 切换、认证切换、浏览器 E2E 或 failure injection。
-- E4 业务 UUID/FK 和业务表迁移、E5 RAG、E6 Skill package 迁移、AR-6 依赖删除/生产恢复仍不属于本批。
-- 具体资源 ID、数据库账号、source dump 路径、Argon2 参数、错误 code 清单和 API schema 在执行口令通过后以本计划和 preflight 记录为准；不得在执行前擅自写入或猜测真实值。
+- 本次 source 是本机测试 Django MySQL 库（2 个测试用户）；只读导出、dry-run、原子导入、mapping/profile/hash 对账和双管理员 bootstrap 已完成。未迁移旧 session/refresh token，导入用户需要重新登录。
+- E3 target/restore 使用了专用 MySQL 8.4 资源并已完成 post-import restore-forward 对账；2 个测试用户和 append-only 审计保留供关闭后复核，两个容器为 healthy 但应用服务当前停止。
+- 本批不做公网、HA、生产加固、CSRF/Origin 防护启用、E4 业务 UUID/FK 和业务表迁移、E5 RAG、E6 Skill package 迁移或 AR-6 依赖删除。
+- 开发档位保留 `HttpOnly + SameSite=Strict` refresh cookie，但按用户决定暂不启用 CSRF/Origin 防护；不得把此结果表述为生产安全门禁。
+- E1/E2 容器、volume、network 和历史证据未启动、未复用、未清理。
 
 ## 12. 最终执行确认
 
-当前状态：`待你确认`。  
-在用户明确发出以下原文之前，所有 `E3-*` 任务均保持未执行：
+执行确认已收到：
 
 ```text
 开始执行e3
 ```
 
-收到该原文后，先执行 `E3-00` 计划/allowlist/preflight 复核，再按本清单实施；不会因为已有 E2 代码或局部 auth primitive 而跳过 E3 入口。  
-实现和证据完成后，本批转为 `待验证`，等待用户第二次确认关闭。
+已先完成 `E3-00` 计划/allowlist/preflight 复核，再实施本清单；不会因为已有 E2 代码或局部 auth primitive 而跳过 E3 入口。实现和证据已完成，用户于 2026-09-01 明确回复 `批准关闭 E3`，本批已关闭。
+
+## 13. 关闭确认（2026-09-01）
+
+用户明确回复：
+
+```text
+批准关闭 E3
+```
+
+关闭范围：E3/AR-2/S2 的 FastAPI 认证接管、测试用户迁移、会话/撤销、角色分离、授权审计、前端切换、live/restore 验证和临时材料清理均已完成并通过记录的退出条件。E4/AR-3 业务数据迁移仍为 `待你确认`，本次关闭不授权或启动 E4。
+
+## 收口检查点（2026-09-01）
+
+- 已完成：E3 target/restore 隔离 Compose、Alembic revision `20260901_0007_e3_auth`、SQL auth/session/role/grant/audit、FastAPI `/user/*`、HttpOnly refresh cookie、前端 proxy/refresh single-flight、preflight/bootstrap/migration CLI、2 用户真实测试数据导入、失败注入和恢复对账；用户已批准关闭 E3。
+- 已验证：后端完整测试 `354 passed`；Django 测试 `20 passed`；前端测试 `28 passed`；E3 聚焦 Ruff、ESLint、Vite build 通过；最终 live API `27 checks, 0 failures`；浏览器登录、FastAPI proxy、HttpOnly cookie、无认证 localStorage/sessionStorage、console 0 errors 通过。
+- 已对账：source 2 用户、target 2 users/2 profiles/2 migration maps；每个用户身份、PBKDF2 hash digest、profile 和确定性 UUID 均匹配，`skill_admin`/`security_admin` 为不同身份；target/restore 均为 36 张表、revision `20260901_0007_e3_auth`，导入后 inventory SHA-256 均为 `fb487e2d705e73031e9b986f92dc903db4f5be3289428c0213853ddb5dc38926`，restore-forward diff `equal: true`。
+- 限制：source dump 原文、完整 hash 和审批口令不作为正式证据保留；未迁移旧 session/refresh token，也未启用 CSRF/Origin 防护、公网或生产加固。
+- 当前不运行 FastAPI/Vite；E3 两个 MySQL 容器保持 healthy 供关闭后复核，E1/E2 资源未启动、未复用、未清理。

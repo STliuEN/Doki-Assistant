@@ -36,8 +36,8 @@ function normalizeForm(form: ModelConfigPayload): ModelConfigPayload {
 }
 
 function getErrorMessage(error: unknown): string {
-  const data = (error as { response?: { data?: { message?: string; detail?: string } } })?.response?.data
-  return data?.message || data?.detail || '请求没有正常返回'
+  const data = (error as { response?: { data?: { message?: string } } })?.response?.data
+  return data?.message || '请求没有正常返回'
 }
 
 function modelToastLabel(config: Pick<ModelConfigPayload, 'provider' | 'model_name'>) {

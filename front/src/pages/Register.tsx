@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { UserPlus } from 'lucide-react'
-import { authApi } from '../api/auth'
+import { authApi, authErrorMessage } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 
 export default function Register() {
@@ -29,18 +29,10 @@ export default function Register() {
         telephone: form.phone || undefined,
         confirm_password: form.confirmPassword,
       })
-      login(res.token, res.user, res.refresh_token)
+      login(res.token, res.user)
       navigate('/notes')
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-      if (detail && typeof detail === 'object') {
-        const msg = Object.values(detail as Record<string, unknown>).flat().join('；')
-        setError(msg || '注册失败，请重试')
-      } else if (typeof detail === 'string') {
-        setError(detail)
-      } else {
-        setError('注册失败，请重试')
-      }
+      setError(authErrorMessage(err, '注册失败，请重试'))
     } finally {
       setLoading(false)
     }

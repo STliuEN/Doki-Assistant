@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from sqlalchemy import BigInteger, CheckConstraint, Column, ForeignKey, Index, String, Text, UniqueConstraint, event
+from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, ForeignKey, Index, String, Text, UniqueConstraint, event
 from sqlalchemy.orm import validates
 from sqlalchemy.sql import func
 
@@ -27,6 +27,7 @@ class User(Base):
     __table_args__ = (
         CheckConstraint(f"id REGEXP '{UUID_PATTERN}'", name="ck_users_id_uuid"),
         CheckConstraint("status IN ('active', 'disabled', 'locked')", name="ck_users_status"),
+        UniqueConstraint("username", name="uq_users_username"),
         UniqueConstraint("email_normalized", name="uq_users_email_normalized"),
         UniqueConstraint("phone_e164", name="uq_users_phone_e164"),
         Index("ix_users_status_created", "status", "created_at"),
@@ -64,6 +65,42 @@ class AuthSession(Base):
     revoked_at = Column(UTC_DATETIME, nullable=True)
     revoke_reason = Column(String(4096), nullable=True)
     last_seen_at = Column(UTC_DATETIME, nullable=True)
+    created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
+    updated_at = Column(UTC_DATETIME, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class AuthSessionMetadata(Base):
+    __tablename__ = "auth_session_metadata"
+    __table_args__ = (
+        CheckConstraint(f"id REGEXP '{UUID_PATTERN}'", name="ck_auth_session_metadata_id_uuid"),
+        CheckConstraint(f"ip_digest IS NULL OR ip_digest REGEXP '{DIGEST_PATTERN}'", name="ck_auth_session_metadata_ip_digest"),
+        UniqueConstraint("session_id", name="uq_auth_session_metadata_session"),
+        Index("ix_auth_session_metadata_session", "session_id"),
+    )
+
+    id = Column(UUID_TYPE, primary_key=True, default=_uuid)
+    session_id = Column(UUID_TYPE, ForeignKey("auth_sessions.id", ondelete="CASCADE"), nullable=False)
+    user_agent = Column(String(512), nullable=True)
+    device_label = Column(String(128), nullable=True)
+    ip_digest = Column(DIGEST_TYPE, nullable=True)
+    created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
+    updated_at = Column(UTC_DATETIME, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    __table_args__ = (
+        CheckConstraint(f"id REGEXP '{UUID_PATTERN}'", name="ck_user_profiles_id_uuid"),
+        UniqueConstraint("user_id", name="uq_user_profiles_user"),
+        Index("ix_user_profiles_user", "user_id"),
+    )
+
+    id = Column(UUID_TYPE, primary_key=True, default=_uuid)
+    user_id = Column(UUID_TYPE, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    gender = Column(ascii_string(32), nullable=True)
+    bio = Column(Text, nullable=True)
+    avatar = Column(String(1024), nullable=True)
+    last_login = Column(UTC_DATETIME, nullable=True)
     created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
     updated_at = Column(UTC_DATETIME, nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -160,6 +197,41 @@ class RoleBinding(Base):
     effective_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
     expires_at = Column(UTC_DATETIME, nullable=True)
     revoked_at = Column(UTC_DATETIME, nullable=True)
+    created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
+    updated_at = Column(UTC_DATETIME, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class AuthorizationGrant(Base):
+    __tablename__ = "authorization_grants"
+    __table_args__ = (
+        CheckConstraint(f"id REGEXP '{UUID_PATTERN}'", name="ck_authorization_grants_id_uuid"),
+        CheckConstraint(
+            "status IN ('requested', 'approved', 'rejected', 'revoked')",
+            name="ck_authorization_grants_status",
+        ),
+        CheckConstraint("policy_revision > 0 AND subject_revision > 0", name="ck_authorization_grants_revisions"),
+        UniqueConstraint("target_type", "target_id", "scope_type", "scope_id", "status", name="uq_authorization_grants_active"),
+        Index("ix_authorization_grants_status_created", "status", "created_at"),
+        Index("ix_authorization_grants_target", "target_type", "target_id", "scope_type", "scope_id"),
+        Index("ix_authorization_grants_requester", "requested_by", "created_at"),
+    )
+
+    id = Column(UUID_TYPE, primary_key=True, default=_uuid)
+    target_type = Column(ascii_string(64), nullable=False)
+    target_id = Column(String(255), nullable=False)
+    scope_type = Column(ascii_string(32), nullable=False, default="global", server_default="global")
+    scope_id = Column(ascii_string(64), nullable=False, default="global", server_default="global")
+    requested_by = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    approved_by = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    revoked_by = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    grant_json = Column(JSON, nullable=False)
+    policy_revision = Column(BigInteger, nullable=False, default=1, server_default="1")
+    subject_revision = Column(BigInteger, nullable=False, default=1, server_default="1")
+    content_digest = Column(DIGEST_TYPE, nullable=False)
+    effective_at = Column(UTC_DATETIME, nullable=True)
+    expires_at = Column(UTC_DATETIME, nullable=True)
+    status = Column(ascii_string(32), nullable=False, default="requested", server_default="requested")
+    reason = Column(String(4096), nullable=False)
     created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())
     updated_at = Column(UTC_DATETIME, nullable=False, server_default=func.now(), onupdate=func.now())
 

@@ -35,6 +35,9 @@ venv.bak/
 .env.production.local
 backend/app/config/mcp.local.yaml
 backend/app/config/security.local.yaml
+/backend/ops/e3/e3.env
+/backend/ops/e3/e3.approval
+/backend/ops/e3/*.preflight.json
 
 # OS
 Thumbs.db

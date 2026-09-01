@@ -46,31 +46,12 @@ def test_legacy_secret_key_fallback_warns(monkeypatch: pytest.MonkeyPatch) -> No
         assert decrypt_text(encrypted) == "api-key"
 
 
-def test_security_config_path_and_environment_are_merged(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    security_path = tmp_path / "security.yaml"
-    security_path.write_text(
-        "admin:\n  user_ids:\n    - config-user\n  usernames:\n    - config-admin\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setenv("SECURITY_CONFIG_PATH", str(security_path))
-    monkeypatch.setenv("ADMIN_USER_IDS", "env-user")
-    monkeypatch.setenv("ADMIN_USERNAMES", "env-admin")
-
-    user_ids, usernames = auth_utils._read_security_admins()
-
-    assert user_ids == {"config-user", "env-user"}
-    assert usernames == {"config-admin", "env-admin"}
-
-
 def test_production_rejects_placeholder_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENV", "prod")
-    monkeypatch.setenv("SECRET_KEY", "replace-with-shared-django-jwt-secret")
+    monkeypatch.setenv("AUTH_JWT_SECRET", "replace-with-independent-e3-auth-secret")
     monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", "short")
 
-    with pytest.raises(RuntimeError, match="Invalid security configuration"):
+    with pytest.raises(RuntimeError, match="AUTH_JWT_SECRET"):
         auth_utils.validate_security_configuration()
     with pytest.raises(RuntimeError, match="Unsupported ENV"):
         normalize_environment("staging")
@@ -78,9 +59,8 @@ def test_production_rejects_placeholder_secrets(monkeypatch: pytest.MonkeyPatch)
 
 def test_production_accepts_distinct_strong_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENV", "prod")
-    monkeypatch.setenv("SECRET_KEY", "jwt-" + "a" * 40)
+    monkeypatch.setenv("AUTH_JWT_SECRET", "jwt-" + "a" * 40)
     monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", "model-" + "b" * 40)
-    monkeypatch.setenv("JWT_REDIS_URL", "redis://redis:6379/1")
 
     auth_utils.validate_security_configuration()
 
@@ -112,20 +92,19 @@ def test_production_accepts_distinct_strong_secrets(monkeypatch: pytest.MonkeyPa
 def test_production_rejects_reused_encryption_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     reused = "shared-" + "c" * 40
     monkeypatch.setenv("ENV", "prod")
-    monkeypatch.setenv("SECRET_KEY", reused)
+    monkeypatch.setenv("AUTH_JWT_SECRET", reused)
     monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", reused)
 
     with pytest.raises(RuntimeError, match="must be different"):
         auth_utils.validate_security_configuration()
 
 
-def test_production_requires_an_explicit_revocation_store(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ENV", "prod")
-    monkeypatch.setenv("SECRET_KEY", "jwt-" + "a" * 40)
-    monkeypatch.setenv("MODEL_CONFIG_ENCRYPTION_KEY", "model-" + "b" * 40)
-    monkeypatch.delenv("JWT_REDIS_URL", raising=False)
+def test_development_requires_an_explicit_e3_auth_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ENV", "dev")
+    monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)
+    monkeypatch.setenv("SECRET_KEY", "legacy-django-key-that-cannot-authorize-e3")
 
-    with pytest.raises(RuntimeError, match="JWT_REDIS_URL"):
+    with pytest.raises(RuntimeError, match="AUTH_JWT_SECRET"):
         auth_utils.validate_security_configuration()
 
 

@@ -3,13 +3,11 @@ import { endpoints } from './endpoints'
 import {
   clearAuthState,
   getAccessToken,
-  getRefreshToken,
   useUserStore,
 } from '../stores/useUserStore'
 
 interface RefreshResponse {
-  token: string
-  refresh_token?: string
+  data: { token: string }
 }
 
 type RetryableRequest = InternalAxiosRequestConfig & { _authRetry?: boolean }
@@ -17,6 +15,7 @@ type RetryableRequest = InternalAxiosRequestConfig & { _authRetry?: boolean }
 const client = axios.create({
   baseURL: '',
   timeout: 30000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -31,16 +30,13 @@ client.interceptors.request.use((config) => {
 let refreshRequest: Promise<string> | null = null
 
 const refreshAccessToken = async () => {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) throw new Error('No refresh token')
-
   if (!refreshRequest) {
     refreshRequest = axios
-      .post<RefreshResponse>(endpoints.refreshToken, { refresh_token: refreshToken })
+      .post<RefreshResponse>(endpoints.refreshToken, undefined, { withCredentials: true })
       .then(({ data }) => {
-        if (!data.token) throw new Error('Refresh response missing access token')
-        useUserStore.getState().setTokens(data.token, data.refresh_token)
-        return data.token
+        if (!data.data?.token) throw new Error('Refresh response missing access token')
+        useUserStore.getState().setToken(data.data.token)
+        return data.data.token
       })
       .finally(() => {
         refreshRequest = null
@@ -48,6 +44,9 @@ const refreshAccessToken = async () => {
   }
   return refreshRequest
 }
+
+const isPublicAuthEndpoint = (url?: string) =>
+  Boolean(url && (url.includes(endpoints.login) || url.includes(endpoints.register)))
 
 const clearAuthAndRedirect = () => {
   clearAuthState()
@@ -61,10 +60,10 @@ client.interceptors.response.use(
   async (error: AxiosError) => {
     const request = error.config as RetryableRequest | undefined
     const canRefresh = Boolean(
-      getRefreshToken()
-        && request
+        request
         && !request._authRetry
         && !request.url?.includes(endpoints.refreshToken)
+        && !isPublicAuthEndpoint(request.url)
     )
 
     if (error.response?.status === 401 && canRefresh && request) {

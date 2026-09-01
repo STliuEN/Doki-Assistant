@@ -4,6 +4,8 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
+from app.core.e3_process_environment import E3_PROCESS_ENVIRONMENT  # noqa: F401
+
 # The deliberate import ordering below captures E2 variables before legacy
 # modules that call ``load_dotenv`` at import time.  Ruff's normal E402 rule
 # does not understand this security boundary.
@@ -32,9 +34,9 @@ def _capture_e2_process_environment() -> dict[str, str]:
     return {name: os.environ[name] for name in names if name in os.environ}
 
 
-# A number of existing modules call ``load_dotenv`` at import time.  Keeping
-# this snapshot stdlib-only makes it impossible for those values to enable or
-# retune E2 later in startup.
+# A number of existing modules call ``load_dotenv`` at import time. Keeping
+# these snapshots ahead of those imports prevents dotenv from enabling or
+# redirecting E2/E3 later in startup.
 E2_PROCESS_ENVIRONMENT = _capture_e2_process_environment()
 
 from fastapi import FastAPI, Request
@@ -243,7 +245,7 @@ app.add_middleware(
     allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Idempotency-Key"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Idempotency-Key", "X-Correlation-ID", "X-Device-Label"],
 )
 
 # 注册异常处理函数

@@ -19,7 +19,7 @@ from app.agent.mcp.provider import mcp_provider
 from app.agent.mcp.registry import mcp_tool_registry
 from app.agent.skill_registry import skill_registry
 from app.core.success_response import success_response
-from app.utils.auth_utils import get_current_user_id, is_admin_user, require_admin_user, security
+from app.utils.auth_utils import get_current_user_id, is_admin_user, require_security_admin, security
 
 mcp_router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 
@@ -117,7 +117,7 @@ async def get_mcp_permissions(
 
 
 @mcp_router.post("/servers/refresh")
-async def refresh_mcp_servers(_: str = Depends(require_admin_user)):
+async def refresh_mcp_servers(_: str = Depends(require_security_admin)):
     _require_policy_authority()
     tools = await mcp_tool_registry.refresh()
     skill_registry.reload()
@@ -129,7 +129,7 @@ async def refresh_mcp_servers(_: str = Depends(require_admin_user)):
 
 
 @mcp_router.patch("/servers/{server_id}")
-async def update_mcp_server(server_id: str, payload: McpServerUpdatePayload, _: str = Depends(require_admin_user)):
+async def update_mcp_server(server_id: str, payload: McpServerUpdatePayload, _: str = Depends(require_security_admin)):
     _require_policy_authority()
     if not any(server.id == server_id for server in mcp_provider.servers()):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="mcp server not found")
@@ -149,7 +149,7 @@ async def update_mcp_server(server_id: str, payload: McpServerUpdatePayload, _: 
 
 
 @mcp_router.delete("/servers/{server_id}")
-async def delete_mcp_server(server_id: str, _: str = Depends(require_admin_user)):
+async def delete_mcp_server(server_id: str, _: str = Depends(require_security_admin)):
     _require_policy_authority()
     try:
         delete_mcp_server_config(server_id)
@@ -167,7 +167,7 @@ async def delete_mcp_server(server_id: str, _: str = Depends(require_admin_user)
 
 
 @mcp_router.patch("/tools/{tool_id}")
-async def update_mcp_tool(tool_id: str, payload: McpToolUpdatePayload, _: str = Depends(require_admin_user)):
+async def update_mcp_tool(tool_id: str, payload: McpToolUpdatePayload, _: str = Depends(require_security_admin)):
     _require_policy_authority()
     spec = mcp_tool_registry.get(tool_id)
     if spec is None:
@@ -190,7 +190,7 @@ async def update_mcp_tool(tool_id: str, payload: McpToolUpdatePayload, _: str = 
 
 
 @mcp_router.delete("/tools/{tool_id}")
-async def delete_mcp_tool(tool_id: str, _: str = Depends(require_admin_user)):
+async def delete_mcp_tool(tool_id: str, _: str = Depends(require_security_admin)):
     _require_policy_authority()
     spec = mcp_tool_registry.get(tool_id)
     if spec is None:

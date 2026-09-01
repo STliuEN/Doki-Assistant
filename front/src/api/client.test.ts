@@ -15,7 +15,6 @@ describe('authentication response handling', () => {
     localStorage.clear()
     useUserStore.setState({
       token: 'expired-access',
-      refreshToken: 'refresh-1',
       userInfo: null,
       isLogin: true,
       userBio: 'private bio',
@@ -42,7 +41,7 @@ describe('authentication response handling', () => {
       }
     }) as AxiosAdapter
     const refresh = vi.spyOn(axios, 'post').mockResolvedValue({
-      data: { token: 'fresh-access', refresh_token: 'refresh-2' },
+      data: { data: { token: 'fresh-access' } },
     })
 
     const responses = await Promise.all([
@@ -54,7 +53,7 @@ describe('authentication response handling', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(retriedAuthorizations).toEqual(['Bearer fresh-access', 'Bearer fresh-access'])
     expect(useUserStore.getState().token).toBe('fresh-access')
-    expect(useUserStore.getState().refreshToken).toBe('refresh-2')
+    expect(useUserStore.getState()).not.toHaveProperty('refreshToken')
   })
 
   it('clears the complete auth state when refresh fails', async () => {
@@ -65,7 +64,6 @@ describe('authentication response handling', () => {
 
     expect(useUserStore.getState()).toMatchObject({
       token: '',
-      refreshToken: '',
       userInfo: null,
       isLogin: false,
       userBio: '',

@@ -14,27 +14,22 @@ dependencies = [
     "jsonschema~=4.26.0",
     "pydantic~=2.12.5",
     "pydantic-settings~=2.13.1",
-
     # Web API
     "fastapi~=0.123.0",
     "starlette~=0.50.0",
     "uvicorn>=0.31.1,<0.50.0",
     "python-multipart>=0.0.22",
-
     # Database / cache / auth
     "SQLAlchemy~=2.0.48",
     "alembic>=1.14,<2",
     "aiomysql>=0.3.2",
     "redis>=7.3.0",
     "python-jose~=3.5.0",
-
     # HTTP clients
     "requests~=2.32.5",
     "httpx>=0.28.1",
-
     # Filesystem / upload helpers
     "aiofiles~=25.1.0",
-
     # LangChain / Agent / RAG
     "langchain>=1.2.13",
     "langchain-core~=1.2.17",
@@ -50,7 +45,6 @@ dependencies = [
     "mcp>=1.9.0",
     "chromadb>=1.5.0",
     "rank-bm25>=0.2.2",
-
     # Model providers / local inference
     "dashscope>=1.25.14",
     "torch>=2.12.0",
@@ -59,17 +53,16 @@ dependencies = [
     "accelerate>=1.13.0",
     "modelscope>=1.35.3",
     "tqdm>=4.67.0",
-
     # Document parsing
     "pypdf>=6.9.2",
     "unstructured[docx,md,pdf,pptx]>=0.22.20",
     "python-magic>=0.4.27",
     "python-magic-bin>=0.4.14; sys_platform == 'win32' or sys_platform == 'darwin'",
-
     # PDF image extraction / multimodal page handling
     "pymupdf>=1.25.0",
     "pillow>=10.0.0",
     "imagehash>=4.3.0",
+    "argon2-cffi>=23.1,<26",
 ]
 
 # 开发依赖

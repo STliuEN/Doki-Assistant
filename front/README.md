@@ -1,6 +1,6 @@
 # Doki 助手前端
 
-这是 Doki 助手的 React 单页应用。前端负责页面、交互状态、HTTP API 和 Agent SSE 消费；登录注册由 Django 用户服务提供，其他业务由 FastAPI 提供。
+这是 Doki 助手的 React 单页应用。前端负责页面、交互状态、HTTP API 和 Agent SSE 消费；E3 本地开发档位的用户认证和业务 API 均由 FastAPI 提供。Django 仅作为迁移期的只读/影子输入，不是前端写入目标。
 
 ## 技术栈
 
@@ -43,20 +43,18 @@ npm run preview
 
 ```text
 FastAPI: http://127.0.0.1:18000
-Django:  http://127.0.0.1:18001
 ```
 
 覆盖目标：
 
 ```powershell
 $env:VITE_BACKEND_TARGET='http://127.0.0.1:18000'
-$env:VITE_USER_TARGET='http://127.0.0.1:18001'
 npm run dev
 ```
 
 代理规则位于 `vite.config.ts`：
 
-- `/user`、`/file` -> Django。
+- `/user`、`/file` -> FastAPI。
 - `/chat`、`/knowledge`、`/note`、`/memory`、`/model-config`、`/translate`、`/health` -> FastAPI。
 - `/api/mcp` -> FastAPI，保留路径。
 - `/api/skills`、`/api/tools` -> FastAPI，并移除 `/api` 前缀。
@@ -118,13 +116,7 @@ src/
 
 ## 认证
 
-`useUserStore` 是认证状态的唯一来源，由 Zustand persist 保存到：
-
-```text
-localStorage["user-store"]
-```
-
-持久化状态包含 access token、refresh token、用户资料和登录标志。旧 `localStorage.jwt_token` 只用于升级时的一次性兼容读取，并会在登录或退出时删除，不应再由新代码读写。
+`useUserStore` 是认证状态的唯一来源，只在内存保存 access token、用户资料和登录标志。refresh token 只存在于 FastAPI 设置的 `HttpOnly`、`SameSite=Strict` cookie 中，不进入 JSON、localStorage 或 sessionStorage。
 
 `src/api/client.ts` 为 Axios 请求添加：
 
@@ -132,9 +124,9 @@ localStorage["user-store"]
 Authorization: Bearer <access token>
 ```
 
-后端返回 `401` 时，client 使用 refresh token 刷新一次并重试原请求。并发 `401` 会合并为同一个刷新请求；成功后保存轮换后的 access/refresh token，失败或没有 refresh token 时完整清理认证状态并跳转 `/login`。
+后端返回 `401` 时，client 依赖 HttpOnly cookie 刷新一次并重试原请求。并发 `401` 会合并为同一个刷新请求；成功后只更新内存 access token，失败时清理认证状态并跳转 `/login`。
 
-Agent 和知识库 SSE 使用原生 `fetch`，不经过 Axios 刷新 interceptor；`useSSE` 从同一 store 读取 access token，并在 `401` 时清理认证状态。退出请求同时发送 Bearer access token 和请求体中的 refresh token，以撤销当前 token 对。认证或撤销依赖不可用时后端可能返回 `503`，前端不能把它当作成功响应。
+Agent 和知识库 SSE 使用原生 `fetch`，不经过 Axios 刷新 interceptor；`useSSE` 从同一 store 读取 access token，并在 `401` 时清理认证状态。退出请求使用 Bearer access token，refresh cookie 由浏览器自动携带并由 FastAPI 撤销当前 session/family。认证或撤销依赖不可用时后端可能返回 `503`，前端不能把它当作成功响应。
 
 不要在前端保存模型 API key 明文。用户模型密钥由后端加密保存，前端只处理输入和脱敏结果。
 
@@ -178,7 +170,7 @@ npm run test
 
 当前 Vitest 重点验证：
 
-- access/refresh token 同库存储、刷新轮换、并发刷新合并和失败清理。
+- 内存 access token、HttpOnly cookie 刷新轮换、并发刷新合并和失败清理。
 - Markdown 危险 URL 与原始 HTML 的安全渲染。
 - SSE 分包和多事件解析。
 - SSE schema version 校验。

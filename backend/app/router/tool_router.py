@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.agent.skill_registry import TOOLS_DIR, skill_registry
 from app.core.success_response import success_response
-from app.utils.auth_utils import get_current_user_id, require_admin_user
+from app.utils.auth_utils import get_current_user_id, require_skill_admin
 
 tool_router = APIRouter(prefix="/tools", tags=["tools"])
 
@@ -149,7 +149,7 @@ async def get_tools_catalog(_: str = Depends(get_current_user_id)):
 
 
 @tool_router.post("")
-async def create_tool(payload: ToolPayload, _: str = Depends(require_admin_user)):
+async def create_tool(payload: ToolPayload, _: str = Depends(require_skill_admin)):
     directory = _tool_dir(payload.id)
     if directory.exists():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="tool already exists")
@@ -157,7 +157,7 @@ async def create_tool(payload: ToolPayload, _: str = Depends(require_admin_user)
 
 
 @tool_router.put("/{tool_id}")
-async def update_tool(tool_id: str, payload: ToolPayload, _: str = Depends(require_admin_user)):
+async def update_tool(tool_id: str, payload: ToolPayload, _: str = Depends(require_skill_admin)):
     directory = _tool_dir(tool_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")
@@ -165,7 +165,7 @@ async def update_tool(tool_id: str, payload: ToolPayload, _: str = Depends(requi
 
 
 @tool_router.delete("/{tool_id}")
-async def delete_tool(tool_id: str, _: str = Depends(require_admin_user)):
+async def delete_tool(tool_id: str, _: str = Depends(require_skill_admin)):
     directory = _tool_dir(tool_id)
     if not directory.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tool not found")

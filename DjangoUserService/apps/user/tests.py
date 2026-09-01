@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+from importlib import import_module
 import json
 import os
 import subprocess
@@ -27,6 +29,17 @@ from .authentications import (
     decode_token,
 )
 from .models import User, UserStatusChoice
+
+
+class E3ExportTimestampTests(SimpleTestCase):
+    def test_naive_django_timestamp_is_normalized_from_project_timezone(self):
+        command_module = import_module("apps.user.management.commands.export_e3_users")
+
+        with override_settings(TIME_ZONE="Asia/Shanghai"):
+            normalized = command_module._timestamp(datetime(2026, 9, 1, 12, 0, 0))
+
+        self.assertEqual(normalized, "2026-09-01T04:00:00+00:00")
+        self.assertEqual(command_module._timestamp(datetime(2026, 9, 1, 4, 0, 0, tzinfo=UTC)), "2026-09-01T04:00:00+00:00")
 
 TEST_SECRET = "test-jwt-secret-with-at-least-32-characters"
 AUTH_CONTRACT_PATH = Path(__file__).resolve().parents[3] / "contracts" / "auth_access_token.json"

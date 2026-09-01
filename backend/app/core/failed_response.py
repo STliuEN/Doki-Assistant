@@ -1,6 +1,7 @@
 import logging
 import re
 import traceback
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette import status
 
+from app.auth.errors import AUTH_VALIDATION
 from app.core.environment import is_production_environment, normalize_environment
 
 
@@ -24,12 +26,14 @@ class Settings(BaseSettings):
     # 日志级别
     LOG_LEVEL: str = "INFO"
 
+
 settings = Settings()
 
 ENVIRONMENT = normalize_environment(settings.ENV)
 if is_production_environment(ENVIRONMENT) and settings.DEBUG_MODE:
     raise RuntimeError("DEBUG_MODE must be false in production")
 DEBUG_MODE = settings.DEBUG_MODE
+
 
 def setup_logger():
     """初始化项目日志器"""
@@ -41,10 +45,7 @@ def setup_logger():
         return logger
 
     # 控制台日志格式
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(name)s - %(levelname)s - [%(path)s] - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    formatter = logging.Formatter(fmt="%(asctime)s - %(name)s - %(levelname)s - [%(path)s] - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
@@ -63,10 +64,117 @@ class BusinessException(Exception):
         if user_quota <= 0:
             raise BusinessException(code=4001, message="错误")
     """
+
     def __init__(self, code: int = 400, message: str = "出现错误"):
         self.code = code
         self.message = message
         super().__init__(message)
+
+
+def _request_correlation_id(request: Request) -> str:
+    correlation_id = getattr(request.state, "e3_correlation_id", None)
+    if correlation_id:
+        return str(correlation_id)
+    candidate = request.headers.get("X-Correlation-ID")
+    try:
+        correlation_id = str(UUID(candidate)) if candidate else str(uuid4())
+    except (TypeError, ValueError):
+        correlation_id = str(uuid4())
+    request.state.e3_correlation_id = correlation_id
+    return correlation_id
+
+
+def _auth_action_for_path(path: str) -> str | None:
+    normalized = path.rstrip("/")
+    action_map = {
+        "/user/register": "auth.register",
+        "/user/login": "auth.login",
+        "/user/refresh-token": "auth.refresh",
+        "/user/logout": "auth.logout",
+        "/user/detail": "profile.read",
+        "/user/update": "profile.update",
+        "/user/reset-password": "password.change",
+        "/user/sessions": "session.list",
+        "/user/grants": "grant.request",
+        "/user/audit": "audit.read",
+    }
+    action = action_map.get(normalized)
+    if action is None and normalized.startswith("/user/sessions/"):
+        action = "session.revoke"
+    if action is None and normalized.endswith("/approve") and "/user/grants/" in normalized:
+        action = "grant.approve"
+    if action is None and normalized.endswith("/revoke") and "/user/grants/" in normalized:
+        action = "grant.revoke"
+    return action
+
+
+async def _persist_auth_failure(
+    request: Request,
+    *,
+    correlation_id: str,
+    action: str,
+    code: str,
+    message: str,
+    status_code: int,
+    target_id: str | None = None,
+    actor_id: str | None = None,
+) -> None:
+    if getattr(request.state, "e3_auth_audited", False):
+        return
+    try:
+        from app.auth.audit import record_audit
+        from app.db.db_config import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as audit_session:
+            await record_audit(
+                audit_session,
+                correlation_id=correlation_id,
+                action=action,
+                target_type="authorization_grant" if action.startswith("grant.") else "audit_event" if action == "audit.read" else "user",
+                target_id=target_id,
+                result="denied" if status_code == 403 else "failure",
+                reason=message,
+                actor_type="user" if actor_id else "anonymous",
+                actor_id=actor_id,
+                error_code=code,
+                after={"status_code": status_code},
+            )
+            await audit_session.commit()
+        request.state.e3_auth_audited = True
+    except Exception as audit_exc:
+        logger.error("Failed to persist authentication failure audit: %s", audit_exc)
+
+
+async def auth_exception_handler(request: Request, exc) -> JSONResponse:
+    """Return the stable E3 auth error envelope without leaking credentials."""
+
+    correlation_id = _request_correlation_id(request)
+    action = _auth_action_for_path(request.url.path)
+    if action is not None:
+        await _persist_auth_failure(
+            request,
+            correlation_id=correlation_id,
+            action=action,
+            code=exc.code,
+            message=exc.message,
+            status_code=exc.status_code,
+            target_id=getattr(exc, "audit_target_id", None),
+            actor_id=getattr(exc, "audit_actor_id", None) or getattr(request.state, "e3_auth_user_id", None),
+        )
+    logger.warning(
+        "认证请求失败: %s",
+        exc.code,
+        extra={"path": str(request.url), "method": request.method},
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "code": exc.code,
+            "message": exc.message,
+            "data": exc.data,
+            "correlation_id": correlation_id,
+        },
+    )
 
 
 def mask_sensitive_info(text: str) -> str:
@@ -95,15 +203,13 @@ def mask_sensitive_info(text: str) -> str:
 
     return masked_text
 
+
 async def business_exception_handler(request: Request, exc: BusinessException):
     """处理自定义业务异常（业务逻辑主动抛出）"""
-    logger.warning(
-        f"业务异常: {exc.code} - {exc.message}",
-        extra={"path": str(request.url), "method": request.method}
-    )
+    logger.warning(f"业务异常: {exc.code} - {exc.message}", extra={"path": str(request.url), "method": request.method})
     return JSONResponse(
         status_code=status.HTTP_200_OK,  # 业务异常HTTP状态码统一200，用业务code区分
-        content={"code": exc.code, "message": exc.message, "data": None}
+        content={"code": exc.code, "message": exc.message, "data": None},
     )
 
 
@@ -122,15 +228,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     # 改写成 or 后：key 不存在时返回 exc.detail，key 存在但 value 为空/falsy 时也回退到 exc.detail
     friendly_msg = custom_msg_map.get(exc.status_code) or exc.detail
 
-    logger.warning(
-        f"HTTP异常: {exc.status_code} - {friendly_msg}",
-        extra={"path": str(request.url), "method": request.method}
-    )
+    logger.warning(f"HTTP异常: {exc.status_code} - {friendly_msg}", extra={"path": str(request.url), "method": request.method})
 
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"code": exc.status_code, "message": friendly_msg, "data": None}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"code": exc.status_code, "message": friendly_msg, "data": None})
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -156,6 +256,36 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     friendly_msg = "；".join(friendly_msg_parts)
 
+    action = _auth_action_for_path(request.url.path)
+    if action is not None:
+        correlation_id = _request_correlation_id(request)
+        await _persist_auth_failure(
+            request,
+            correlation_id=correlation_id,
+            action=action,
+            code=AUTH_VALIDATION,
+            message="Request validation failed",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            actor_id=getattr(request.state, "e3_auth_user_id", None),
+        )
+        fields = [
+            {
+                "field": ".".join(str(item) for item in error["loc"] if item not in ("body", "query", "path")) or "request",
+                "type": error["type"],
+            }
+            for error in error_details
+        ]
+        logger.warning("认证请求参数校验失败", extra={"path": str(request.url), "method": request.method})
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "code": AUTH_VALIDATION,
+                "message": "Request validation failed",
+                "data": {"fields": fields},
+                "correlation_id": correlation_id,
+            },
+        )
+
     # 开发模式保留原始校验信息，生产模式只返回友好提示
     error_data = None
     if DEBUG_MODE:
@@ -165,15 +295,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "path": str(request.url),
         }
 
-    logger.warning(
-        f"参数校验异常: {friendly_msg}",
-        extra={"path": str(request.url), "method": request.method}
-    )
+    logger.warning(f"参数校验异常: {friendly_msg}", extra={"path": str(request.url), "method": request.method})
 
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"code": 400, "message": friendly_msg, "data": error_data}
-    )
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"code": 400, "message": friendly_msg, "data": error_data})
 
 
 async def integrity_error_handler(request: Request, exc: IntegrityError):
@@ -198,16 +322,9 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
             "path": str(request.url),
         }
 
-    logger.error(
-        f"数据库约束异常: {detail}",
-        extra={"path": str(request.url), "method": request.method},
-        exc_info=exc
-    )
+    logger.error(f"数据库约束异常: {detail}", extra={"path": str(request.url), "method": request.method}, exc_info=exc)
 
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"code": 400, "message": detail, "data": error_data}
-    )
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"code": 400, "message": detail, "data": error_data})
 
 
 async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
@@ -222,15 +339,10 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
             "path": str(request.url),
         }
 
-    logger.error(
-        "数据库操作异常",
-        extra={"path": str(request.url), "method": request.method},
-        exc_info=exc
-    )
+    logger.error("数据库操作异常", extra={"path": str(request.url), "method": request.method}, exc_info=exc)
 
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"code": 500, "message": "数据库操作失败，请稍后重试", "data": error_data}
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"code": 500, "message": "数据库操作失败，请稍后重试", "data": error_data}
     )
 
 
@@ -249,10 +361,9 @@ async def general_exception_handler(request: Request, exc: Exception):
     logger.critical(
         "未捕获系统异常",
         extra={"path": str(request.url), "method": request.method},
-        exc_info=exc  # 这个参数会把完整堆栈打到日志里，生产环境排错全靠它
+        exc_info=exc,  # 这个参数会把完整堆栈打到日志里，生产环境排错全靠它
     )
 
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"code": 500, "message": "服务器内部错误，请稍后重试", "data": error_data}
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"code": 500, "message": "服务器内部错误，请稍后重试", "data": error_data}
     )

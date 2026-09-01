@@ -1,0 +1,65 @@
+name: doki-e3-auth
+
+services:
+  target:
+    image: mysql:8.4
+    container_name: doki-e3-20260831-mysql
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${E3_MYSQL_ROOT_PASSWORD:?set E3_MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${E3_MYSQL_PASSWORD:?set E3_MYSQL_PASSWORD}
+      MYSQL_DATABASE: doki_e3
+      MYSQL_USER: doki_e3_app
+    ports:
+      - "127.0.0.1:33327:3306"
+    command:
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+      - --max_allowed_packet=268435456
+      - --transaction-isolation=REPEATABLE-READ
+    volumes:
+      - doki-e3-20260831-target-data:/var/lib/mysql
+    networks:
+      - doki-e3-20260831-net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  restore:
+    image: mysql:8.4
+    container_name: doki-e3-20260831-mysql-restore
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${E3_MYSQL_ROOT_PASSWORD:?set E3_MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${E3_MYSQL_PASSWORD:?set E3_MYSQL_PASSWORD}
+      MYSQL_DATABASE: doki_e3
+      MYSQL_USER: doki_e3_app
+    ports:
+      - "127.0.0.1:33328:3306"
+    command:
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+      - --max_allowed_packet=268435456
+      - --transaction-isolation=REPEATABLE-READ
+    volumes:
+      - doki-e3-20260831-restore-data:/var/lib/mysql
+    networks:
+      - doki-e3-20260831-net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  doki-e3-20260831-net:
+    name: doki-e3-20260831-net
+    driver: bridge
+
+volumes:
+  doki-e3-20260831-target-data:
+    name: doki-e3-20260831-target-data
+  doki-e3-20260831-restore-data:
+    name: doki-e3-20260831-restore-data

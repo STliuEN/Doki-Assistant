@@ -1,11 +1,16 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.db.e2_guard import load_guard_from_environment, verify_database_fingerprint
+
+if os.environ.get("E3_MIGRATION_ENABLED"):
+    from app.db.e3_guard import load_guard_from_environment, verify_database_fingerprint
+else:
+    from app.db.e2_guard import load_guard_from_environment, verify_database_fingerprint
 from app.models import (
     chat_history,
     embedding_config,

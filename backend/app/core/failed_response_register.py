@@ -2,8 +2,10 @@ from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from app.auth.errors import AuthError
 from app.core.failed_response import (
     BusinessException,
+    auth_exception_handler,
     business_exception_handler,
     general_exception_handler,
     http_exception_handler,
@@ -37,14 +39,16 @@ async def chroma_projection_unavailable_exception_handler(request, exc):
 
 def register_exception_handlers(app):
     """Register application exception handlers."""
+
+    app.add_exception_handler(AuthError, auth_exception_handler)
     app.add_exception_handler(SkillRegistryStaleError, skill_registry_stale_exception_handler)
     app.add_exception_handler(
         ChromaProjectionUnavailable,
         chroma_projection_unavailable_exception_handler,
     )
-    app.add_exception_handler(HTTPException, http_exception_handler)  # 使用正确的HTTPException类
-    app.add_exception_handler(IntegrityError, integrity_error_handler)  # 处理数据库完整性错误
-    app.add_exception_handler(SQLAlchemyError, sqlalchemy_error_handler)  # 处理SQLAlchemy异常
-    app.add_exception_handler(BusinessException, business_exception_handler)  # 处理业务异常
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)  # 处理参数校验异常
-    app.add_exception_handler(Exception, general_exception_handler)  # 处理其他异常
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(IntegrityError, integrity_error_handler)
+    app.add_exception_handler(SQLAlchemyError, sqlalchemy_error_handler)
+    app.add_exception_handler(BusinessException, business_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, general_exception_handler)

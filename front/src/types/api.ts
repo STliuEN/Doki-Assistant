@@ -1,7 +1,8 @@
 export interface ApiResponse<T = unknown> {
-  code: number
+  code: number | string
   message: string
   data: T
+  correlation_id?: string
 }
 
 export interface UserInfo {

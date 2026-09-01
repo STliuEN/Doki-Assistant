@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
-import { authApi } from '../api/auth'
+import { authApi, authErrorMessage } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 import { useLanguageStore } from '../stores/useLanguageStore'
 import i18n from '../i18n'
@@ -24,19 +24,11 @@ export default function Login() {
     setError('')
     try {
       const res = await authApi.login(username, password)
-      login(res.token, res.user, res.refresh_token)
+      login(res.token, res.user)
       i18n.changeLanguage(useLanguageStore.getState().lang)
       navigate('/notes')
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-      if (detail && typeof detail === 'object') {
-        const msg = Object.values(detail as Record<string, unknown>).flat().join('；')
-        setError(msg || '登录失败，请检查用户名和密码')
-      } else if (typeof detail === 'string') {
-        setError(detail)
-      } else {
-        setError('登录失败，请检查用户名和密码')
-      }
+      setError(authErrorMessage(err, '登录失败，请检查用户名和密码'))
     } finally {
       setLoading(false)
     }

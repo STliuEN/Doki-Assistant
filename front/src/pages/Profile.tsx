@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Camera, Lock, Save, X, Eye, EyeOff } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { authApi } from '../api/auth'
+import { authApi, authErrorMessage } from '../api/auth'
 import { useUserStore } from '../stores/useUserStore'
 import type { UserInfo } from '../types/api'
 
@@ -23,7 +23,7 @@ export default function Profile() {
   useEffect(() => {
     if (token) {
       authApi.getProfile().then((res) => {
-        const data = (res.data as UserInfo | undefined)
+        const data = res as UserInfo | undefined
         if (data) {
           const info: UserInfo = {
             username: data.username as string || '',
@@ -58,13 +58,13 @@ export default function Profile() {
       const payload = {
         username: form.username || undefined,
         telephone: form.phone || undefined,
-        gender: form.gender ? Number(form.gender) : undefined,
+        gender: form.gender || undefined,
         bio: form.bio || undefined,
       }
       const res = await authApi.updateProfile(payload)
       const newToken = (res as { token?: string }).token
       if (newToken) {
-        useUserStore.getState().setTokens(newToken, res.refresh_token)
+        useUserStore.getState().setToken(newToken)
       }
       const userField = (res as { user?: Record<string, unknown> }).user
       if (userField) {
@@ -93,7 +93,7 @@ export default function Profile() {
       setPwdError(t('common.fillAllFields'))
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       setPwdError(t('auth.passwordLength'))
       return
     }
@@ -110,15 +110,14 @@ export default function Profile() {
     try {
       const res = await authApi.updatePassword(oldPassword, newPassword)
       if (res.token) {
-        useUserStore.getState().setTokens(res.token, res.refresh_token)
+        useUserStore.getState().setToken(res.token)
       }
       setPwdOpen(false)
       setPwdForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
       setMessage(t('profile.passwordChanged'))
       setTimeout(() => setMessage(''), 2000)
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setPwdError(detail || t('profile.passwordError'))
+      setPwdError(authErrorMessage(err, t('profile.passwordError')))
     } finally {
       setPwdLoading(false)
     }
