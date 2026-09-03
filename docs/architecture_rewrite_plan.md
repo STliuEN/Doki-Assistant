@@ -1,8 +1,8 @@
 # 架构重写计划
 
-状态：`AR-0 + SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；`E4/S3/AR-3` 当前为 `待你确认`，尚未授权实施。
+状态：`AR-0 + SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；`E4/S3/AR-3` 当前为 `实施中`。
 
-最近复核：2026-09-01
+最近复核：2026-09-02
 适用分支：`ai_document_assistant`
 
 本文是 AR/SK 阶段、门禁、当前队列和关闭条件的唯一事实源。执行交接细则见[架构重构执行交接手册](./architecture-execution-handoff-2026-08-26.md)；最终架构和逐阶段任务见[最终重构蓝图](./architecture-target-blueprint-2026-08-26.md)；运行代码事实见[当前架构归档](./archive/2026-08-26/project_develop.md)；P0 证据见[0826 执行计划归档](./archive/2026-08-26/change-route-execution-plan-2026-08-26.md)和[P0 收口报告归档](./archive/2026-08-26/p0-completion-report-2026-08-26.md)。`project_changes/` 只保存批次证据，不覆盖本文的状态判断。
@@ -30,7 +30,7 @@
 | AR-0 + SK-0：P0 containment 与证据收口 | `已关闭` | Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具、当前环境 R7、E1 隔离 MySQL/Chroma 故障与恢复证据已记录；隔离完整 pytest `284 passed`，offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 确认关闭 | E1 范围无剩余阻塞。真实模型质量和 AR-2 审计实现不属于 E1；原生 Linux/macOS 为 `out-of-scope/frozen`；本状态不表示后续门禁通过。 |
 | AR-1：统一 SQL 基础与运行时合同 | `已关闭` | E1/AR-0/SK-0 已关闭；E2 批次计划、schema map、隔离边界、真实 MySQL/runner/recovery 证据已完成；用户于 2026-08-28 批准关闭 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 已验证；真实业务迁移仍延后。 |
 | AR-2：FastAPI 身份、角色与审计 | `已关闭` | FastAPI SQL 认证、会话/撤销、角色分离、四眼授权审计、迁移对账和浏览器/API 验证已完成；用户于 2026-09-01 明确回复 `批准关闭 E3` | E3 退出条件已通过；关闭不代表生产发布，也不解冻未获确认的后续阶段。 |
-| AR-3：业务数据与迁移权威收敛 | `待你确认` | 当前 Django/FastAPI 分表和文件/Chroma 事实已盘点；E3/AR-2 已关闭 | 同库分表过渡、稳定 UUID/FK、源文档/图片/MD5 入 SQL、旧输入对账和唯一写入口未完成；用户确认前不得实施。 |
+| AR-3：业务数据与迁移权威收敛 | `实施中` | E4 计划、Q1-Q43 决策和执行确认已写回；路由冲突已修复并回归；E3/AR-2 已关闭 | source/target/restore allowlist、分批 inventory/dry-run、shadow schema、真实导入、停写切换、对账和恢复仍在执行；未授权删除旧输入。 |
 | AR-4：RAG/Chroma projection | `草案` | Chroma 失败隔离、staging/rebuild fixture 已有 | RAG port、generation 表、用户声明式切片/检索、SQL 重建和真实 Chroma E2E 未完成。 |
 | AR-5 + SK-1..3：Skill 与核心业务回接 | `草案` | Codex 风格 A/有限 B 切片和 `installed_disabled` 已有 | SQL manifest/raw package、标准目录/ZIP、授权闭环、知识/笔记/聊天回接和旧结构清理未完成。 |
 | SK-4：C 级执行 | `阻塞`（本次不做） | 仅保留 `unsupported` 插口 | 只有用户改变范围并明确启用 C 级后才启动；不阻塞本地 A/B。 |
@@ -49,7 +49,7 @@ AR-0/SK-0 文档确认、P0 证据和真实依赖基线
   -> SKILL-GATE -> ARCH-GATE
 ```
 
-每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先进入验收状态，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，E2/AR-1 已于 2026-08-28 获得实施确认、完成真实隔离验证并经用户批准关闭；E3/AR-2 已于 2026-09-01 完成第二次验收并经用户批准关闭；业务数据迁移/删除和产品工作包 `7-10` 仍保持冻结，直到 E4 等后续阶段另行授权。
+每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先进入验收状态，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，E2/AR-1 已于 2026-08-28 获得实施确认、完成真实隔离验证并经用户批准关闭；E3/AR-2 已于 2026-09-01 完成第二次验收并经用户批准关闭；E4/AR-3 已于 2026-09-02 获得执行确认并进入实施中，业务删除和产品工作包 `7-10` 仍冻结。
 
 交接批次 `E0-E8` 和蓝图批次 `S0-S8` 只是执行别名，不是第二套状态机；规范对照与每批责任边界见[执行交接手册的映射表](./architecture-execution-handoff-2026-08-26.md)。其中 `E2=S1=AR-1` 必须先完成 SQL schema/UoW/job/runner，`E3=S2=AR-2` 才能做认证审计，`E4=S3=AR-3` 才能迁移业务数据。
 

@@ -1,6 +1,6 @@
 # 2026-08-26 最终重构蓝图（执行交接版）
 
-状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；`E4/S3/AR-3` 当前待你确认。E2/E3 关闭均不代表 `SKILL-GATE`、`ARCH-GATE` 或任何发布门禁通过。
+状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；`E4/S3/AR-3` 当前实施中。E2/E3 关闭均不代表 `SKILL-GATE`、`ARCH-GATE` 或任何发布门禁通过。
 
 日期：2026-08-26  
 适用分支：`ai_document_assistant`
@@ -45,7 +45,7 @@
 
 ### 2.1 当前现实（不等于目标）
 
-当前仓库仍有 Django、FastAPI、Redis、文件目录、MD5 sidecar 和 Chroma 并存。E3 已将认证写入切到 FastAPI SQL，并完成 2 个测试 Django 用户的只读迁移、角色/审计和恢复对账；用户于 2026-09-01 明确回复 `批准关闭 E3`。E4 业务数据 migration 尚未执行，当前待你确认。知识源同时存在 SQL 原文、文件和 Chroma 派生状态；Skill 仍有提前实现的局部生命周期代码。P0 已完成 Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具和 E1 隔离依赖/恢复证据；用户已确认关闭 AR-0/SK-0，E3 已关闭，尚未通过后续架构或发布门禁。
+当前仓库仍有 Django、FastAPI、Redis、文件目录、MD5 sidecar 和 Chroma 并存。E3 已将认证写入切到 FastAPI SQL，并完成 2 个测试 Django 用户的只读迁移、角色/审计和恢复对账；用户于 2026-09-01 明确回复 `批准关闭 E3`。用户于 2026-09-02 完成 E4 grilling 并授权实施；E4 先执行独立 allowlist/preflight、分批 inventory/dry-run 和 shadow 过渡，旧输入保留只读。知识源同时存在 SQL 原文、文件和 Chroma 派生状态；Skill 仍有提前实现的局部生命周期代码。P0 已完成 Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具和 E1 隔离依赖/恢复证据；E4 尚未通过后续架构或发布门禁。
 
 ### 2.2 最终拓扑
 
@@ -142,7 +142,7 @@ AR-0 已关闭；AR-2 本批实现与证据已完成并经用户批准关闭。�
 | S0 文档与决策冻结 | 固化本蓝图、权威矩阵、迁移顺序、状态枚举、冻结新功能；盘点当前表、文件、Chroma、Skill 和认证入口。 | 用户确认文档；已于 E0/S0 关闭。 | ADR/蓝图、差异清单、阶段记录目录、批准边界。 | 用户确认后关闭；若发现事实冲突，只改文档并回到 `草案`，不改业务代码。 |
 | S1/AR-1 SQL 基础与 durable runner | 设计统一 UUID/FK/约束、users/sessions/jobs/domain/skill/rag generation/audit/migration_map 表；提供 UoW、备份、restore、dry-run、对账和短暂停写工具；SQL job 实现 claim/lease/heartbeat/idempotency/retry/cancel/DLQ/backpressure，runner 默认并发 1。 | E1/AR-0/SK-0 已关闭；E2 批次、owner/approver 和专用隔离拓扑已获用户批准。 | Alembic migration、schema map、job/UoW/runner、备份 manifest、恢复 runbook、迁移报告；实现与真实隔离证据已记录，用户于 2026-08-28 批准关闭。 | 结构/计数/digest/约束和 kill/restart/重复/DLQ 对账已通过；E2 已关闭，E3 已另行授权并已关闭，失败保留旧表只读并恢复备份。 |
 | S2/AR-2 FastAPI 认证接管 | 导入用户/hash/refresh/token version；FastAPI 成为写权威；先 shadow 校验，再切 login/refresh/revoke；Django 变只读适配；完成角色分离和授权审计。E3 实现与证据已完成，状态为 `已关闭`。 | S1、认证迁移 dry-run 和回滚点。 | auth API、会话/撤销表、切换开关、审计查询、Django read-only adapter；E3 三件套和正式证据。 | 双路径抽样一致、撤销传播、授权审批和中断续跑已通过；用户于 2026-09-01 明确回复 `批准关闭 E3`，失败切回 Django 只读适配，不产生双写。 |
-| S3/AR-3 业务数据迁移与唯一写权威 | 在同一 MySQL 实例/数据库内完成业务分表过渡；稳定 UUID/FK；源文档/图片/Skill/聊天/笔记对账；FastAPI 成为唯一业务写入口。 | S1、S2；用户确认迁移 dry-run、备份和停写窗口后才可进入实施。 | 迁移报告、稳定 ID/FK、业务表、legacy identity map、旧输入处置清单。 | 行数/digest/约束/审计和唯一写权威抽样通过；失败恢复迁移前快照，不删除旧输入。 |
+| S3/AR-3 业务数据迁移与唯一写权威 | 在同一 MySQL 实例/数据库内完成业务分表过渡；稳定 UUID/FK；源文档/图片/Skill/聊天/笔记对账；FastAPI 成为唯一业务写入口。当前实施中，按批次/checkpoint/幂等合同推进。 | S1、S2；用户已确认迁移、备份和停写执行范围；每批仍须独立 allowlist、preflight、backup 和健康检查 gate，不设固定停写时长。 | 迁移报告、稳定 ID/FK、业务表、legacy identity map、旧输入处置清单；Skill 完整发布接口交接 E6，输入接口在 E4 冻结。 | 行数/digest/约束/审计和唯一写权威抽样通过；失败恢复迁移前快照，不删除旧输入；实现者先待验证，用户第二次验收后关闭。 |
 | S4/AR-4 RAG/Chroma 收敛 | SQL 成为原文和配置源；RAG port + Chroma adapter；active/staging generation、重建、对账、degraded/503；用户自定义切片/检索声明式配置。 | S1、S3，Chroma 隔离目录。 | source/chunk config、generation 表、rebuild job、adapter 合同、RAG E2E。 | 正常查询、配置切换、Chroma 故障重建和旧 generation 删除通过；失败只降级 RAG，不影响登录/会话。 |
 | S5/AR-5/SK-1..3 Codex Skill 重构 | 目录/ZIP 导入、`SKILL.md` frontmatter、manifest/resources/raw package SQL 化；规范化单一表示；新导入 `installed_disabled`；保留 A/B 插口，C 结构化 `unsupported`。 | S3、S4、统一授权审计合同。 | parser/validator、版本/digest、安装/发布 API、legacy_identity_map、Skill 迁移报告。 | 恶意包、digest、重复、权限、grant/revoke 和重启恢复通过；失败保留旧健康版本，禁止 ready。 |
 | S6 核心业务回接与文件清理 | 回接知识、笔记、聊天；原始文档/图片/MD5 进入 SQL；清除文件权威和旧 Skill/Chroma 内部依赖；保留显式本地运维通道。 | S2-S5 退出条件。 | domain service、数据对账、旧输入处置清单、debug 通道开关。 | 核心回归、用户隔离、审计和恢复通过；失败恢复 SQL 快照，禁止删除未对账输入。 |
@@ -176,7 +176,7 @@ AR-0 已关闭；AR-2 本批实现与证据已完成并经用户批准关闭。�
 
 ### 后续未收口
 
-1. E4/AR-3 业务源数据迁移、Skill 规范化迁移和 RAG generation 表尚未实现；当前状态为 `待你确认`，E3 的测试用户迁移不等于 E4 业务迁移。
+1. E4/AR-3 业务源数据迁移、Skill 规范化迁移和 RAG generation 表尚未完成；E4 当前实施中，已完成准备文档和路由修复，但 E3 的测试用户迁移不等于 E4 业务迁移。
 2. 旧 Django、Redis、文件/MD5 sidecar、旧 Skill 内部结构和旧 Chroma generation 尚未按清单删除；删除前必须完成对账和备份。
 3. 真实目标 schema 的核心 API/UI/RAG E2E、单机部署 runbook、生产 RPO/RTO 和最终恢复验收尚未完成；原生 Linux/macOS 已冻结在支持范围外，不设门禁。
 4. 以上后续事项关闭前不得发布新功能；真实模型质量、C 级执行、公网和 HA 不在 E3 关闭范围内。

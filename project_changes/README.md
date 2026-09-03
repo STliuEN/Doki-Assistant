@@ -4,9 +4,17 @@
 
 这些文件描述的是当时的代码状态，其中可能包含已经删除的文件、旧端口、旧架构和已完成的待办。它们用于追溯设计过程，不作为当前运行和开发说明。
 
+## 2026-09-02 E4 AR-3/S3 业务数据迁移与唯一写权威
+
+本批当前状态为 `实施中`。用户于 2026-09-02 完成 Q1-Q43 grilling 并授权按计划分批实施（含导入、停写和 FastAPI 切换，不删除旧输入）。当前已完成执行准备、静态写入口盘点、路由修复和本地只读观察；尚未连接未列入 allowlist 的业务资源，尚未执行真实业务迁移、停写切换或删除。验收确认尚未发生。
+
+| 主题 | 方案 | 变更记录 | 验证记录 | 补充准备材料 |
+|---|---|---|---|---|
+| E4 AR-3/S3 业务数据迁移与唯一写权威 | [plan](./2026-09-02-e4-ar3-business-migration/plan.md) | [change log](./2026-09-02-e4-ar3-business-migration/change-log.md) | [test record](./2026-09-02-e4-ar3-business-migration/test-record.md) | [source inventory](./2026-09-02-e4-ar3-business-migration/source-inventory.md)、[identity map contract](./2026-09-02-e4-ar3-business-migration/identity-map-contract.md)、[write-path inventory](./2026-09-02-e4-ar3-business-migration/write-path-inventory.md)、[rollback runbook](./2026-09-02-e4-ar3-business-migration/rollback-runbook.md) |
+
 ## 2026-08-31 E3 AR-2/S2 FastAPI 认证接管计划
 
-本批已完成 E3 本地开发实现、2 个测试 Django 用户迁移、隔离依赖验证和证据收口；用户于 2026-09-01 明确回复 `批准关闭 E3`，当前状态为 `已关闭`。E4/AR-3 业务迁移仍为 `待你确认`，未因 E3 关闭而启动。
+本批已完成 E3 本地开发实现、2 个测试 Django 用户迁移、隔离依赖验证和证据收口；用户于 2026-09-01 明确回复 `批准关闭 E3`，当前状态为 `已关闭`。E4/AR-3 已于 2026-09-02 获得执行确认并进入 `实施中`，尚未完成业务导入和验收。
 
 | 主题 | 方案 | 变更记录 | 验证记录 |
 |---|---|---|---|

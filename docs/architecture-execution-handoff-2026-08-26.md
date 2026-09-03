@@ -1,6 +1,6 @@
 # 2026-08-26 架构重构执行交接手册
 
-状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；E4/S3/AR-3 当前待你确认
+状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；E4/S3/AR-3 当前实施中
 交接对象：下一位实施负责人、阶段审阅人和恢复操作人  
 最终批准人：用户
 
@@ -21,7 +21,7 @@
 - E2/S1/AR-1 已是最近完成阶段；用户已于 2026-08-28 确认批次边界、实施授权并批准关闭，真实隔离验证已完成。该授权只覆盖批准的 E2 隔离拓扑、代码和合成数据，不把 E1/E2 证据当作现有数据 migration 授权。
 - 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 全部冻结。
 - E2 代码、本地合同和真实 MySQL/container/migration/dump/restore/kill-restart 已按 preflight 和证据矩阵完成并关闭；E1 证据及资源继续只读保护，E2 容器已停止但 volume、network 和证据保留。
-- E3/AR-2 已完成本地 FastAPI 认证接管、2 个测试用户迁移、隔离 MySQL restore-forward、角色/审计和浏览器验证；用户于 2026-09-01 明确回复 `批准关闭 E3`，批次已关闭。E4 尚未获确认或执行授权。
+- E3/AR-2 已完成本地 FastAPI 认证接管、2 个测试用户迁移、隔离 MySQL restore-forward、角色/审计和浏览器验证；用户于 2026-09-01 明确回复 `批准关闭 E3`，批次已关闭。用户于 2026-09-02 完成 E4 Q1-Q43 grilling 并授权按计划实施；E4 进入实施中，删除旧输入仍未授权。
 
 ## 3. 最终目标边界
 
@@ -54,7 +54,7 @@
 | E1 | AR-0/SK-0（S0 之后的前置证据） | AR-0 + SK-0 | 真实依赖、故障注入、备份恢复和 characterization；已关闭 |
 | E2 | S1 | AR-1 | 统一 MySQL schema、UoW、SQL durable job、单并发 runner、备份/恢复和迁移工具；已关闭，真实证据已收口，不迁移现有业务数据 |
 | E3 | S2 | AR-2 | FastAPI 认证、会话、撤销、角色分离和完整授权审计；已关闭 |
-| E4 | S3 | AR-3 | 业务源数据迁移、稳定 ID/FK、FastAPI 唯一写权威和旧输入对账；待你确认 |
+| E4 | S3 | AR-3 | 业务源数据迁移、稳定 ID/FK、FastAPI 唯一写权威和旧输入对账；实施中 |
 | E5 | S4 | AR-4 | SQL 原文 + Chroma RAG projection、generation、重建和降级合同 |
 | E6 | S5 | AR-5 / SK-1..3 | Codex Skill 目录/ZIP、规范化 manifest、授权发布和 Legacy 对账 |
 | E7 | S6 | AR-5 | 知识、笔记、聊天回接和文件/sidecar 权威清理 |
@@ -67,7 +67,7 @@ E0 文档交接与冻结（已关闭）
   -> E1 AR-0/SK-0 真实依赖与恢复证据（已关闭）
   -> E2/AR-1/S1 单 MySQL schema + SQL job/UoW/runner（已关闭，真实证据已收口，并发 1）
   -> E3/AR-2/S2 FastAPI 认证、会话、撤销和角色审计（已关闭）
-  -> E4/AR-3/S3 业务数据迁移与唯一写权威（待你确认）
+  -> E4/AR-3/S3 业务数据迁移与唯一写权威（实施中）
   -> E5/AR-4/S4 SQL 原文 + Chroma RAG projection 收敛
   -> E6/AR-5/S5 Codex Skill 标准化、授权和发布
   -> E7/AR-5/S6 知识、笔记、聊天回接与文件权威清理
@@ -134,7 +134,7 @@ E0 文档交接与冻结（已关闭）
 
 ### E4：AR-3/S3 业务数据迁移与唯一写权威
 
-入口：E2 schema/UoW/runner 和 E3 user/session context 均关闭；E4 计划待用户确认，尚未授权业务迁移、停写或删除。
+入口：E2 schema/UoW/runner 和 E3 user/session context 均关闭；用户于 2026-09-02 完成 E4 计划审阅并授权实施。当前按独立 allowlist、preflight、backup 和分批 gate 推进；不授权删除旧输入。
 任务：
 
 1. 在同一 MySQL 实例/数据库内完成业务分表过渡：用户、会话、聊天、笔记、知识源、图片、Skill 和迁移映射使用稳定 UUID/FK/审计关联。
