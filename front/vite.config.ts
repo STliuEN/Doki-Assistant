@@ -47,6 +47,7 @@ export default defineConfig({
       '/model-config/': { target: BACKEND_TARGET, changeOrigin: true },
       '/translate/': { target: BACKEND_TARGET, changeOrigin: true },
       '/health': { target: BACKEND_TARGET, changeOrigin: true },
+      '/jobs': { target: BACKEND_TARGET, changeOrigin: true },
       '/user': { target: BACKEND_TARGET, changeOrigin: true },
       // Do not reintroduce a Django write path; file ownership is deferred.
       '/file': { target: BACKEND_TARGET, changeOrigin: true },

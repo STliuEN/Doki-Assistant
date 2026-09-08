@@ -32,6 +32,12 @@ note_router = APIRouter(prefix="/note", tags=["note"])
 
 async def ensure_note_service():
     """依赖：等待 NoteService 后台初始化完成后再处理请求。"""
+    from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
+    if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED"):
+        if init_manager.note_service is None:
+            from app.services.note_service import NoteService
+            init_manager.note_service = NoteService()
+        return init_manager.note_service
     if (
         init_manager.note_service_ready.is_set()
         and init_manager.note_service is not None
@@ -63,7 +69,7 @@ note_router.dependencies = [Depends(ensure_note_service)]
 async def create_note(
     payload: NoteCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -79,7 +85,7 @@ async def create_note(
 @note_router.get("/list", response_model=ApiResponse[NoteListResponse])
 async def list_notes(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     category: str = Query(None),
@@ -97,7 +103,7 @@ async def list_notes(
 async def search_notes(
     q: str = Query(..., description="搜索关键词"),
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     全文语义搜索：走 ChromaDB notes_collection 向量检索，
@@ -111,7 +117,7 @@ async def search_notes(
 async def batch_delete_notes(
     payload: BatchIdsRequest,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -125,7 +131,7 @@ async def batch_delete_notes(
 async def batch_download_notes(
     payload: BatchIdsRequest,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=5, window=60)),
 ):
     """
@@ -150,7 +156,7 @@ async def batch_download_notes(
 async def batch_update_category(
     payload: BatchCategoryRequest,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -164,7 +170,7 @@ async def batch_update_category(
 async def batch_pin_notes(
     payload: BatchPinRequest,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -177,7 +183,7 @@ async def batch_pin_notes(
 @note_router.get("/stats", response_model=ApiResponse[Any])
 async def get_stats(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     获取用户笔记分类统计。
@@ -191,7 +197,7 @@ async def get_stats(
 async def delete_category(
     category: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=5, window=60)),
 ):
     """
@@ -257,7 +263,7 @@ async def update_note(
     note_id: str,
     payload: NoteUpdate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -273,7 +279,7 @@ async def update_note(
 async def toggle_pin(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     切换笔记置顶状态。
@@ -290,7 +296,7 @@ async def toggle_pin(
 async def delete_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     """
@@ -306,7 +312,7 @@ async def delete_note(
 async def get_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     获取笔记详情。
@@ -317,11 +323,11 @@ async def get_note(
     return success_response(data=note)
 
 
-@note_router.post("/{note_id}/auto-tag", response_model=ApiResponse[None])
+@note_router.post("/{note_id}/auto-tag", response_model=ApiResponse[Any])
 async def regenerate_tags(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     手动触发重新生成标签。
@@ -330,6 +336,24 @@ async def regenerate_tags(
     if not note:
         return success_response(message="笔记不存在")
 
+    from uuid import uuid4
+
+    from app.db.business_authority import uses_business_authority
+    if uses_business_authority(db):
+        from app.db.transaction_context import persist_service_write
+        from app.jobs.repository import JobRepository
+        event_id = str(uuid4())
+        repository = JobRepository(db)
+        result = await repository.enqueue(
+            job_type="e4.note.enrich",
+            owner_scope_type="user",
+            owner_scope_id=user_id,
+            idempotency_key=event_id,
+            payload={"schema_version": 1, "entity_type": "notes", "entity_id": note_id, "owner_id": user_id, "event_id": event_id, "force": True},
+            payload_schema_version=1,
+        )
+        await persist_service_write(db)
+        return success_response(message="Tag generation queued", data={"job_id": result.job.id, "status": result.job.status})
     import asyncio
     asyncio.create_task(init_manager.note_service._auto_tag_and_review(note_id, user_id, note.content))
     return success_response(message="标签生成任务已提交")
@@ -339,7 +363,7 @@ async def regenerate_tags(
 async def get_related_notes(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     获取当前笔记的语义相似笔记和知识库文档（Top 3），
@@ -353,7 +377,7 @@ async def get_related_notes(
 async def export_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     导出单篇笔记为 Markdown 格式纯文本。
@@ -380,7 +404,7 @@ async def export_note(
 async def download_note(
     note_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """
     下载笔记为 Markdown 文件（浏览器触发下载）。

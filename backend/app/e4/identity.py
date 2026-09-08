@@ -25,11 +25,12 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-E4_IDENTITY_TOOL_VERSION = "1.0"
+E4_IDENTITY_TOOL_VERSION = "1.1"
 IDENTITY_SCHEMA_VERSION = 1
 _BATCH_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_UUID_ANY_CASE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 _ASCII_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _SCOPES = frozenset({"user", "global"})
 _KNOWN_SOURCE_SYSTEMS = frozenset({"django", "fastapi_legacy", "filesystem", "chroma", "skill_storage", "skill_legacy"})
@@ -56,7 +57,7 @@ class IdentityDryRunError(ValueError):
 
 @dataclass(frozen=True, slots=True, order=True)
 class SourceKey:
-    """Normalized source identity; source IDs remain case-sensitive."""
+    """Normalized source identity; opaque IDs remain case-sensitive."""
 
     source_system: str
     entity_type: str
@@ -83,7 +84,6 @@ class _Candidate:
     unique_key: str | None
     artifact_digest: str | None
     target_uuid: str
-    explicit_target_uuid: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +127,7 @@ class IdentityDecision:
     status: str
     action: str
     issue_codes: tuple[str, ...]
+    artifact_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +217,15 @@ def _normalized_source_id(value: object, *, source_system: str, entity_type: str
         normalized = str(value)
     else:
         normalized = _required_string(value, "source_id", maximum=255)
+        # Standard UUID source identifiers are canonicalized and retained as
+        # target IDs.  This rule does not apply to the frozen Django user
+        # namespace, which always uses the E3 UUIDv5 mapping and preserves its
+        # case-sensitive ShortUUID source value.
+        if not (source_system == "django" and entity_type == "user") and _UUID_ANY_CASE.fullmatch(normalized):
+            try:
+                normalized = str(UUID(normalized))
+            except ValueError as exc:
+                raise IdentityDryRunError("E4 identity source_id UUID is invalid") from exc
         # Legacy SQL integer IDs are represented canonically without leading zeros.
         if (
             source_system == "fastapi_legacy"
@@ -267,9 +277,23 @@ def _unique_key(value: object, field: str) -> str | None:
 
 
 def deterministic_target_uuid(key: SourceKey | Mapping[str, Any]) -> str:
-    """Return the frozen E3/E4 UUIDv5 target for one source key."""
+    """Return the frozen target UUID for one source key.
 
-    normalized = key if isinstance(key, SourceKey) else _source_key_from_mapping(key, "source_key")
+    Existing standard UUID source IDs are retained verbatim after canonical
+    lower-casing.  Django users remain on the frozen E3 UUIDv5 namespace;
+    every other legacy key uses the E4 UUIDv5 namespace.
+    """
+
+    normalized = _source_key_from_mapping(
+        {
+            "source_system": key.source_system,
+            "entity_type": key.entity_type,
+            "source_id": key.source_id,
+        },
+        "source_key",
+    ) if isinstance(key, SourceKey) else _source_key_from_mapping(key, "source_key")
+    if not (normalized.source_system == "django" and normalized.entity_type == "user") and _UUID.fullmatch(normalized.source_id):
+        return normalized.source_id
     if normalized.source_system == "django" and normalized.entity_type == "user":
         name = f"django/user/{normalized.source_id}"
     else:
@@ -312,10 +336,16 @@ def _candidate_from_mapping(item: object, index: int) -> _Candidate:
     if scope == "global" and owner is not None:
         raise IdentityDryRunError(f"E4 identity entities[{index}] global scope cannot have owner")
     raw_target = item.get("target_uuid")
-    explicit_target_uuid = raw_target is not None
-    target_uuid = deterministic_target_uuid(key) if raw_target is None else _canonical_uuid(raw_target, f"entities[{index}].target_uuid")
-    if key.source_system == "django" and key.entity_type == "user" and target_uuid != deterministic_target_uuid(key):
+    is_django_user = key.source_system == "django" and key.entity_type == "user"
+    source_uuid = key.source_id if not is_django_user and _UUID.fullmatch(key.source_id) else None
+    expected_target_uuid = source_uuid or deterministic_target_uuid(key)
+    target_uuid = expected_target_uuid if raw_target is None else _canonical_uuid(raw_target, f"entities[{index}].target_uuid")
+    if is_django_user and target_uuid != deterministic_target_uuid(key):
         raise IdentityDryRunError("E4 identity django user target_uuid violates the E3 UUIDv5 rule")
+    if source_uuid is not None and target_uuid != source_uuid:
+        raise IdentityDryRunError("E4 identity canonical source UUID must be retained")
+    if not is_django_user and source_uuid is None and target_uuid != expected_target_uuid:
+        raise IdentityDryRunError("E4 identity target_uuid violates the deterministic E4 UUIDv5 rule")
     return _Candidate(
         key=key,
         entity_digest=entity_digest,
@@ -325,16 +355,19 @@ def _candidate_from_mapping(item: object, index: int) -> _Candidate:
         unique_key=_unique_key(item.get("unique_key"), f"entities[{index}].unique_key"),
         artifact_digest=None if item.get("artifact_digest") is None else _digest(item.get("artifact_digest"), f"entities[{index}].artifact_digest"),
         target_uuid=target_uuid,
-        explicit_target_uuid=explicit_target_uuid,
     )
 
 
 def _existing_mapping_from_mapping(item: object, index: int) -> _ExistingMapping:
     if not isinstance(item, Mapping):
         raise IdentityDryRunError(f"E4 identity existing_mappings[{index}] must be an object")
+    key = _source_key_from_mapping(item, f"existing_mappings[{index}]")
+    target_uuid = _canonical_uuid(item.get("target_uuid"), f"existing_mappings[{index}].target_uuid")
+    if target_uuid != deterministic_target_uuid(key):
+        raise IdentityDryRunError("E4 identity existing mapping violates the deterministic target UUID rule")
     return _ExistingMapping(
-        key=_source_key_from_mapping(item, f"existing_mappings[{index}]"),
-        target_uuid=_canonical_uuid(item.get("target_uuid"), f"existing_mappings[{index}].target_uuid"),
+        key=key,
+        target_uuid=target_uuid,
         source_digest=_digest(item.get("source_digest"), f"existing_mappings[{index}].source_digest"),
         status=_required_string(item.get("status"), f"existing_mappings[{index}].status", maximum=16).casefold(),
     )
@@ -346,8 +379,11 @@ def _existing_target_from_mapping(item: object, index: int) -> _ExistingTarget:
     if not isinstance(item, Mapping):
         raise IdentityDryRunError(f"E4 identity existing_targets[{index}] must be a UUID or object")
     source_key = None if item.get("source_key") is None else _source_key_from_mapping(item.get("source_key"), f"existing_targets[{index}].source_key")
+    target_uuid = _canonical_uuid(item.get("target_uuid"), f"existing_targets[{index}].target_uuid")
+    if source_key is not None and target_uuid != deterministic_target_uuid(source_key):
+        raise IdentityDryRunError("E4 identity existing target violates the deterministic target UUID rule")
     return _ExistingTarget(
-        target_uuid=_canonical_uuid(item.get("target_uuid"), f"existing_targets[{index}].target_uuid"),
+        target_uuid=target_uuid,
         source_key=source_key,
         unique_key=_unique_key(item.get("unique_key"), f"existing_targets[{index}].unique_key"),
     )
@@ -357,7 +393,17 @@ def load_identity_input(source: Mapping[str, Any] | str | Path | IdentityInput) 
     """Parse one explicit JSON snapshot without consulting process state."""
 
     if isinstance(source, IdentityInput):
-        return source
+        # Re-run the same runtime validation for dataclass callers; type
+        # annotations alone must not provide a bypass around the JSON contract.
+        source = {
+            "migration_batch_id": source.migration_batch_id,
+            "snapshot_manifest_digest": source.snapshot_manifest_digest,
+            "schema_revision": source.schema_revision,
+            "correlation_id": source.correlation_id,
+            "entities": list(source.entities),
+            "existing_mappings": list(source.existing_mappings),
+            "existing_targets": list(source.existing_targets),
+        }
     document = _json_document(source)
     schema_version = document.get("schema_version", IDENTITY_SCHEMA_VERSION)
     if schema_version != IDENTITY_SCHEMA_VERSION:
@@ -418,12 +464,16 @@ def _base_decisions(
     targets: Sequence[_ExistingTarget],
 ) -> tuple[list[IdentityDecision], set[SourceKey], set[SourceKey]]:
     mapping_by_key: dict[SourceKey, _ExistingMapping] = {}
+    mapping_by_target: dict[str, set[SourceKey]] = defaultdict(set)
     for mapping in mappings:
         if mapping.key in mapping_by_key:
             raise IdentityDryRunError("E4 identity existing_mappings contains duplicate source keys")
         if mapping.status not in {"mapped", "conflict", "error"}:
             raise IdentityDryRunError("E4 identity existing_mappings contains an unsupported status")
         mapping_by_key[mapping.key] = mapping
+        mapping_by_target[mapping.target_uuid].add(mapping.key)
+    if any(len(source_keys) > 1 for source_keys in mapping_by_target.values()):
+        raise IdentityDryRunError("E4 identity existing_mappings reuses one target UUID for different source keys")
     target_by_uuid: dict[str, _ExistingTarget] = {}
     for target in targets:
         if target.target_uuid in target_by_uuid:
@@ -462,9 +512,12 @@ def _base_decisions(
         issues: set[str] = set()
         existing = mapping_by_key.get(candidate.key)
         existing_target = target_by_uuid.get(candidate.target_uuid)
+        mapped_sources = mapping_by_target.get(candidate.target_uuid, set())
         if candidate.key in duplicate_keys:
             issues.add("duplicate_source_key")
         if candidate.target_uuid in collided_targets:
+            issues.add("target_uuid_collision")
+        if any(source_key != candidate.key for source_key in mapped_sources):
             issues.add("target_uuid_collision")
         if candidate.unique_key is not None and candidate.unique_key in collided_uniques:
             issues.add("unique_key_conflict")
@@ -500,6 +553,7 @@ def _base_decisions(
             key=candidate.key,
             target_uuid=candidate.target_uuid,
             entity_digest=candidate.entity_digest,
+            artifact_digest=candidate.artifact_digest,
             scope=candidate.scope,
             owner=candidate.owner,
             foreign_key_count=len(candidate.foreign_keys),
@@ -536,6 +590,7 @@ def _reconcile_references(
                 key=decision.key,
                 target_uuid=decision.target_uuid,
                 entity_digest=decision.entity_digest,
+                artifact_digest=decision.artifact_digest,
                 scope=decision.scope,
                 owner=decision.owner,
                 foreign_key_count=decision.foreign_key_count,
@@ -555,6 +610,7 @@ def _reconcile_references(
             key=decision.key,
             target_uuid=decision.target_uuid,
             entity_digest=decision.entity_digest,
+            artifact_digest=decision.artifact_digest,
             scope=decision.scope,
             owner=decision.owner,
             foreign_key_count=decision.foreign_key_count,
@@ -588,6 +644,7 @@ def _redacted_decision(decision: IdentityDecision) -> dict[str, Any]:
         "source_key_token": decision.key.token,
         "target_uuid": decision.target_uuid,
         "entity_content_digest": decision.entity_digest,
+        "artifact_digest": decision.artifact_digest,
         "scope": decision.scope,
         "owner_key_token": None if decision.owner is None else decision.owner.token,
         "foreign_key_count": decision.foreign_key_count,

@@ -7,12 +7,15 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-if os.environ.get("E3_MIGRATION_ENABLED"):
+if os.environ.get("E4_MIGRATION_ENABLED"):
+    from app.db.e4_guard import inspect_e4_container, load_guard_from_environment, verify_database_fingerprint
+elif os.environ.get("E3_MIGRATION_ENABLED"):
     from app.db.e3_guard import load_guard_from_environment, verify_database_fingerprint
 else:
     from app.db.e2_guard import load_guard_from_environment, verify_database_fingerprint
 from app.models import (
     chat_history,
+    e4_migration,
     embedding_config,
     identity_domain,
     job_domain,
@@ -38,10 +41,14 @@ _MODELS = (
     job_domain,
     projection_domain,
     skill_domain,
+    e4_migration,
 )
 
 config = context.config
-guard = load_guard_from_environment("migrate")
+if os.environ.get("E4_MIGRATION_ENABLED"):
+    guard = load_guard_from_environment("migrate", container_inspector=inspect_e4_container)
+else:
+    guard = load_guard_from_environment("migrate")
 config.set_main_option("sqlalchemy.url", guard.database_url.replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

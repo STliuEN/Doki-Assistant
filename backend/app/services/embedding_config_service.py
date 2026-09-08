@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.embedding_config import UserEmbeddingConfig
 from app.services.model_config_service import DEFAULT_OLLAMA_BASE_URL, get_model_config_service
 from app.utils.model_provider import create_ollama_embedding_model
@@ -62,7 +64,7 @@ class EmbeddingConfigService:
         )
 
     async def get_user_config(self, db: AsyncSession, user_id: str) -> EmbeddingConfigData:
-        stmt = select(UserEmbeddingConfig).where(UserEmbeddingConfig.user_id == user_id)
+        stmt = select(UserEmbeddingConfig).where(business_owner_filter(UserEmbeddingConfig, user_id))
         result = await db.execute(stmt)
         config = result.scalar_one_or_none()
         if config:
@@ -86,7 +88,7 @@ class EmbeddingConfigService:
         model_type = model_type.strip() or "ollama"
         normalized_base_url = (base_url or DEFAULT_OLLAMA_BASE_URL).strip().rstrip("/")
 
-        stmt = select(UserEmbeddingConfig).where(UserEmbeddingConfig.user_id == user_id)
+        stmt = select(UserEmbeddingConfig).where(business_owner_filter(UserEmbeddingConfig, user_id))
         result = await db.execute(stmt)
         config = result.scalar_one_or_none()
 
@@ -108,7 +110,7 @@ class EmbeddingConfigService:
             config.base_url = normalized_base_url
             config.is_active = True
 
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(config)
         return self._to_data(config)
 

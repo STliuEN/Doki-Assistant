@@ -1,0 +1,88 @@
+{
+  "artifact_kind": "e4-daily-business-authority-checkpoint",
+  "boundaries": {
+    "chroma_generation_activated": false,
+    "e1_e2_e3_resources_changed": false,
+    "external_llm_tested": false,
+    "full_app_lifespan_tested": false,
+    "old_running_django_process_restarted": false,
+    "permanent_application_dsn_changed": false,
+    "source_business_rows_changed": false,
+    "source_stop_write": false,
+    "synthetic_tagger_used": true
+  },
+  "business_smoke": "e4-business-write-smoke-20260907T042611.json",
+  "captured_at": "2026-09-07T04:28:28.135276+00:00",
+  "failure_evidence": {
+    "audit_jobs_and_backup_retained": true,
+    "cause": "DATETIME seconds precision changed generated review timestamps compared with pre-flush digest",
+    "failed_target_backup_sha256": "3da6d0e86a737d75dd1f696f141b549349fb2da3f836acad7b7e4d624c4bf8e9",
+    "first_mysql_smoke_run": "ac844a34-c3fa-4955-9c86-9eb7ad0e01b9",
+    "fixed": true,
+    "synthetic_business_rows_removed_via_business_uow": true
+  },
+  "final_repository_checks": {
+    "checked_at": "2026-09-07T04:38:54.246543+00:00",
+    "code_changed_after_recorded_full_test_run": false,
+    "documentation_check": "passed",
+    "git_diff_check": "passed",
+    "latest_backup_sha256_rechecked": true,
+    "local_links": 178,
+    "markdown_files": 195,
+    "new_secret_exact_match_candidates": 8,
+    "private_child_files_unexpected_allow_entries": 0,
+    "private_directory_acl": "owner_and_SYSTEM_only",
+    "private_files_git_ignored": true,
+    "repository_files_scanned": 931,
+    "repository_new_secret_matches": 0
+  },
+  "implemented": [
+    "Guarded E4 BusinessSession adds canonical owner/entity/parent identity, immutable ownership and business audit.",
+    "Business rows, audit and durable job enqueue commit or roll back together; ORM dependency orders job before job audit.",
+    "Bulk business DML and untracked SQL refused; tracked service row mutations preserve audit.",
+    "New MySQL datetime values normalized to actual storage precision before digest; aware values normalize UTC, old source literals unchanged.",
+    "Chat parent and paired messages share one UoW.",
+    "Automatic/manual note enrichment is a SQL job; fenced business result and job completion share transaction; runner verifies durable completion.",
+    "E4 runner checks role, database fingerprint and schema, claims only registered handlers.",
+    "Knowledge originals and embedding settings write SQL without synchronous Chroma; accepted SSE follows SQL commit.",
+    "GET /jobs and /jobs/{job_id} read owner-scoped SQL state.",
+    "E4 HTTP file/MD5/reranker/tool/MCP maintenance writes retired; Django legacy routes and ordinary ORM writes retired.",
+    "Legacy key rotation --apply refused in E4 runtime; explicit guarded migration path remains."
+  ],
+  "pdf_exclusion": "e4-pdf-exclusion-20260907.json",
+  "reconciliation": "e4-business-reconcile-20260907T042742.json",
+  "remaining": [
+    "Final source stop-write/freeze and traffic/DSN cutover.",
+    "Full application lifecycle, Redis outage and complete business fault matrix.",
+    "E5 generation-aware projection workers; note/knowledge/embedding projection jobs remain queued, not successful.",
+    "E6 Skill package publication/storage normalization unchanged.",
+    "Final user acceptance; stage not closed."
+  ],
+  "restoration": {
+    "artifact": "e4-restore-20260907T042748.json",
+    "backup_bytes": 2195497,
+    "backup_sha256": "841b40167d79ee9c6ef940bd26af8db7fdc3b27474846dcdb23eff8b99a03e95",
+    "ddl_and_rows_equal": true,
+    "private_backup": ".runtime/e4/backup-target-841b40167d79ee9c.sql",
+    "rows": 2407,
+    "table_count": 39
+  },
+  "source_recheck": {
+    "captured_at": "2026-09-07T04:27:42.764607+00:00",
+    "drift": false,
+    "tables": 21
+  },
+  "status": "implementation_verified_for_isolated_target_not_app_cutover",
+  "tests": {
+    "compileall": "passed",
+    "django_migrations_refused": true,
+    "django_orm_writes_refused": true,
+    "django_route_checks": 14,
+    "django_runtime": "5.2.6",
+    "django_views_called_for_retired_routes": 0,
+    "pytest_passed": 488,
+    "ruff": "passed",
+    "seconds": 33.41,
+    "warnings": 1
+  }
+}

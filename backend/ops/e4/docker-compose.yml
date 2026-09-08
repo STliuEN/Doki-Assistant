@@ -1,0 +1,65 @@
+name: doki-e4-business
+
+services:
+  target:
+    image: mysql:8.4
+    container_name: doki-e4-20260903-mysql
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${E4_TARGET_MYSQL_ROOT_PASSWORD:?set E4_TARGET_MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${E4_TARGET_MYSQL_PASSWORD:?set E4_TARGET_MYSQL_PASSWORD}
+      MYSQL_DATABASE: doki_e4
+      MYSQL_USER: doki_e4_app
+    ports:
+      - "127.0.0.1:33427:3306"
+    command:
+      - --server-id=40927
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+      - --max_allowed_packet=268435456
+      - --transaction-isolation=REPEATABLE-READ
+    volumes:
+      - doki-e4-20260903-target-data:/var/lib/mysql
+    networks: [doki-e4-20260903-net]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  restore:
+    image: mysql:8.4
+    container_name: doki-e4-20260903-mysql-restore
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${E4_RESTORE_MYSQL_ROOT_PASSWORD:?set E4_RESTORE_MYSQL_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${E4_RESTORE_MYSQL_PASSWORD:?set E4_RESTORE_MYSQL_PASSWORD}
+      MYSQL_DATABASE: doki_e4
+      MYSQL_USER: doki_e4_restore
+    ports:
+      - "127.0.0.1:33428:3306"
+    command:
+      - --server-id=40928
+      - --default-time-zone=+00:00
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+      - --max_allowed_packet=268435456
+      - --transaction-isolation=REPEATABLE-READ
+    volumes:
+      - doki-e4-20260903-restore-data:/var/lib/mysql
+    networks: [doki-e4-20260903-net]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  doki-e4-20260903-net:
+    name: doki-e4-20260903-net
+    driver: bridge
+
+volumes:
+  doki-e4-20260903-target-data:
+    name: doki-e4-20260903-target-data
+  doki-e4-20260903-restore-data:
+    name: doki-e4-20260903-restore-data

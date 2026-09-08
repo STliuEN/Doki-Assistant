@@ -1,0 +1,104 @@
+{
+  "artifact_kind": "e4-resource-discovery",
+  "authorization": "user-directed database/project discovery and continuation of E4; no deletion",
+  "backup_storage": ".runtime/e4; restricted owner/SYSTEM ACL; JSON source snapshot only; restore-forward not rehearsed",
+  "blocking_reasons": [
+    "target_and_restore_credentials_are_not_independent",
+    "source_discovery_account_is_not_a_dedicated_read_only_account",
+    "one_legacy_pdf_original_is_missing_from_sql_and_project",
+    "formal_migration_allowlist_and_restore_forward_gate_not_completed"
+  ],
+  "captured_at": "2026-09-07T00:20:27.395605+00:00",
+  "container_recreation_performed": false,
+  "container_start_performed": true,
+  "containers": [
+    {
+      "authenticated_account": "doki_e4_app@%",
+      "container_id": "ab8ece994ee91ba7b8696dcf8593b7990827f768b754edbfdbee8e7c6c0e6ecc",
+      "container_name": "doki-e4-20260903-mysql",
+      "database": "doki_e4",
+      "database_username": "doki_e4_app",
+      "grants": [
+        "GRANT USAGE ON *.* TO `doki_e4_app`@`%`",
+        "GRANT ALL PRIVILEGES ON `doki\\_e4`.* TO `doki_e4_app`@`%`"
+      ],
+      "health": "healthy",
+      "host": "127.0.0.1",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "network_names": [
+        "doki-e4-20260903-net"
+      ],
+      "port": 33427,
+      "read_only_database_inspection": true,
+      "role": "target",
+      "running": true,
+      "schema_revision": null,
+      "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469",
+      "table_count": 0,
+      "volume_names": [
+        "doki-e4-20260903-target-data"
+      ]
+    },
+    {
+      "authenticated_account": "doki_e4_app@%",
+      "container_id": "d007b04ee252b79bf4c2cd58730c2cbc5d26ca1bd0ff936968473b985af2c58b",
+      "container_name": "doki-e4-20260903-mysql-restore",
+      "database": "doki_e4",
+      "database_username": "doki_e4_app",
+      "grants": [
+        "GRANT USAGE ON *.* TO `doki_e4_app`@`%`",
+        "GRANT ALL PRIVILEGES ON `doki\\_e4`.* TO `doki_e4_app`@`%`"
+      ],
+      "health": "healthy",
+      "host": "127.0.0.1",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "network_names": [
+        "doki-e4-20260903-net"
+      ],
+      "port": 33428,
+      "read_only_database_inspection": true,
+      "role": "restore",
+      "running": true,
+      "schema_revision": null,
+      "server_uuid": "0bf5339b-a743-11f1-9ab9-febdaaf248fb",
+      "table_count": 0,
+      "volume_names": [
+        "doki-e4-20260903-restore-data"
+      ]
+    }
+  ],
+  "credential_observations": {
+    "app_passwords_shared": true,
+    "credential_values_output_or_persisted": false,
+    "restore_actual_username": "doki_e4_app",
+    "restore_compose_username": "doki_e4_restore",
+    "root_passwords_shared": true
+  },
+  "database_connection_performed": true,
+  "database_ddl_or_business_writes_performed": false,
+  "observation_only": true,
+  "preflight_issued": false,
+  "schema_version": 1,
+  "source": {
+    "configuration_files": [
+      "backend/.env",
+      "DjangoUserService/.env"
+    ],
+    "databases": [
+      "chat_history",
+      "user_service"
+    ],
+    "dedicated_read_only_source_credential_verified": false,
+    "discovery_account": "root@localhost",
+    "host": "localhost",
+    "port": 3306,
+    "read_only_transactions": true,
+    "server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f",
+    "snapshot_content_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a"
+  },
+  "source_account_changes_performed": false,
+  "started_existing_containers": [
+    "doki-e4-20260903-mysql",
+    "doki-e4-20260903-mysql-restore"
+  ]
+}

@@ -1,0 +1,194 @@
+{
+  "artifact_kind": "e4-full-application-local-cutover",
+  "captured_at": "2026-09-08T02:54:13.878939+00:00",
+  "checks": {
+    "backend_tests": 491,
+    "compileall": true,
+    "frontend_build": true,
+    "frontend_tests": 28,
+    "ruff": true
+  },
+  "django_retired_process_running": true,
+  "django_sql_controls": {
+    "current_user": "doki_e4_source_ro@localhost",
+    "db_user": "doki_e4_source_ro",
+    "migration_rejected": true,
+    "orm_write_rejected": true,
+    "raw_zero_row_write_error_code": 1290,
+    "read_only": 1,
+    "router": [
+      "DjangoUserService.legacy_boundary.LegacyReadOnlyRouter"
+    ],
+    "source_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f",
+    "super_read_only": 1
+  },
+  "evidence": [
+    "e4-source-freeze-20260908.json",
+    "e4-cutover-redis-20260908T024931.json",
+    "e4-redis-cold-start-20260908.json",
+    "e4-runtime-credential-rotation-20260908.json",
+    "e4-business-reconcile-20260908T025039.json"
+  ],
+  "final_application": {
+    "database": {
+      "current_user": "doki_e4_app@%",
+      "name": "doki_e4",
+      "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+    },
+    "http_statuses_via_frontend": {
+      "/": 200,
+      "/health/live": 200,
+      "/health/ready": 200,
+      "/health/runner": 200,
+      "/jobs": 401,
+      "/user/detail/": 401
+    },
+    "mysql_lock_held": true,
+    "pid": 48016,
+    "runner": {
+      "active_attempt": null,
+      "active_fencing_token": null,
+      "active_job_id": null,
+      "active_job_type": null,
+      "claimed_count": 0,
+      "concurrency": 1,
+      "enabled": true,
+      "failed_count": 0,
+      "last_completed_at": null,
+      "last_error": null,
+      "last_poll_at": "2026-09-08T02:54:12.957697+00:00",
+      "lease_owner": "runner-158a4cee-58a2-4a08-b91f-74817ef20779",
+      "rejected_count": 0,
+      "status": "running",
+      "succeeded_count": 0
+    }
+  },
+  "graceful_lifecycle_phases": [
+    {
+      "closed_at": "2026-09-08T02:45:30.751747+00:00",
+      "database": {
+        "current_user": "doki_e4_app@%",
+        "name": "doki_e4",
+        "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+      },
+      "pid": 9516,
+      "record": "process-20260908T024055-821115.json",
+      "redis_pool_released": true,
+      "runner_after_shutdown": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 0,
+        "concurrency": 1,
+        "enabled": false,
+        "failed_count": 0,
+        "last_completed_at": null,
+        "last_error": null,
+        "last_poll_at": null,
+        "lease_owner": null,
+        "rejected_count": 0,
+        "status": "disabled",
+        "succeeded_count": 0
+      },
+      "runner_before_shutdown": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 0,
+        "concurrency": 1,
+        "enabled": true,
+        "failed_count": 0,
+        "last_completed_at": null,
+        "last_error": null,
+        "last_poll_at": "2026-09-08T02:45:29.886681+00:00",
+        "lease_owner": "runner-c5a0bc21-a7ca-47e8-a5b6-64f71c404022",
+        "rejected_count": 0,
+        "status": "running",
+        "succeeded_count": 0
+      },
+      "shutdown_complete": true,
+      "shutdown_requested_at": "2026-09-08T02:45:30.610084+00:00",
+      "started_at": "2026-09-08T02:41:08.936400+00:00",
+      "startup_complete": true
+    },
+    {
+      "closed_at": "2026-09-08T02:50:30.951974+00:00",
+      "database": {
+        "current_user": "doki_e4_app@%",
+        "name": "doki_e4",
+        "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+      },
+      "pid": 43904,
+      "record": "process-20260908T024853-ccdef8.json",
+      "redis_pool_released": true,
+      "runner_after_shutdown": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 0,
+        "concurrency": 1,
+        "enabled": false,
+        "failed_count": 0,
+        "last_completed_at": null,
+        "last_error": null,
+        "last_poll_at": null,
+        "lease_owner": null,
+        "rejected_count": 0,
+        "status": "disabled",
+        "succeeded_count": 0
+      },
+      "runner_before_shutdown": {
+        "active_attempt": null,
+        "active_fencing_token": null,
+        "active_job_id": null,
+        "active_job_type": null,
+        "claimed_count": 1,
+        "concurrency": 1,
+        "enabled": true,
+        "failed_count": 1,
+        "last_completed_at": "2026-09-08T02:49:07.239986+00:00",
+        "last_error": null,
+        "last_poll_at": "2026-09-08T02:50:30.532080+00:00",
+        "lease_owner": "runner-8ed5c0ac-042c-4f8b-a844-bc58d5169d59",
+        "rejected_count": 0,
+        "status": "running",
+        "succeeded_count": 0
+      },
+      "shutdown_complete": true,
+      "shutdown_requested_at": "2026-09-08T02:50:30.839549+00:00",
+      "started_at": "2026-09-08T02:49:06.805041+00:00",
+      "startup_complete": true
+    },
+    {
+      "database": {
+        "current_user": "doki_e4_app@%",
+        "name": "doki_e4",
+        "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+      },
+      "pid": 48016,
+      "record": "process-20260908T025217-d12ace.json",
+      "started_at": "2026-09-08T02:52:30.366599+00:00",
+      "startup_complete": true
+    }
+  ],
+  "limitations": [
+    "No production shared-volume, DNS/load-balancer or TLS deployment was provided or certified",
+    "No browser visual acceptance or real LLM success/failure matrix; fallback for unavailable Ollama observed",
+    "No E5 projection generation activated; fixture E5 jobs cancelled by audited cleanup, not succeeded",
+    "User final acceptance pending; migration batch remains imported",
+    "Third-party API key exposed in earlier diagnostics still requires user/provider rotation"
+  ],
+  "local_dsn_traffic_cutover": true,
+  "restore": {
+    "backup_sha256": "bbcf14de7d4024aadc523d5e923fd73de917ad25c5396cf77c31b6c0d66a1b75",
+    "evidence": "e4-restore-20260908T025045.json",
+    "rows": 2539,
+    "tables": 39
+  },
+  "runtime_secrets_rotated": true,
+  "scope": "local single-instance loopback full FastAPI lifecycle and real Vite proxy traffic; not production DNS/LB/TLS",
+  "source_stop_write": true
+}

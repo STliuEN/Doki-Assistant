@@ -48,6 +48,8 @@ async def get_current_auth(request: Request, credentials: HTTPAuthorizationCrede
         user = await repository.validate_access_claims(claims)
         profile = await repository.get_profile(user.id)
         request.state.e3_auth_user_id = str(user.id)
+        from app.db.business_authority import BUSINESS_ACTOR
+        BUSINESS_ACTOR.set(str(user.id))
         await session.commit()
         return {"user": user, "profile": profile, "claims": claims}
 

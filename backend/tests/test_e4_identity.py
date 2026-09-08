@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from copy import deepcopy
 from pathlib import Path
@@ -8,6 +9,7 @@ import pytest
 
 from app.e4.identity import (
     IdentityDryRunError,
+    SourceKey,
     build_identity_dry_run,
     deterministic_target_uuid,
     identity_report_to_dict,
@@ -154,19 +156,18 @@ def test_missing_owner_and_fk_propagate_orphan_status() -> None:
 
 
 def test_target_and_unique_collisions_fail_closed() -> None:
-    explicit_target = "22222222-2222-4222-8222-222222222222"
+    first_key = _key("fastapi_legacy", "note", "1")
+    collided_target = deterministic_target_uuid(first_key)
     first = {
-        **_key("fastapi_legacy", "note", "1"),
+        **first_key,
         "entity_content_digest": "1" * 64,
         "scope": "global",
-        "target_uuid": explicit_target,
         "unique_key": "canonical-note-key",
     }
     second = {
-        **_key("fastapi_legacy", "note", "2"),
+        **_key("fastapi_legacy", "note", collided_target),
         "entity_content_digest": "2" * 64,
         "scope": "global",
-        "target_uuid": explicit_target,
         "unique_key": "canonical-note-key",
     }
     report = build_identity_dry_run(_document(first, second))
@@ -207,3 +208,109 @@ def test_report_writer_is_new_file_only_and_keeps_redaction(tmp_path: Path) -> N
     assert "legacy-user-1" not in output.read_text(encoding="utf-8")
     with pytest.raises(IdentityDryRunError, match="already exists"):
         write_identity_report(report, output)
+
+
+def test_standard_uuid_source_is_canonicalized_and_retained_as_target() -> None:
+    source_uuid = "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF"
+    entity = {
+        **_key("filesystem", "image", source_uuid),
+        "entity_content_digest": "f" * 64,
+        "artifact_digest": "e" * 64,
+        "scope": "global",
+    }
+    report = build_identity_dry_run(_document(entity))
+
+    decision = report.decisions[0]
+    assert decision.key.source_id == source_uuid.lower()
+    assert decision.target_uuid == source_uuid.lower()
+    assert decision.artifact_digest == "e" * 64
+    rendered = identity_report_to_dict(report)
+    assert rendered["decisions"][0]["artifact_digest"] == "e" * 64
+    unsigned = identity_report_to_dict(report, include_digest=False)
+    canonical = json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == report.report_sha256
+
+
+def test_source_key_dataclass_is_revalidated_and_canonicalized() -> None:
+    source_uuid = "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF"
+    assert deterministic_target_uuid(SourceKey("FILESYSTEM", "IMAGE", source_uuid)) == source_uuid.lower()
+    with pytest.raises(IdentityDryRunError, match="source_system is unsupported"):
+        deterministic_target_uuid(SourceKey("unknown", "image", "one"))
+
+
+def test_django_uuid_like_shortuuid_preserves_case_and_uses_e3_uuid5() -> None:
+    source_id = "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF"
+    entity = {
+        **_key("django", "user", source_id),
+        "entity_content_digest": USER_DIGEST,
+        "scope": "global",
+    }
+    report = build_identity_dry_run(_document(entity))
+
+    decision = report.decisions[0]
+    assert decision.key.source_id == source_id
+    assert decision.target_uuid == deterministic_target_uuid(entity)
+    assert decision.target_uuid != source_id.lower()
+
+
+def test_existing_mappings_cannot_reuse_one_target_uuid_for_different_sources() -> None:
+    first = _key("filesystem", "image", "first")
+    target_uuid = deterministic_target_uuid(first)
+    second = _key("filesystem", "image", target_uuid)
+    with pytest.raises(IdentityDryRunError, match="reuses one target UUID"):
+        build_identity_dry_run(
+            _document(
+                {
+                    **first,
+                    "entity_content_digest": "1" * 64,
+                    "scope": "global",
+                },
+                existing_mappings=[
+                    {
+                        **first,
+                        "target_uuid": target_uuid,
+                        "source_digest": "1" * 64,
+                        "status": "mapped",
+                    },
+                    {
+                        **second,
+                        "target_uuid": target_uuid,
+                        "source_digest": "2" * 64,
+                        "status": "mapped",
+                    },
+                ],
+            )
+        )
+
+
+def test_existing_mapping_rejects_non_deterministic_target_uuid() -> None:
+    key = _key("filesystem", "image", "first")
+    with pytest.raises(IdentityDryRunError, match="existing mapping.*deterministic"):
+        build_identity_dry_run(
+            _document(
+                {
+                    **key,
+                    "entity_content_digest": "1" * 64,
+                    "scope": "global",
+                },
+                existing_mappings=[
+                    {
+                        **key,
+                        "target_uuid": "22222222-2222-4222-8222-222222222222",
+                        "source_digest": "1" * 64,
+                        "status": "mapped",
+                    }
+                ],
+            )
+        )
+
+
+def test_legacy_source_rejects_non_deterministic_explicit_target_uuid() -> None:
+    entity = {
+        **_key("fastapi_legacy", "note", "1"),
+        "entity_content_digest": "1" * 64,
+        "scope": "global",
+        "target_uuid": "22222222-2222-4222-8222-222222222222",
+    }
+    with pytest.raises(IdentityDryRunError, match="deterministic E4 UUIDv5 rule"):
+        build_identity_dry_run(_document(entity))

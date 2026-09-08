@@ -4,9 +4,12 @@ from json import JSONDecodeError
 import httpx
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.business_authority import mutate_rows
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.model_config import UserModelConfig
 from app.schemas.model_config import ModelConfigCreate, ModelConfigResponse, ModelConfigTestRequest, ModelConfigUpdate
 from app.utils.crypto_utils import decrypt_text, encrypt_text, mask_secret
@@ -51,20 +54,20 @@ class ModelConfigService:
     async def list_configs(self, db: AsyncSession, user_id: str) -> list[ModelConfigResponse]:
         stmt = (
             select(UserModelConfig)
-            .where(UserModelConfig.user_id == user_id)
+            .where(business_owner_filter(UserModelConfig, user_id))
             .order_by(UserModelConfig.created_at.desc())
         )
         result = await db.execute(stmt)
         return [self._to_response(config) for config in result.scalars().all()]
 
     async def get_config(self, db: AsyncSession, user_id: str, config_id: str) -> UserModelConfig | None:
-        stmt = select(UserModelConfig).where(UserModelConfig.id == config_id, UserModelConfig.user_id == user_id)
+        stmt = select(UserModelConfig).where(UserModelConfig.id == config_id, business_owner_filter(UserModelConfig, user_id))
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_default_config(self, db: AsyncSession, user_id: str) -> UserModelConfig | None:
         stmt = select(UserModelConfig).where(
-            UserModelConfig.user_id == user_id,
+            business_owner_filter(UserModelConfig, user_id),
             UserModelConfig.is_default == True,  # noqa: E712
             UserModelConfig.is_active == True,  # noqa: E712
         )
@@ -114,7 +117,7 @@ class ModelConfigService:
         if payload.is_default:
             await self._clear_default(db, user_id)
         db.add(config)
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(config)
         return self._to_response(config)
 
@@ -141,7 +144,7 @@ class ModelConfigService:
             if payload.is_default:
                 await self._clear_default(db, user_id, exclude_id=config.id)
 
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(config)
         return self._to_response(config)
 
@@ -150,7 +153,7 @@ class ModelConfigService:
         if not config:
             return False
         await db.delete(config)
-        await db.commit()
+        await persist_service_write(db)
         return True
 
     async def set_default(self, db: AsyncSession, user_id: str, config_id: str) -> ModelConfigResponse | None:
@@ -160,15 +163,15 @@ class ModelConfigService:
         await self._clear_default(db, user_id, exclude_id=config.id)
         config.is_default = True
         config.is_active = True
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(config)
         return self._to_response(config)
 
     async def _clear_default(self, db: AsyncSession, user_id: str, exclude_id: str | None = None):
-        stmt = update(UserModelConfig).where(UserModelConfig.user_id == user_id)
+        criteria = [business_owner_filter(UserModelConfig, user_id)]
         if exclude_id:
-            stmt = stmt.where(UserModelConfig.id != exclude_id)
-        await db.execute(stmt.values(is_default=False))
+            criteria.append(UserModelConfig.id != exclude_id)
+        await mutate_rows(db, UserModelConfig, *criteria, values={"is_default": False})
 
     async def test_payload(self, payload: ModelConfigTestRequest) -> dict:
         self._validate_user_editable_model_type(payload.model_type)

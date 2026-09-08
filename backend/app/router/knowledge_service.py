@@ -122,7 +122,28 @@ def _sync_slice_file(file_content: bytes, filename: str, file_index: int, user_i
 
 
 class KnowledgeService:
-    """知识库管理服务"""
+    """SQL original ingestion and legacy projection compatibility."""
+
+    async def accept_sql_uploads(self, files, user_id, db):
+        config = await get_embedding_config_service().get_user_config(db, user_id)
+        documents = []
+        total_size = 0
+        for index, file in enumerate(files):
+            filename = os.path.basename((file.filename or "").replace("\\", "/"))
+            if os.path.splitext(filename)[1].lower() not in ALLOWED_EXTENSIONS:
+                raise HTTPException(status_code=400, detail="Unsupported document type")
+            content = await file.read(MAX_FILE_SIZE + 1)
+            total_size += len(content)
+            if len(content) > MAX_FILE_SIZE or total_size > MAX_FOLDER_SIZE:
+                raise HTTPException(status_code=413, detail="Document size limit exceeded")
+            document, _created = await get_knowledge_document_service().upsert_source(
+                db,
+                user_id,
+                KnowledgeFileInput(filename=filename, content=content, mime_type=file.content_type or "", file_index=index),
+                config.to_dict(),
+            )
+            documents.append({"id": document.id, "filename": document.filename, "status": document.status})
+        return {"documents": documents, "job_ids": list(db.info.get("e4_enqueued_jobs", [])), "projection_status": "queued"}
 
     async def handle_add_vector_single(self, file: UploadFile, user_id: str, db: AsyncSession | None = None) -> str:
         """处理添加单个向量逻辑"""

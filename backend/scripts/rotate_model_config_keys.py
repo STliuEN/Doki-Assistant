@@ -13,6 +13,9 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 async def rotate(*, apply: bool) -> int:
+    from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
+    if apply and E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED"):
+        raise RuntimeError("E4 key rotation requires a dedicated audited migration batch, not this legacy script")
     from app.db.db_config import AsyncSessionLocal, async_engine
     from app.models.model_config import UserModelConfig
     from app.utils.crypto_utils import decrypt_text, encrypt_text

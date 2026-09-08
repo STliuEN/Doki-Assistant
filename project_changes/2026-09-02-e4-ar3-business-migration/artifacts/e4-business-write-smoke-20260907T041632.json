@@ -1,0 +1,42 @@
+{
+  "application_cutover": false,
+  "artifact_kind": "e4-real-business-write-smoke",
+  "business_handler_succeeded_once": true,
+  "canonical_identity_and_digest_verified": true,
+  "captured_at": "2026-09-07T04:16:31.737513+00:00",
+  "embedding_rebuild_durable": true,
+  "fixture_business_rows_removed": 8,
+  "job_count": 6,
+  "job_owner_scope_denies_other_user": true,
+  "job_statuses": {
+    "cancelled": 5,
+    "succeeded": 1
+  },
+  "legacy_row_counts_restored": true,
+  "model_config_key_version_bound": true,
+  "real_auth_owner_binding": true,
+  "retired_routes_410": true,
+  "rollback_removes_business_audit_jobs": true,
+  "run_id": "20b94f1e-607a-41f5-af9f-e62b02ea9946",
+  "runtime_status": {
+    "active_attempt": null,
+    "active_fencing_token": null,
+    "active_job_id": null,
+    "active_job_type": null,
+    "claimed_count": 1,
+    "concurrency": 1,
+    "enabled": true,
+    "failed_count": 0,
+    "last_completed_at": "2026-09-07T04:16:32.107626+00:00",
+    "last_error": null,
+    "last_poll_at": "2026-09-07T04:16:32.059413+00:00",
+    "lease_owner": "runner-c2bfabdb-77b3-4aee-b9d4-000a96d9374c",
+    "rejected_count": 0,
+    "status": "stopped",
+    "succeeded_count": 1
+  },
+  "scope": "real SQL and actual API routers; deterministic tagger, no full app lifecycle/external projection or traffic cutover",
+  "source_writes": false,
+  "sql_upload_without_chroma": true,
+  "synthetic_tagger": true
+}

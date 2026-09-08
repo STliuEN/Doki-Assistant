@@ -1,0 +1,85 @@
+{
+  "all_explicit_columns_equal": true,
+  "artifact_kind": "e4-business-reconciliation",
+  "business_entities_compared": 312,
+  "canonical_users": 2,
+  "captured_at": "2026-09-07T04:27:42.048708+00:00",
+  "document_bytes_verified": 455311,
+  "foreign_key_constraints_checked": 48,
+  "legacy_datetime_values_preserved": true,
+  "maps": 314,
+  "orphans": 0,
+  "scope": "captured snapshot to isolated target only; missing legacy PDF and live cutover excluded",
+  "skill_archives": [
+    {
+      "artifact_sha256": "99818020a3f23be3f271445e9dc39af598f585aded67446a8017ed9536823981",
+      "bytes": 710,
+      "semantic_package_digest": "a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b"
+    },
+    {
+      "artifact_sha256": "e70e1272dad823d6cd53165333c01552b25454063214002acebaa05dd52332d1",
+      "bytes": 505,
+      "semantic_package_digest": "92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1"
+    },
+    {
+      "artifact_sha256": "44438f9aa7e2cff848bc6bca70aa10b62e6899fecadf7125d6a81aa168cc52d1",
+      "bytes": 677,
+      "semantic_package_digest": "80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2"
+    },
+    {
+      "artifact_sha256": "c14326c2778ac361e045e7aea00ad9577ea2862b0e633b931c861d091b09102c",
+      "bytes": 513,
+      "semantic_package_digest": "88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f"
+    },
+    {
+      "artifact_sha256": "609fc659834847a287e1f352c6dedb065783a30fd1ab2556cb56cbb199cc13b8",
+      "bytes": 827,
+      "semantic_package_digest": "dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561"
+    },
+    {
+      "artifact_sha256": "7382bbd0dcb53e1e40c9a9912cc26fa62e7d67b1bfa08d1ce5950d49fe6b6fdc",
+      "bytes": 515,
+      "semantic_package_digest": "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896"
+    },
+    {
+      "artifact_sha256": "92843fffc4a5e7f5f2e6ee4ee01b9107443c1d9fd76f7115354d732b0e78dfcc",
+      "bytes": 434,
+      "semantic_package_digest": "76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78"
+    },
+    {
+      "artifact_sha256": "2388e4249fc42750f5d086636e3b45584bcf3590b4bec3bbe02ea20001d8f7dc",
+      "bytes": 393,
+      "semantic_package_digest": "078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001"
+    },
+    {
+      "artifact_sha256": "55687c8d6efb555ade0e51c7adceceadeec39b60ad4036899859127bd35bed95",
+      "bytes": 465,
+      "semantic_package_digest": "1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f"
+    },
+    {
+      "artifact_sha256": "fd89f0b8724665e3b00f80d86b0924b5764138ef19b6ff8988f490214ce91f7a",
+      "bytes": 588,
+      "semantic_package_digest": "68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912"
+    }
+  ],
+  "source_snapshot_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a",
+  "table_counts": {
+    "chat_messages": 150,
+    "chat_sessions": 27,
+    "knowledge_source_documents": 6,
+    "memory_items": 53,
+    "notes": 7,
+    "skill_aliases": 10,
+    "skill_audit_events": 10,
+    "skill_capability_grants": 10,
+    "skill_installations": 10,
+    "skill_registry_events": 1,
+    "skill_registry_state": 1,
+    "skill_versions": 10,
+    "skills": 10,
+    "user_embedding_configs": 1,
+    "user_model_configs": 6
+  },
+  "target_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469",
+  "utc_provenance_not_inferred": true
+}

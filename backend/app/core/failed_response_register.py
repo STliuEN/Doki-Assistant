@@ -13,6 +13,8 @@ from app.core.failed_response import (
     sqlalchemy_error_handler,
     validation_exception_handler,
 )
+from app.db.business_authority import BusinessWriteError
+from app.jobs.repository import JobBackpressureError
 from app.rag.vector_store import (
     CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
     ChromaProjectionUnavailable,
@@ -37,10 +39,20 @@ async def chroma_projection_unavailable_exception_handler(request, exc):
     )
 
 
+async def business_write_error_handler(request, exc):
+    return await http_exception_handler(request, HTTPException(status_code=409, detail=str(exc)))
+
+
+async def business_backpressure_handler(request, exc):
+    return await http_exception_handler(request, HTTPException(status_code=429, detail="Business task queue is full; retry later"))
+
+
 def register_exception_handlers(app):
     """Register application exception handlers."""
 
     app.add_exception_handler(AuthError, auth_exception_handler)
+    app.add_exception_handler(BusinessWriteError, business_write_error_handler)
+    app.add_exception_handler(JobBackpressureError, business_backpressure_handler)
     app.add_exception_handler(SkillRegistryStaleError, skill_registry_stale_exception_handler)
     app.add_exception_handler(
         ChromaProjectionUnavailable,

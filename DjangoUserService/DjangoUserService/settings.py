@@ -75,12 +75,15 @@ INSTALLED_APPS = [
     'corsheaders',
     'drf_yasg',
 
-    
+
     'apps.user.apps.UserConfig',
     'apps.file',
 ]
 
+DATABASE_ROUTERS = ["DjangoUserService.legacy_boundary.LegacyReadOnlyRouter"]
+
 MIDDLEWARE = [
+    "DjangoUserService.legacy_boundary.LegacyBusinessReadOnlyMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',

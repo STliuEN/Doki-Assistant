@@ -2,7 +2,10 @@ import asyncio
 from datetime import datetime, timezone
 
 from app.core.logger_handler import logger
+from app.db.business_owner import business_owner_filter, business_owner_matches
 from app.db.db_config import AsyncSessionLocal
+from app.db.transaction_context import persist_service_write
+from app.db.uow import SqlUnitOfWork
 from app.models.chat_history import ChatMessage, ChatSession
 
 
@@ -82,7 +85,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -100,7 +103,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -113,7 +116,7 @@ class DatabaseSessionManager:
                 "estimated_tokens": estimated_tokens,
             })
             session.metadata_ = metadata
-            await db.commit()
+            await persist_service_write(db)
 
     async def get_history_with_ids(self, session_id: str, user_id: str) -> list[tuple[int, str, str]]:
         """返回带 assistant 消息自增 id 的历史轮次，用作摘要边界锚点。
@@ -124,7 +127,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -190,7 +193,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             # 尝试查找会话，验证属于该用户
             result = await db.run_sync(
-                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
+                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id)).first()
             )
 
             if result:
@@ -230,14 +233,15 @@ class DatabaseSessionManager:
                         title="新的对话"
                     )
                     db.add(new_session)
-                    await db.commit()
+                    await persist_service_write(db)
                     await db.refresh(new_session)
                     logger.info(f"【数据库会话管理】创建新会话: {session_id} 属于用户: {user_id}")
                     return {"history": []}
 
     async def add_message(self, session_id: str, user_id: str, user_message: str, assistant_message: str):
         """添加消息并保存到数据库"""
-        async with AsyncSessionLocal() as db:
+        async with SqlUnitOfWork(AsyncSessionLocal) as uow:
+            db = uow.require_session()
             # 检查会话id是否存在
             existing_session = await db.run_sync(
                 lambda session: session.query(ChatSession).filter(ChatSession.id == session_id).first()
@@ -245,7 +249,7 @@ class DatabaseSessionManager:
 
             if existing_session:
                 # 检查会话是否属于当前用户
-                if existing_session.user_id != user_id:
+                if not business_owner_matches(existing_session, user_id):
                     # 会话存在但不属于当前用户，不添加消息
                     logger.warning(f"【数据库会话管理】会话 {session_id} 不属于用户 {user_id}，无法添加消息")
                     from fastapi import HTTPException, status
@@ -262,7 +266,7 @@ class DatabaseSessionManager:
                     title="新的对话"
                 )
                 db.add(session)
-                await db.commit()
+                await persist_service_write(db)
                 await db.refresh(session)
 
             # 检查是否是新会话且标题为默认值，如果是则更新为用户的第一个问题
@@ -289,7 +293,8 @@ class DatabaseSessionManager:
             )
             db.add(assistant_msg)
 
-            await db.commit()
+            await persist_service_write(db)
+            await uow.commit()
             logger.info(f"【数据库会话管理】添加消息到会话: {session_id} 属于用户: {user_id}")
 
     async def append_assistant_message(self, session_id: str, user_id: str, content: str) -> dict | None:
@@ -300,7 +305,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -308,7 +313,7 @@ class DatabaseSessionManager:
                 return None
             message = ChatMessage(session_id=session.id, role="assistant", content=content)
             db.add(message)
-            await db.commit()
+            await persist_service_write(db)
             await db.refresh(message)
             return self._message_to_dict(message)
 
@@ -327,7 +332,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -365,7 +370,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -402,7 +407,7 @@ class DatabaseSessionManager:
             deleted_ids = [message.id for message in to_delete]
             for message in to_delete:
                 await db.delete(message)
-            await db.commit()
+            await persist_service_write(db)
             logger.info(f"【数据库会话管理】删除会话 {session_id} 消息: {deleted_ids}")
             return {"session_id": session_id, "deleted_ids": deleted_ids}
 
@@ -411,7 +416,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -476,7 +481,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             session = await db.run_sync(
                 lambda s: s.query(ChatSession)
-                .filter(ChatSession.id == session_id, ChatSession.user_id == user_id)
+                .filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id))
                 .first()
             )
             if not session:
@@ -493,7 +498,7 @@ class DatabaseSessionManager:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="message not found")
 
             message.content = content
-            await db.commit()
+            await persist_service_write(db)
             await db.refresh(message)
             return self._message_to_dict(message)
 
@@ -502,13 +507,13 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             # 查找会话，验证属于该用户
             session = await db.run_sync(
-                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, ChatSession.user_id == user_id).first()
+                lambda session: session.query(ChatSession).filter(ChatSession.id == session_id, business_owner_filter(ChatSession, user_id)).first()
             )
 
             if session:
                 # 删除会话（级联删除消息）
                 await db.delete(session)
-                await db.commit()
+                await persist_service_write(db)
                 logger.info(f"【数据库会话管理】会话 {session_id} 已清除，属于用户: {user_id}")
 
     async def get_all_session_ids(self, user_id: str | None = None) -> list[str]:
@@ -516,7 +521,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             if user_id:
                 sessions = await db.run_sync(
-                    lambda session: session.query(ChatSession).filter(ChatSession.user_id == user_id).all()
+                    lambda session: session.query(ChatSession).filter(business_owner_filter(ChatSession, user_id)).all()
                 )
             else:
                 sessions = await db.run_sync(
@@ -529,7 +534,7 @@ class DatabaseSessionManager:
         async with AsyncSessionLocal() as db:
             sessions = await db.run_sync(
                 lambda session: session.query(ChatSession)
-                .filter(ChatSession.user_id == user_id)
+                .filter(business_owner_filter(ChatSession, user_id))
                 .order_by(ChatSession.updated_at.desc())
                 .all()
             )

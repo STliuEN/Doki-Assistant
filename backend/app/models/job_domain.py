@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint, event
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
@@ -147,6 +148,7 @@ class AuditEvent(Base):
     correlation_id = Column(UUID_TYPE, nullable=False)
     run_id = Column(String(64), nullable=True)
     job_id = Column(UUID_TYPE, ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=True)
+    job = relationship("Job", foreign_keys=[job_id])
     import_id = Column(String(64), nullable=True)
     migration_id = Column(String(64), nullable=True)
     created_at = Column(UTC_DATETIME, nullable=False, server_default=func.now())

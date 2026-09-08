@@ -1,0 +1,15 @@
+{
+  "artifact_kind": "e4-live-sql-runner-smoke",
+  "audit_events": 8,
+  "captured_at": "2026-09-07T02:13:31.356250+00:00",
+  "conflicting_payload_rejected": true,
+  "correlation_id": "226772d8-be87-47b6-ad0a-f176767860f4",
+  "duplicate_enqueue_noop": true,
+  "mysql_process_lock_excludes_second_runner": true,
+  "real_lease_expiry_recovered": true,
+  "real_process_kill_restart": true,
+  "redis_or_chroma_connected": false,
+  "scope": "synthetic job on populated isolated E4 MySQL; not app business handlers, Redis outage injection, SSE/polling, or cutover",
+  "source_writes": false,
+  "stale_fencing_result_rejected": true
+}

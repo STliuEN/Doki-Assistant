@@ -2,10 +2,13 @@ import json
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logger_handler import logger
+from app.db.business_authority import mutate_rows
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.memory_item import MemoryItem
 from app.models.note import Note
 from app.schemas.memory import MemoryCreate, MemoryUpdate
@@ -87,7 +90,7 @@ class MemoryService:
             metadata_json=payload.metadata_json,
         )
         db.add(item)
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return self._to_dict(item)
 
@@ -116,7 +119,7 @@ class MemoryService:
             interval_days=1,
         )
         db.add(item)
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return self._to_dict(item)
 
@@ -127,7 +130,7 @@ class MemoryService:
         type: str | None = None,
         status: str | None = None,
     ) -> list[dict]:
-        conditions = [MemoryItem.user_id == user_id]
+        conditions = [business_owner_filter(MemoryItem, user_id)]
         if type:
             conditions.append(MemoryItem.type == type)
         if status:
@@ -147,7 +150,7 @@ class MemoryService:
         stmt = (
             select(MemoryItem)
             .where(
-                MemoryItem.user_id == user_id,
+                business_owner_filter(MemoryItem, user_id),
                 MemoryItem.status == "active",
                 or_(
                     MemoryItem.due_at <= end_of_today,
@@ -160,7 +163,7 @@ class MemoryService:
         return [self._to_dict(item) for item in result.scalars().all()]
 
     async def get_memory(self, db: AsyncSession, user_id: str, memory_id: str) -> MemoryItem | None:
-        stmt = select(MemoryItem).where(MemoryItem.id == memory_id, MemoryItem.user_id == user_id)
+        stmt = select(MemoryItem).where(MemoryItem.id == memory_id, business_owner_filter(MemoryItem, user_id))
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -189,7 +192,7 @@ class MemoryService:
                 value = self._normalize_priority(value)
             setattr(item, key, value)
 
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return self._to_dict(item)
 
@@ -202,7 +205,7 @@ class MemoryService:
 
         item.status = "done"
         item.completed_at = datetime.now()
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return {"success": True, "message": "事项已完成", "memory": self._to_dict(item)}
 
@@ -216,7 +219,7 @@ class MemoryService:
         item.due_at = next_at
         item.remind_at = next_at
         item.status = "active"
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return {"success": True, "message": f"已延期 {days} 天", "memory": self._to_dict(item)}
 
@@ -227,27 +230,26 @@ class MemoryService:
 
         item.status = "archived"
         item.archived_at = datetime.now()
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return {"success": True, "message": "事项已归档", "memory": self._to_dict(item)}
 
     async def delete_memory(self, db: AsyncSession, user_id: str, memory_id: str) -> bool:
-        result = await db.execute(
-            delete(MemoryItem).where(MemoryItem.id == memory_id, MemoryItem.user_id == user_id)
-        )
-        await db.commit()
-        return bool(result.rowcount)
+        count = await mutate_rows(db, MemoryItem, MemoryItem.id == memory_id, business_owner_filter(MemoryItem, user_id), remove=True)
+        await persist_service_write(db)
+        return bool(count)
 
     async def delete_note_memories(self, db: AsyncSession, user_id: str, note_id: str) -> None:
-        await db.execute(
-            delete(MemoryItem).where(
-                MemoryItem.user_id == user_id,
-                MemoryItem.source_type == "note",
-                MemoryItem.source_id == note_id,
-                MemoryItem.type == "review",
-            )
+        await mutate_rows(
+            db,
+            MemoryItem,
+            business_owner_filter(MemoryItem, user_id),
+            MemoryItem.source_type == "note",
+            MemoryItem.source_id == note_id,
+            MemoryItem.type == "review",
+            remove=True,
         )
-        await db.commit()
+        await persist_service_write(db)
 
     async def mark_reviewed(self, db: AsyncSession, user_id: str, memory_id: str) -> dict:
         item = await self.get_memory(db, user_id, memory_id)
@@ -263,7 +265,7 @@ class MemoryService:
         item.due_at = next_at
         item.remind_at = next_at
         item.status = "active"
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(item)
         return {"success": True, "message": "已标记复习完成", "memory": self._to_dict(item)}
 
@@ -276,7 +278,7 @@ class MemoryService:
 
             content = item.content or ""
             if item.source_type == "note" and item.source_id:
-                stmt = select(Note).where(Note.id == item.source_id, Note.user_id == user_id)
+                stmt = select(Note).where(Note.id == item.source_id, business_owner_filter(Note, user_id))
                 result = await db.execute(stmt)
                 note = result.scalar_one_or_none()
                 if note and note.content:

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "targets": [
+    {
+      "credential_ref": "private://e4-20260907/source-ro",
+      "database": "chat_history",
+      "database_username": "doki_e4_source_ro",
+      "host": "localhost",
+      "id": "source-chat_history",
+      "port": 3306,
+      "read_only": true,
+      "role": "source",
+      "server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f"
+    },
+    {
+      "credential_ref": "private://e4-20260907/source-ro",
+      "database": "user_service",
+      "database_username": "doki_e4_source_ro",
+      "host": "localhost",
+      "id": "source-user_service",
+      "port": 3306,
+      "read_only": true,
+      "role": "source",
+      "server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f"
+    },
+    {
+      "container_id": "35efc06e8a3b377ace2d9ac7e99f9d78ceb8c9a7a73464cc23701413f1d37182",
+      "container_name": "doki-e4-20260903-mysql",
+      "credential_ref": "private://e4-20260907/target",
+      "database": "doki_e4",
+      "database_username": "doki_e4_app",
+      "host": "127.0.0.1",
+      "id": "target",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "image_reference": "mysql:8.4",
+      "network": "doki-e4-20260903-net",
+      "port": 33427,
+      "read_only": false,
+      "role": "target",
+      "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+    },
+    {
+      "container_id": "3ed78734edb308fc1c14ca6b22f1188139d75db8c170b145b6d6b2846f65b9fb",
+      "container_name": "doki-e4-20260903-mysql-restore",
+      "credential_ref": "private://e4-20260907/restore",
+      "database": "doki_e4",
+      "database_username": "doki_e4_restore",
+      "host": "127.0.0.1",
+      "id": "restore",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "image_reference": "mysql:8.4",
+      "network": "doki-e4-20260903-net",
+      "port": 33428,
+      "read_only": false,
+      "role": "restore",
+      "server_uuid": "0bf5339b-a743-11f1-9ab9-febdaaf248fb"
+    }
+  ]
+}

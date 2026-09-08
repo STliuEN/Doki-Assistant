@@ -1,6 +1,8 @@
 import os
 
 from fastapi import HTTPException, Request
+from redis.exceptions import RedisError
+from starlette.responses import JSONResponse
 
 from app.core.environment import is_production_environment, normalize_environment
 from app.db.redis_config import connect_redis
@@ -52,7 +54,11 @@ def rate_limit(limit: int = 1, window: int = 60):
         # 生成限流键
         key = f"rate_limit:aichat:{client_ip}"
 
-        if not await _consume_rate_limit(key, limit, window):
+        try:
+            allowed = await _consume_rate_limit(key, limit, window)
+        except RedisError as exc:
+            raise HTTPException(status_code=503, detail="Rate limit store unavailable") from exc
+        if not allowed:
             # 限流触发
             raise HTTPException(
                 status_code=429,
@@ -81,6 +87,10 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if scope['path'] in {"/health/live", "/health/ready", "/health/runner"}:
+            await self.app(scope, receive, send)
+            return
+
         # 构建请求对象
         from fastapi import Request
         request = Request(scope, receive)
@@ -93,9 +103,17 @@ class RateLimitMiddleware:
         # 生成限流键
         key = f"rate_limit:global:{client_ip}"
 
-        if not await _consume_rate_limit(key, self.limit, self.window):
+        try:
+            allowed = await _consume_rate_limit(key, self.limit, self.window)
+        except RedisError:
+            response = JSONResponse(
+                {"code": 503, "message": "Rate limit store unavailable", "data": None},
+                status_code=503,
+            )
+            await response(scope, receive, send)
+            return
+        if not allowed:
             # 限流触发
-            from starlette.responses import JSONResponse
             response = JSONResponse(
                 {"detail": "请求过于频繁，请稍后再试"},
                 status_code=429

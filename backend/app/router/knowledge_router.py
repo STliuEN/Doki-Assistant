@@ -7,8 +7,10 @@ from fastapi.routing import APIRouter
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
+from app.db.business_authority import uses_business_authority
 from app.db.db_config import get_db
 from app.rag.vector_store import (
     CHROMA_PROJECTION_UNAVAILABLE_MESSAGE,
@@ -44,7 +46,8 @@ CHROMA_PROJECTION_UNAVAILABLE_RESPONSE = {
 
 def ensure_chroma_projection_available() -> None:
     """Fail before a streaming response or config mutation starts."""
-    VectorStoreService()
+    if not E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED"):
+        VectorStoreService()
 
 
 class EmbeddingSwitchRequest(BaseModel):
@@ -69,34 +72,40 @@ class RerankerSwitchRequest(BaseModel):
 
 @knowledge_router.post(
     "/add/single",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def add_vector_single(
         file: UploadFile = File(...),
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=5, window=60))
 ):
     """上传文件，将文件保存到向量数据库，仅支持TXT和PDF"""
+    if uses_business_authority(db):
+        result = await knowledge_service.accept_sql_uploads([file], user_id, db)
+        return success_response(message="Original stored in SQL; projection queued", data=result)
     filename = await knowledge_service.handle_add_vector_single(file, user_id, db)
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
 
 
 @knowledge_router.post(
     "/add/multiple",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def add_vector_multiple(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"),
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=3, window=60))
 ):
     """上传多个文件，将文件保存到向量数据库，仅支持TXT和PDF"""
+    if uses_business_authority(db):
+        result = await knowledge_service.accept_sql_uploads(files, user_id, db)
+        return success_response(message="Originals stored in SQL; projections queued", data=result)
     filenames = await knowledge_service.handle_add_vector_multiple(files, user_id, db)
     return success_response(message=f"文件 {filenames} 已成功上传并存储到向量数据库")
 
@@ -109,12 +118,18 @@ async def add_vector_multiple(
 async def add_vector_multiple_stream(
         files: list[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF、TXT、MD、PPTX、DOCX格式"),
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=3, window=60)),
         _projection: None = Depends(ensure_chroma_projection_available),
 ):
     """上传多个文件，流式返回处理进度，仅支持TXT、PDF、MD、PPTX、DOCX"""
+    if uses_business_authority(db):
+        from app.schemas.sse import encode_sse
+        result = await knowledge_service.accept_sql_uploads(files, user_id, db)
+        async def accepted():
+            yield encode_sse({"event": "accepted", **result})
+        return StreamingResponse(accepted(), media_type="text/event-stream")
     return StreamingResponse(
         knowledge_service.handle_add_vector_multiple_stream(files, user_id, db),
         media_type="text/event-stream",
@@ -127,22 +142,28 @@ async def add_vector_multiple_stream(
 
 @knowledge_router.delete(
     "/clean",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def clean_user_vectors(
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """删除用户上传的所有向量"""
+    if uses_business_authority(db):
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        count = await get_knowledge_document_service().delete_all(db, user_id)
+        return success_response(
+            message="SQL documents deleted; projection cleanup queued", data={"deleted": count, "job_ids": db.info.get("e4_enqueued_jobs", [])}
+        )
     await knowledge_service.clean_user_upload(user_id, db)
     return success_response(message="已成功删除用户上传的所有向量")
 
 
 @knowledge_router.delete(
     "/md5/clear",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def clear_user_md5(
@@ -163,7 +184,7 @@ async def clear_user_md5(
 
 @knowledge_router.delete(
     "/md5/delete/{md5_value}",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def delete_single_md5(
@@ -189,14 +210,14 @@ async def delete_single_md5(
 
 @knowledge_router.delete(
     "/delete/filename",
-    response_model=ApiResponse[None],
+    response_model=ApiResponse[Any],
     responses=CHROMA_PROJECTION_UNAVAILABLE_RESPONSE,
 )
 async def delete_by_filename(
         filename: str,
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """
@@ -204,6 +225,14 @@ async def delete_by_filename(
     :param filename: 要删除的文件名
     :param delete_documents: 是否同时删除知识库文档（默认True）
     """
+    if uses_business_authority(db):
+        if not delete_documents:
+            raise HTTPException(status_code=410, detail="Sidecar-only writes are retired")
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        document = await get_knowledge_document_service().delete_by_filename(db, user_id, filename)
+        if document is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return success_response(message="SQL document deleted; projection cleanup queued", data={"job_ids": db.info.get("e4_enqueued_jobs", [])})
     success = await knowledge_service.handle_delete_by_filename(user_id, filename, delete_documents, db)
     if success:
         if delete_documents:
@@ -257,7 +286,7 @@ async def get_md5_info(
 @knowledge_router.get("/list", response_model=ApiResponse[KnowledgeListResponse])
 async def get_user_knowledge_list(
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
@@ -272,7 +301,7 @@ async def get_user_knowledge_list(
 @knowledge_router.get("/embedding/current", response_model=ApiResponse[Any])
 async def get_current_embedding_config(
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
 ):
     svc = get_embedding_config_service()
     config = await svc.get_user_config(db, user_id)
@@ -298,7 +327,7 @@ async def list_embedding_ollama_models(
 async def switch_embedding_and_rebuild(
         payload: EmbeddingSwitchRequest,
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=5, window=60)),
         _projection: None = Depends(ensure_chroma_projection_available),
@@ -312,6 +341,11 @@ async def switch_embedding_and_rebuild(
         provider=payload.provider,
         model_type=payload.model_type,
     )
+    if uses_business_authority(db):
+        return success_response(
+            message="Embedding configuration saved; rebuild queued",
+            data={"embedding": config.to_dict(), "job_ids": db.info.get("e4_enqueued_jobs", [])},
+        )
     result = await knowledge_service.rebuild_all_user_indexes(user_id, db)
     return success_response(message="embedding switched and indexes rebuilt", data={**result, "embedding": config.to_dict()})
 
@@ -386,7 +420,7 @@ async def get_document_chunks(
 async def download_source_file(
         filename: str,
         user_id: str = Depends(get_current_user_id),
-        db: AsyncSession = Depends(get_db),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):

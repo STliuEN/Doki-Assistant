@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     BigInteger,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -25,6 +26,7 @@ from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
+from app.models.foundation_types import UUID_PATTERN, UUID_TYPE
 
 
 def _uuid() -> str:
@@ -390,11 +392,23 @@ class SkillRunBinding(Base):
     __table_args__ = (
         Index("ix_skill_run_bindings_user_created", "user_id", "created_at"),
         Index("ix_skill_run_bindings_session_created", "session_id", "created_at"),
+        Index("ix_skill_run_bindings_canonical_session", "canonical_session_id"),
+        Index("ix_skill_run_bindings_canonical_user", "canonical_user_id"),
+        CheckConstraint(
+            f"canonical_session_id IS NULL OR canonical_session_id REGEXP '{UUID_PATTERN}'",
+            name="ck_skill_run_bindings_canonical_session_uuid",
+        ),
+        CheckConstraint(
+            f"canonical_user_id IS NULL OR canonical_user_id REGEXP '{UUID_PATTERN}'",
+            name="ck_skill_run_bindings_canonical_user_uuid",
+        ),
     )
 
     run_id = Column(String(64), primary_key=True)
     session_id = Column(String(64), nullable=True)
     user_id = Column(String(64), nullable=False)
+    canonical_session_id = Column(UUID_TYPE, nullable=True)
+    canonical_user_id = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     registry_revision = Column(BigInteger, nullable=False)
     skill_bindings = Column(JSON, nullable=False, default=list)
     effective_grants = Column(JSON, nullable=False, default=dict)

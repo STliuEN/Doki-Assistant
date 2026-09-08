@@ -1,0 +1,329 @@
+{
+  "artifact_kind": "e4-source-payload-probe",
+  "business_validation": {
+    "blocked": true,
+    "checked_entities": 314,
+    "checked_media": 0,
+    "issues": [
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "01e16aceb7f90b55a9ac3e5f1c8fe6a1f55c041dff48b1e5c57afebc40f49227"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "0abd295e40d5b25ce4d1cf084a3352d18be1beb1315706a5946666b288d008b4"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "0b8fc4772c907f0a9dec6d9678dace20b3a35ba00ac3e539a894cc59005bfc7b"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "0d79f5065b23db8ab959c648bbea5646024c0d17f460d1633958c0e897d0224c"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "0ed1e133a58e7dac6b8db2bf46df2f3430744ee1b760f423f1bfd96352e0bf0d"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1100f71188ee3c49a37eae4d6009a1a0a96ce718096d4b10eaf0e68abd7e3e03"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "15bbd63b30714eae66a6e89b36f1cb3e107f622e38b7bb3e35418660548db9e8"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "16bbc463a970402a3a45ed145dd0ddd846cdeed3495ba5b008bb637623644efe"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "16dfd70ead0cb46333628e195ca22120a43ba6e8f78ee8e8ebdb7ae0e7c65626"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1a62f2da9241e99346839606281b44f1a405f98e4530f6db391118e9fa36dfaa"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1b935cc072563ed4b3e089c7a47e790ca990d5633c8f9ba59d9753e8f086dafa"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1e14b25baf35ccbcd75e53c1fdfbc294c372c11cd66ba7db993527591039a8dc"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1efc86a76c0c45144bd058bb063b2c89f930ce6a95044279bbc27ad156fd3574"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "1f21cd16f929e0c5bfb6e4e90f5a87c7b18a1ea2d185a687a79f150cc21cef08"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "211d96ebabcad5723b412bceb2c625ecbc0e8dfac0b442e597e14f2c1bc3ef27"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "220ffd90a1e21396b7670c650b20e3dd26f5c34a282b20b2ac488a3cfd2ab833"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "2ab9be67290ffce07827db96383cfbdfc133e0a7dda025a4a8a422a4ec72a4d1"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "349ccfd2bd7a04a4d3ccfabf261864fd80ca82c369fa31b4f2a2239c16cc021e"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "3943f511f2f5e2b292f307c38bff557c0e98e73b951489592931f355b06dcf9a"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "3bf37b721873e570ffa830c49281ba993f33e910b26ff26e3850f2fe81967537"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "3c368d6681de2e52a4d13299bd3416a907155d6d97309333cb6d89fbe7578faa"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "403b56c5141a5450f7d7e6932cc3e4ae7adb5c27c07a84d7c5ab8763585315dd"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "499f9d2e50c9986de1bd95ba81c73486e443c2c9ff54a87904b52b3cf9a2b285"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "4a3224c70d9811a113a9a35445a3c621ca3feb030f692c1fb985325589a98477"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "4e63eed2d235ec0bb871599c68ef1df4b19117363d4321c2533599aa9f2c2fbc"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "569e88d902e220b7ef8eec7326866376071baccfe1ea1b7b45b27f352f68b273"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "57854fccca53054a22de8283f6082f789c9a39258981abf97acb41e456c76ab5"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "598536dbf80427d6308e25055c5ff82ef177caaff5d5726ffdf97ee5fdb01c4d"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "5b90a284e0a78bc3b90928050dcad80ad499105a46c4ab9e798904c2582631eb"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "614f423067ef1119b559f3a74173781fc32afa6e7faa020d7c6d262a2f0fddd7"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "68cead35a427d374ce7b427db39b015a2ac2a56d4901e2d1b3aa89c025bdfd6c"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "74efa34b769424d5592e0015bbe2147b9796df983e28738265a74a375a9753cb"
+      },
+      {
+        "code": "missing_key_version",
+        "source_key_sha256": "766ae5547bd0e0dd3cddfcfe750ed0a8eb4bcb83cac16cff02396b99d95606d4"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "766f58a9aa7950209a4c130099f596ec505ec9fca5115506d4d21cc0d649d12f"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "769646eb6f6eeb3409fc870558e0a2e4ade09ad027dcfdfd5aa6c7f09355bfa1"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "7c8f9df23416a4e726f4b06897de592c607ec9d6ca6c2f21f45a811d2fa4c690"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "83ba3c9af39ce4d0ab189b9eea21f24595fd9dd2f6728e4db76b55b2a769f6ee"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "84e43e5725e64b00327e276b281a859e01cdd85b65cb40475036c219b2beaf30"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "89b1251faa40b335ea5509d44a47449aefd785a5dd0905236d75f28383891c74"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "89b6b918e72b3a47c2aeb87e24a00ca3f85eaa45a4d860aaac839eb8acdf6956"
+      },
+      {
+        "code": "missing_key_version",
+        "source_key_sha256": "8f668197719590a31d01585150170419c8b678e7286742aec3ce34963f3e997e"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "91e7c4ab8f858d7348ce965999f683aba41fd75843d8382dcf5f60be3bcf29bf"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "92e366a4385d9f6c38d61a87d7064109d72a63f7a019b36dc98116f35c6681f5"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "9391dccb9e183c216548019a0e46d7dff24a7405d272db881afbd54f0815f254"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "9c5ae7f97fb4af5a248734c9b7fc8bc4ea32b4c5f38e1a8c150d4b4cfd7ed5bc"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "a0ea93a5df49c31c645f345ab53958889be81fb9af73e8b57518cb1a8994e02e"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "a9434065f2e0963e1595c5c1c10e945e16780c71c244f1cb161585ae66aefb99"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "ab4221c261357f0ee653f02cb42f82767a529dfd83006c140ca408331909e04f"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "b26acb0eff2c36295cad4ba1b0c6a20d7c4091f1f5a2c8e82afa272ad25718e6"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "b94147c45183eb6e903c5294871975a9f2c09e7dfad0be3c7cd5b89995a32891"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "be20ce20b23aa60ee1eb97821caa2b8dd7948004c99634ebde877faf7f242e19"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "c076a2e92d8d09708a69e407fe7cf8602396349c1f76b257058f8a8b8e57cf1f"
+      },
+      {
+        "code": "missing_key_version",
+        "source_key_sha256": "c136e4164b75079b48e8db1d4497584f4a7f6128e360a7070bc557b490bba162"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "c6f1ca2d34297eb78da26ed7db0e75e95b3d1b754e2fbf8f29ac136d42c4f84f"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "c83018954808559e2430daa5ba1ed0093ef9ae2548b45eb045f7440e5f10c3c1"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "ca44e7778786d1c31770432fc58f8378ae1555a1336996e971c96fa2ec4bcbc5"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "ce1faee0c4924209fcbe7994779621bad7bec69ad1133bdfa07e7b5a6b750f4c"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "d05c8295d16d8571df6ba3ca58e824e4e8a1efd3e780d47879cdd3101b6bd064"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "d664fb4a7d2c94a20f08370f2801c2cd336c413486bd6edc5f004b910bb2a20d"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "dccec6c172c1da04dd3c938c44706858b6a65e523b773890e8e085ae09736d34"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "dfebcc4b7e51203101f6bb8b4d7ba240491078b72d83398320a595a9f1a1bd8f"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "e82579ed3842225fd491e8dd9d2e8d302f5b6d770258fd1ccb1c76385de795ee"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "e95cc1ef2830a3c720ad22837297b928ac6edd800fbc6e30e9430b957c54961d"
+      },
+      {
+        "code": "missing_key_version",
+        "source_key_sha256": "eee0414e472c15c5b69cdb44fe06ba832fad47ba2fe8214e37bbcf845c942091"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "f8fdc3e13efde21d52517eac5123b2cc82067c8dd1be03af4c7f7799503953a7"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "fdc4bdcb13178798331ba7a1be30aa8a013990974c5b2b602a1826c1ca161ad2"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "fde6233834c5a8006ea35723ca23fc1f662ec671eb2df369a9143f4914777206"
+      },
+      {
+        "code": "unsupported_entity_type",
+        "source_key_sha256": "ff1202dd5009c0ccfcf4dbf29c28bd98505942801ab14509334db63588f7b7bc"
+      }
+    ],
+    "report_sha256": "873831c84a575c096fde513c1c82f4215e7575fb606a026a9513f79462ef0ba5",
+    "scope": "offline-payload-only"
+  },
+  "captured_at": "2026-09-07T00:56:37.155133+00:00",
+  "conversion_scope": "in-memory supported SQL rows; tagged datetime/binary and JSON columns decoded; no timezone provenance inferred",
+  "database_connections": false,
+  "database_writes": false,
+  "identity_blocked": false,
+  "identity_report_sha256": "c786a1ad783ac70a27e7917e666a43fb8837aec11083f2436bd759a43477b206",
+  "issue_counts": {
+    "missing_key_version": 4,
+    "unsupported_entity_type": 64
+  },
+  "issue_entity_counts": {
+    "model_config": 4,
+    "skill": 10,
+    "skill_alias": 10,
+    "skill_audit_event": 10,
+    "skill_capability_grant": 10,
+    "skill_installation": 10,
+    "skill_registry_event": 1,
+    "skill_registry_state": 1,
+    "skill_version": 10,
+    "user": 2
+  },
+  "not_an_import_bundle": true,
+  "schema_version": 1,
+  "snapshot_content_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a",
+  "supported_entity_counts": {
+    "embedding_config": 1,
+    "knowledge_document": 6,
+    "memory": 53,
+    "message": 150,
+    "model_config": 6,
+    "note": 7,
+    "session": 27
+  },
+  "unsupported_entity_counts": {
+    "skill": 10,
+    "skill_alias": 10,
+    "skill_audit_event": 10,
+    "skill_capability_grant": 10,
+    "skill_installation": 10,
+    "skill_registry_event": 1,
+    "skill_registry_state": 1,
+    "skill_version": 10,
+    "user": 2
+  }
+}

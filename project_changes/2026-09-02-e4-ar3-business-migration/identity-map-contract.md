@@ -1,10 +1,11 @@
 # E4 身份与稳定 ID 映射合同
 
 日期：2026-09-02  
+最近更新：2026-09-05（正式执行）
 状态：实施中  
 性质：设计合同  
 适用范围：E4 业务对象及其用户、会话、文件、Skill、Chroma/sidecar 关联  
-实现状态：合同已冻结，映射器尚未实现；本文件不写入 `migration_maps`
+实现状态：合同已冻结；E4 SQL repository、受控旁表和离线 dry-run/脱敏报告已实现。live importer、真实业务导入和真实 `migration_maps` 写入仍受 source/target allowlist、schema 和批次 gate 约束，当前未执行
 
 ## 1. 不变量
 
@@ -52,6 +53,8 @@ target_uuid = lowercase(UUID5(NAMESPACE_URL,
 
 该 UUIDv5 字符串已由用户确认作为 E4 候选规则；实施时仍须在 fixture 中证明跨类型/跨系统无碰撞。不得以随机 UUID 作为可重放迁移的唯一标识，也不得从文件名/时间戳猜测对象身份。
 
+输入可显式携带 `target_uuid` 以便调用方对账，但它不是覆盖入口：已有 canonical UUID 必须等于规范化后的 source UUID；Django 用户必须等于 E3 UUIDv5；其余 legacy key 必须等于上述 E4 UUIDv5。任何偏离都在 dry-run 解析阶段拒绝。
+
 ## 4. Digest 与幂等
 
 - 必须区分三层 digest：`snapshot_manifest_digest`（本批只读 dump/bundle manifest）、`entity_content_digest`（单表/单对象规范化内容）和 `artifact_digest`（原始文件、ZIP 或 canonical archive 字节）。三者均使用 SHA-256 并分别写入证据；`migration_maps.source_digest` 只能承载该映射对应的 entity digest，不能代替批次 manifest 或原始 artifact digest。
@@ -71,13 +74,13 @@ target_uuid = lowercase(UUID5(NAMESPACE_URL,
 ### 4.2 加密配置与媒体表示
 
 - `user_model_configs.api_key_encrypted` 是依赖密钥版本的密文，不能直接复制或把密文当作可验证的业务值。实施前必须确定旧/新 key 的持有者、版本标记、重加密/轮换流程和失败处置；dry-run 只验证可解密性与 digest/版本，不得输出明文 key。
-- 当前模型未提供独立的图片/媒体 SQL 表。若 E4 要求把 extracted images 或 avatar 纳入业务权威，必须先批准具体目标表、内容/引用字段、大小上限、digest 和 on-delete 规则；在此之前只能记录文件 manifest 和 orphan，不得把路径字符串冒充已迁移媒体。
+- E4 已提供 `media_assets` SQL 业务表，用于在通过 scope、大小、digest、BLOB 和 on-delete 合同后承载媒体字节；repository 的媒体写入仅在隔离 fixture 验证。未通过正式 allowlist、source manifest 和 live schema gate 前，文件路径仍只能作为候选引用，不能冒充已迁移媒体。
 
 ### 4.3 与现有 `migration_maps` schema 的兼容门槛
 
 - 当前 E3 `migration_maps` 约束只允许 `mapped`、`conflict`、`error`（见 `backend/app/models/identity_domain.py` 与 `20260828_0003_identity_auth.py`）。本文件的 `candidate`、`validated`、`imported`、`reconciled`、`orphan`、`excluded` 是 E4 流程状态，不能未经 schema 变更直接写入该表。
-- 实施前必须明确选择：为流程状态增加受控字段/旁表，或将未持久化的准备状态留在脱敏 inventory、仅在通过校验后写入现有三态映射。无论采用哪种方案，都要保证 source key 唯一、target UUID 不可变、冲突可审计且重复批次可重放。
-- `migration_maps` 当前只有一个 `source_digest` 字段；batch manifest digest、entity content digest 和 artifact digest 必须通过新增受控字段/manifest 关联或明确的审计载体分别保存，不能把三者串接/覆盖在同一列。
+- E4 采用 `e4_migration_entities` 受控旁表承载 `candidate`、`validated`、`imported`、`reconciled`、`orphan` 和 `excluded` 等流程状态；既有 `migration_maps` 继续保留 E3 的 `mapped`/`conflict`/`error` 三态兼容。repository 仅在 validated 后写入 immutable `mapped` 事实。真实 DDL、正式 mapping 和逐表对账仍是 live gate。
+- `migration_maps` 当前只有一个 `source_digest` 字段；E4 通过 `e4_migration_batches.snapshot_manifest_digest`、`e4_migration_entities.entity_content_digest`/`artifact_digest` 和媒体表对应字段分别承载三层 digest，不能把三者串接/覆盖在同一列。真实表上的 DDL 与对账仍未执行。
 
 ## 5. 用户/公共 scope
 
@@ -138,11 +141,11 @@ dry-run 必须是零写入；任何数据库连接、文件写入或 Chroma/Redi
 - `api_key_encrypted` 的旧/新加密 key、版本标记、重加密流程和不可解密配置的处置。
 - 图片/avatar 是否进入 SQL 业务权威；若进入，目标媒体表、BLOB/引用格式、大小限制、digest 和删除策略。
 - Chroma collection 名称后缀与 metadata/sidecar 用户 ID 不一致时的证明材料和最终 scope 决策（交 E5）。
-- batch manifest digest、entity content digest 与 artifact digest 的字段承载及对账报告格式（E4-03 schema gate）。
+- live schema 上三层 digest、约束和逐表对账报告的最终验证（E4-03 gate）。
 
 ## 明确未做
 
-- 未生成或写入任何 E4 `migration_maps`。
+- 未在真实业务数据库生成或写入 E4 `migration_maps`；隔离 SQLite fixture 的 mapping 写入仅用于 repository 回归。
 - 未连接在线 MySQL/Redis/Chroma，未读取 `.env` 作为目标，未执行 dry-run/import。
 - 未修改现有主键、FK、唯一约束或业务数据。
 - 未在 key-version 确认前迁移任何密文；未把 Chroma/MD5/file 观察写回业务表。

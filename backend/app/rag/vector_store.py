@@ -13,6 +13,7 @@ from langchain_core.embeddings import Embeddings
 from sqlalchemy import select
 
 from app.core.logger_handler import logger
+from app.db.business_owner import business_owner_filter
 from app.db.db_config import AsyncSessionLocal
 from app.models.note import Note
 from app.services.embedding_config_service import EmbeddingConfigData, get_embedding_config_service
@@ -428,7 +429,7 @@ class VectorStoreService:
 
     async def rebuild_user_notes_index(self, db, user_id: str) -> int:
         store = await self.get_user_notes_store(user_id, db=db, reset=True)
-        result = await db.execute(select(Note).where(Note.user_id == user_id))
+        result = await db.execute(select(Note).where(business_owner_filter(Note, user_id)))
         notes = result.scalars().all()
         if not notes:
             return 0

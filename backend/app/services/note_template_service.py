@@ -8,6 +8,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.note_template import NoteTemplate
 from app.schemas.models import (
     NoteTemplateCreate,
@@ -108,24 +110,28 @@ class NoteTemplateService:
                 is_default=True,
                 sort_order=i,
             ))
-        await db.commit()
+        await persist_service_write(db)
 
     async def list_templates(self, db: AsyncSession, user_id: str) -> list[NoteTemplateResponse]:
         """列出用户所有模板，首次调用时自动创建内置模板。"""
-        count_stmt = select(func.count(NoteTemplate.id)).where(NoteTemplate.user_id == user_id)
+        count_stmt = select(func.count(NoteTemplate.id)).where(business_owner_filter(NoteTemplate, user_id))
         result = await db.execute(count_stmt)
         count = result.scalar() or 0
 
         if count == 0:
             await self._seed_defaults(db, user_id)
 
-        stmt = select(NoteTemplate).where(NoteTemplate.user_id == user_id).order_by(NoteTemplate.sort_order.asc(), NoteTemplate.created_at.asc())
+        stmt = (
+            select(NoteTemplate)
+            .where(business_owner_filter(NoteTemplate, user_id))
+            .order_by(NoteTemplate.sort_order.asc(), NoteTemplate.created_at.asc())
+        )
         result = await db.execute(stmt)
         return [self._to_response(t) for t in result.scalars().all()]
 
     async def create_template(self, db: AsyncSession, user_id: str, payload: NoteTemplateCreate) -> NoteTemplateResponse:
         """创建自定义模板。"""
-        max_order_stmt = select(func.coalesce(func.max(NoteTemplate.sort_order), -1)).where(NoteTemplate.user_id == user_id)
+        max_order_stmt = select(func.coalesce(func.max(NoteTemplate.sort_order), -1)).where(business_owner_filter(NoteTemplate, user_id))
         result = await db.execute(max_order_stmt)
         max_order = result.scalar() or -1
 
@@ -142,13 +148,13 @@ class NoteTemplateService:
             sort_order=max_order + 1,
         )
         db.add(template)
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(template)
         return self._to_response(template)
 
     async def update_template(self, db: AsyncSession, template_id: str, user_id: str, payload: NoteTemplateUpdate) -> NoteTemplateResponse | None:
         """更新模板（包括内置模板）。"""
-        stmt = select(NoteTemplate).where(NoteTemplate.id == template_id, NoteTemplate.user_id == user_id)
+        stmt = select(NoteTemplate).where(NoteTemplate.id == template_id, business_owner_filter(NoteTemplate, user_id))
         result = await db.execute(stmt)
         template = result.scalar_one_or_none()
         if not template:
@@ -167,26 +173,26 @@ class NoteTemplateService:
         if payload.tags is not None:
             template.tags = payload.tags
 
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(template)
         return self._to_response(template)
 
     async def delete_template(self, db: AsyncSession, template_id: str, user_id: str) -> bool:
         """删除自定义模板（内置模板不可删除）。"""
-        stmt = select(NoteTemplate).where(NoteTemplate.id == template_id, NoteTemplate.user_id == user_id)
+        stmt = select(NoteTemplate).where(NoteTemplate.id == template_id, business_owner_filter(NoteTemplate, user_id))
         result = await db.execute(stmt)
         template = result.scalar_one_or_none()
         if not template or template.is_default:
             return False
 
         await db.delete(template)
-        await db.commit()
+        await persist_service_write(db)
         return True
 
     async def reorder_templates(self, db: AsyncSession, user_id: str, payload: NoteTemplateReorder) -> bool:
         """重新排序模板。"""
         stmt = select(NoteTemplate).where(
-            NoteTemplate.user_id == user_id,
+            business_owner_filter(NoteTemplate, user_id),
             NoteTemplate.id.in_(payload.ids),
         )
         result = await db.execute(stmt)
@@ -199,7 +205,7 @@ class NoteTemplateService:
             if tid in templates:
                 templates[tid].sort_order = idx
 
-        await db.commit()
+        await persist_service_write(db)
         return True
 
 

@@ -1,0 +1,56 @@
+{
+  "artifact_kind": "e4-docker-topology-recheck",
+  "capture_mode": "live-read-only",
+  "captured_at": "2026-09-05",
+  "compose": {
+    "config_file": "backend/ops/e4/docker-compose.yml",
+    "project": "doki-e4-business"
+  },
+  "containers": [
+    {
+      "container_name": "doki-e4-20260903-mysql",
+      "role": "target",
+      "status": "exited",
+      "exit_code": 255,
+      "running": false,
+      "finished_at": "2026-09-03T15:55:51.824437292Z",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "volume": "doki-e4-20260903-target-data",
+      "host_port_binding": "127.0.0.1:33427->3306/tcp",
+      "compose_database_username": "doki_e4_app"
+    },
+    {
+      "container_name": "doki-e4-20260903-mysql-restore",
+      "role": "restore",
+      "status": "exited",
+      "exit_code": 255,
+      "running": false,
+      "finished_at": "2026-09-03T15:55:51.820883442Z",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "volume": "doki-e4-20260903-restore-data",
+      "host_port_binding": "127.0.0.1:33428->3306/tcp",
+      "historical_database_username": "doki_e4_app",
+      "current_compose_database_username": "doki_e4_restore",
+      "database_username_matches_current_compose": false
+    }
+  ],
+  "network": {
+    "name": "doki-e4-20260903-net",
+    "id": "729648146ea1f2777358fbf618bcbaeb194426c30541a0f9aecd09bff1280c17",
+    "connected_containers": []
+  },
+  "database_connection_performed": false,
+  "credential_values_used_or_persisted": false,
+  "mutation_performed": false,
+  "server_uuid_revalidated": false,
+  "preflight_eligible": false,
+  "blocking_reasons": [
+    "target_and_restore_containers_are_not_running_or_healthy",
+    "e4_network_has_no_connected_containers",
+    "historical_restore_database_username_does_not_match_current_compose",
+    "formal_source_target_restore_allowlist_is_missing",
+    "credential_references_backup_location_and_schema_permissions_are_missing"
+  ],
+  "observation_only": true,
+  "schema_version": 1
+}

@@ -1,0 +1,45 @@
+{
+  "artifact_kind": "e4-source-stop-write-checkpoint",
+  "backup": {
+    "bytes": 1126354,
+    "path": ".runtime\\e4\\backup-source-freeze-53105efe524cc62d.sql",
+    "sha256": "53105efe524cc62d7b8adae936e583f32bb895a5f03ce56f8321debb63a55e34"
+  },
+  "captured_at": "2026-09-08T00:50:34.666244+00:00",
+  "checkpoint_reverified_at": "2026-09-08T02:54:13.877937+00:00",
+  "final_recheck_evidence": "e4-cutover-redis-20260908T024931.json",
+  "final_snapshot_digest_matches_21_tables": true,
+  "legacy_account": "st@%",
+  "legacy_account_grants_before": [
+    "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE ON *.* TO `st`@`%` WITH GRANT OPTION"
+  ],
+  "legacy_account_locked": true,
+  "probe_captured_at": "2026-09-08T00:50:57.341881+00:00",
+  "rollback_requires_explicit_admin_action": true,
+  "scope": "Local allowlisted source; administrator can explicitly remove read-only controls",
+  "source_connections_before_freeze": [],
+  "source_databases": [
+    "chat_history",
+    "user_service"
+  ],
+  "source_ro_grants": [
+    "GRANT USAGE ON *.* TO `doki_e4_source_ro`@`localhost`",
+    "GRANT SELECT, SHOW VIEW ON `chat_history`.* TO `doki_e4_source_ro`@`localhost`",
+    "GRANT SELECT, SHOW VIEW ON `user_service`.* TO `doki_e4_source_ro`@`localhost`"
+  ],
+  "source_rows_changed": false,
+  "source_server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f",
+  "variables_after": {
+    "read_only": 1,
+    "super_read_only": 1
+  },
+  "variables_before": {
+    "read_only": 0,
+    "super_read_only": 0
+  },
+  "zero_row_write_probe_rejected": {
+    "code": 1290,
+    "message": "The MySQL server is running with the --super-read-only option so it cannot execute this statement",
+    "type": "OperationalError"
+  }
+}

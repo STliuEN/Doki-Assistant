@@ -15,7 +15,7 @@ model_config_router = APIRouter(prefix="/model-config", tags=["model-config"])
 @model_config_router.get("/list")
 async def list_model_configs(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     svc = get_model_config_service()
     configs = await svc.list_configs(db, user_id)
@@ -25,7 +25,7 @@ async def list_model_configs(
 @model_config_router.get("/default")
 async def get_default_model_config(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     svc = get_model_config_service()
     config = await svc.get_default_config(db, user_id)
@@ -66,7 +66,7 @@ async def test_system_default_model_config(
 async def create_model_config(
     payload: ModelConfigCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     svc = get_model_config_service()
@@ -79,7 +79,7 @@ async def update_model_config(
     config_id: str,
     payload: ModelConfigUpdate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     svc = get_model_config_service()
@@ -93,7 +93,7 @@ async def update_model_config(
 async def delete_model_config(
     config_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     svc = get_model_config_service()
@@ -107,7 +107,7 @@ async def delete_model_config(
 async def set_default_model_config(
     config_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     svc = get_model_config_service()
     config = await svc.set_default(db, user_id, config_id)
@@ -131,7 +131,7 @@ async def test_model_config(
 async def test_saved_model_config(
     config_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=10, window=60)),
 ):
     svc = get_model_config_service()

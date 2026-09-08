@@ -293,13 +293,14 @@ class JobRepository:
         )
         return TransitionResult(False, None, "stale_fencing_token")
 
-    async def recover_expired(self, *, now: datetime | None = None) -> int:
+    async def recover_expired(self, *, now: datetime | None = None, job_types: tuple[str, ...] | None = None) -> int:
         checked_at = now or await self._database_now()
         result = await self.session.execute(
             select(Job)
             .where(
                 Job.status.in_(("leased", "running", "cancel_requested")),
                 Job.lease_expires_at <= checked_at,
+                Job.job_type.in_(job_types) if job_types is not None else True,
             )
             .order_by(Job.lease_expires_at, Job.id)
             .with_for_update(skip_locked=True)
@@ -346,16 +347,17 @@ class JobRepository:
         index = min(max(attempt_number - 1, 0), len(self.config.retry_delays_seconds) - 1)
         return self.config.retry_delays_seconds[index]
 
-    async def claim_one(self, *, lease_owner: str, now: datetime | None = None) -> ClaimResult | None:
+    async def claim_one(self, *, lease_owner: str, now: datetime | None = None, job_types: tuple[str, ...] | None = None) -> ClaimResult | None:
         lease_owner = self._required_text(lease_owner, "lease_owner", 128)
         checked_at = now or await self._database_now()
-        await self.recover_expired(now=checked_at)
+        await self.recover_expired(now=checked_at, job_types=job_types)
         result = await self.session.execute(
             select(Job)
             .where(
                 Job.status.in_(("queued", "retry_wait")),
                 Job.available_at <= checked_at,
                 Job.cancel_requested_at.is_(None),
+                Job.job_type.in_(job_types) if job_types is not None else True,
             )
             .order_by(Job.priority.desc(), Job.available_at, Job.created_at, Job.id)
             .limit(1)
@@ -510,6 +512,7 @@ class JobRepository:
         checked_at = now or await self._database_now()
         result = await self.session.execute(
             update(Job)
+            .execution_options(synchronize_session=False)
             .where(
                 Job.id == job_id,
                 Job.status == "running",

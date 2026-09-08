@@ -14,11 +14,13 @@ from datetime import datetime, timezone
 from io import BytesIO
 from typing import Any, Mapping, Sequence
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.db.business_authority import mutate_rows
+from app.db.transaction_context import persist_service_write
 from app.models.skill_domain import (
     Skill,
     SkillAlias,
@@ -585,7 +587,7 @@ class SkillService:
             installation_id=installation.id,
             after={"revision": 1, "digest": version.package_digest},
         )
-        await db.commit()
+        await persist_service_write(db)
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def save_draft(
@@ -632,7 +634,7 @@ class SkillService:
             before={"revision": before},
             after={"revision": installation.revision, "digest": version.package_digest},
         )
-        await db.commit()
+        await persist_service_write(db)
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def import_archive(
@@ -711,7 +713,7 @@ class SkillService:
                 import_id=import_record.id,
                 details={"error_code": package_error.code},
             )
-            await db.commit()
+            await persist_service_write(db)
             await db.refresh(import_record)
             return self._import_response(import_record)
 
@@ -731,7 +733,7 @@ class SkillService:
                 import_record.target_revision = int(existing_installation.revision)
         import_record.diagnostics = []
         import_record.status = SkillImportStatus.AWAITING_APPROVAL
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(import_record)
         return self._import_response(import_record)
 
@@ -923,9 +925,11 @@ class SkillService:
                 "installed_disabled": True,
             },
         )
-        await db.commit()
+        await persist_service_write(
+            db,
+            lambda: self._refresh_registry_after_commit(db, operation="import approval"),
+        )
         await db.refresh(record)
-        await self._refresh_registry_after_commit(db, operation="import approval")
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def publish_draft(
@@ -992,8 +996,10 @@ class SkillService:
             after={"revision": installation.revision, "active_version_id": version.id, "enabled": effective_enabled},
             details={"requested_enabled": enabled, "runtime_ready": runtime_ready},
         )
-        await db.commit()
-        await self._refresh_registry_after_commit(db, operation="draft publication")
+        await persist_service_write(
+            db,
+            lambda: self._refresh_registry_after_commit(db, operation="draft publication"),
+        )
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def update_settings(
@@ -1052,8 +1058,10 @@ class SkillService:
             before=before,
             after={"revision": installation.revision, "status": installation.status.value, "settings": settings},
         )
-        await db.commit()
-        await self._refresh_registry_after_commit(db, operation="settings update")
+        await persist_service_write(
+            db,
+            lambda: self._refresh_registry_after_commit(db, operation="settings update"),
+        )
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def activate_version(
@@ -1110,8 +1118,10 @@ class SkillService:
             before={"active_version_id": before_id},
             after={"active_version_id": version.id, "revision": installation.revision},
         )
-        await db.commit()
-        await self._refresh_registry_after_commit(db, operation="version activation")
+        await persist_service_write(
+            db,
+            lambda: self._refresh_registry_after_commit(db, operation="version activation"),
+        )
         return await self.get_detail(db, skill.id, can_manage=True)
 
     async def rollback(
@@ -1182,8 +1192,10 @@ class SkillService:
             before={"revision": expected_revision},
             after={"revision": installation.revision},
         )
-        await db.commit()
-        await self._refresh_registry_after_commit(db, operation="archive")
+        await persist_service_write(
+            db,
+            lambda: self._refresh_registry_after_commit(db, operation="archive"),
+        )
 
     async def list_versions(self, db: AsyncSession, identifier: str) -> dict[str, Any]:
         skill = await self._find_skill(db, identifier)
@@ -1515,15 +1527,14 @@ class SkillService:
             raise SkillRegistryStaleError(
                 "Skill registry rebuild is degraded; events were left unacknowledged"
             )
-        await db.execute(
-            update(SkillRegistryEvent)
-            .where(
-                SkillRegistryEvent.processed_at.is_(None),
-                SkillRegistryEvent.revision <= snapshot.revision,
-            )
-            .values(processed_at=_now())
+        await mutate_rows(
+            db,
+            SkillRegistryEvent,
+            SkillRegistryEvent.processed_at.is_(None),
+            SkillRegistryEvent.revision <= snapshot.revision,
+            values={"processed_at": _now()},
         )
-        await db.commit()
+        await persist_service_write(db)
         return snapshot
 
     async def catalog(self, db: AsyncSession, *, can_manage: bool, tools: list[dict[str, Any]]) -> dict[str, Any]:

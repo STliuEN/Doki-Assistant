@@ -1,0 +1,154 @@
+{
+  "artifact_kind": "e4-live-execution-checkpoint",
+  "authorization": "User authorized rebuilding test users; isolated E4 target users rebuilt, original source business rows and old inputs retained.",
+  "boundaries": {
+    "e1_e2_e3_resources_modified": false,
+    "e4_containers_recreated_preserving_volumes_and_server_uuids": true,
+    "external_projection_generation_activated": false,
+    "full_application_cutover": false,
+    "old_inputs_deleted": false,
+    "permanent_application_dsn_changed": false,
+    "source_business_rows_modified": false,
+    "source_privilege_administration_performed": true,
+    "source_stop_write_performed": false,
+    "user_acceptance_received": false
+  },
+  "captured_at": "2026-09-07T02:17:11.257048+00:00",
+  "credentials": {
+    "private_acl": "owner and SYSTEM only",
+    "restore_old_app_account_locked_and_revoked": true,
+    "secret_values_committed": false,
+    "source_account": "doki_e4_source_ro@localhost",
+    "source_grants": [
+      "GRANT USAGE ON *.* TO `doki_e4_source_ro`@`localhost`",
+      "GRANT SELECT, SHOW VIEW ON `chat_history`.* TO `doki_e4_source_ro`@`localhost`",
+      "GRANT SELECT, SHOW VIEW ON `user_service`.* TO `doki_e4_source_ro`@`localhost`"
+    ],
+    "target_restore_app_and_root_secrets_independent": true
+  },
+  "evidence": {
+    "auth_and_owner": "e4-api-smoke-20260907T020231.json",
+    "prior_owner_failure_retained": "e4-api-smoke-20260907T015603.json",
+    "reconciliation": "e4-business-reconcile-20260907T021355.json",
+    "runner_kill_restart_and_fencing": "e4-runner-smoke-20260907T021331.json"
+  },
+  "migration": {
+    "batch_id": "e4-business-live-20260907",
+    "batch_sql_status": "imported",
+    "bundle_sha256": "93743bb2ee72663028d893f71034b5813d1df5c8fe130ae6829af59028bf5957",
+    "business_entities_imported": 312,
+    "canonical_users_rebuilt": 2,
+    "correlation_id": "64acd8c0-07ff-5d97-a2cf-37b8618002c8",
+    "document_bytes": 455311,
+    "documents": 6,
+    "encrypted_configs_decrypted_and_key_version_bound": 4,
+    "foreign_keys_checked": 48,
+    "migration_maps": 314,
+    "orphans": 0,
+    "quarantined_entities": 0,
+    "replay_imported": 0,
+    "replay_skipped": 312,
+    "skill_archives_verified_and_backed_up": 10,
+    "skill_entities_included": 62,
+    "source_rechecked_at": "2026-09-07T02:13:56.026653+00:00",
+    "source_snapshot_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a",
+    "source_tables_unchanged": 21
+  },
+  "remaining": [
+    "One legacy PDF original absent; 16 Chroma chunks cannot substitute original bytes.",
+    "E4-06: canonical shadow ownership on new writes, unified audit/durable job UoW, legacy write entry closure.",
+    "E4-05: stop-write window, final frozen source manifest and drift reconciliation, then app DSN switch.",
+    "E4-07: full app/API/SSE/polling and real business handlers, Redis outage, timeout/cancellation/out-of-order matrix.",
+    "E4-08: reviewer evidence check and second user acceptance."
+  ],
+  "representation_notes": [
+    "Legacy DATETIME literals preserved; original SYSTEM timezone not inferred as UTC.",
+    "JSON comparisons decode values, including JSON null; SQL NULL versus JSON null storage representation is not byte-identical."
+  ],
+  "resources": [
+    {
+      "credential_ref": "private://e4-20260907/source-ro",
+      "database": "chat_history",
+      "database_username": "doki_e4_source_ro",
+      "host": "localhost",
+      "id": "source-chat_history",
+      "port": 3306,
+      "read_only": true,
+      "role": "source",
+      "server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f"
+    },
+    {
+      "credential_ref": "private://e4-20260907/source-ro",
+      "database": "user_service",
+      "database_username": "doki_e4_source_ro",
+      "host": "localhost",
+      "id": "source-user_service",
+      "port": 3306,
+      "read_only": true,
+      "role": "source",
+      "server_uuid": "13e60c20-6874-11f1-8e4a-bcfce7d65b5f"
+    },
+    {
+      "container_id": "649c82b09f07804856a5e0550bc7e75db4cc699a793e385d15f2fe632a4320d3",
+      "container_name": "doki-e4-20260903-mysql",
+      "credential_ref": "private://e4-20260907/target",
+      "database": "doki_e4",
+      "database_username": "doki_e4_app",
+      "host": "127.0.0.1",
+      "id": "target",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "image_reference": "mysql:8.4",
+      "network": "doki-e4-20260903-net",
+      "port": 33427,
+      "read_only": false,
+      "role": "target",
+      "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469"
+    },
+    {
+      "container_id": "3ed78734edb308fc1c14ca6b22f1188139d75db8c170b145b6d6b2846f65b9fb",
+      "container_name": "doki-e4-20260903-mysql-restore",
+      "credential_ref": "private://e4-20260907/restore",
+      "database": "doki_e4",
+      "database_username": "doki_e4_restore",
+      "host": "127.0.0.1",
+      "id": "restore",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "image_reference": "mysql:8.4",
+      "network": "doki-e4-20260903-net",
+      "port": 33428,
+      "read_only": false,
+      "role": "restore",
+      "server_uuid": "0bf5339b-a743-11f1-9ab9-febdaaf248fb"
+    }
+  ],
+  "restore": {
+    "artifact": "e4-restore-20260907T021401.json",
+    "backup_bytes": 2112079,
+    "backup_sha256": "8f68a41cf1520550e65cbdae7baa87e920cf5d59d8ab86cd33a12943305f676e",
+    "prior_backups_retained": true,
+    "private_backup": ".runtime/e4/backup-target-8f68a41cf1520550.sql",
+    "rows": 2245,
+    "schema_and_rows_equal": true,
+    "tables": 39
+  },
+  "schema_revision": "20260905_0008_e4_business_shadow",
+  "stage_status": "implementation_in_progress",
+  "validation": {
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "local_links_checked": 178,
+    "markdown_files_checked": 195,
+    "private_acl_verified": true,
+    "private_files_git_ignored": true,
+    "pytest_passed": 473,
+    "pytest_seconds": 33.11,
+    "pytest_warnings": 1,
+    "repository_secret_scan": {
+      "files": 913,
+      "matches": 0,
+      "new_private_values": 9,
+      "scope": "exact new-secret matching; does not negate the earlier documented private snapshot error-output incident"
+    },
+    "ruff": "passed"
+  }
+}

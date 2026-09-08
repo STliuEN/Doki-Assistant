@@ -14,7 +14,7 @@ memory_router = APIRouter(prefix="/memory", tags=["memory"])
 @memory_router.get("/today")
 async def get_today_memories(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     memories = await memory_service.get_today_memories(db, user_id)
     return success_response(data={"memories": memories, "total_count": len(memories)})
@@ -25,7 +25,7 @@ async def list_memories(
     type: str | None = Query(None),
     status: str | None = Query(None),
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     memories = await memory_service.list_memories(db, user_id, type=type, status=status)
     return success_response(data={"memories": memories, "total_count": len(memories)})
@@ -35,7 +35,7 @@ async def list_memories(
 async def create_memory(
     payload: MemoryCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     memory = await memory_service.create_memory(db, user_id, payload)
     return success_response(message="记忆事项创建成功", data=memory)
@@ -45,7 +45,7 @@ async def create_memory(
 async def get_memory(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     memory = await memory_service.get_memory_dict(db, user_id, memory_id)
     if not memory:
@@ -58,7 +58,7 @@ async def update_memory(
     memory_id: str,
     payload: MemoryUpdate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     memory = await memory_service.update_memory(db, user_id, memory_id, payload)
     if not memory:
@@ -70,7 +70,7 @@ async def update_memory(
 async def complete_memory(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     result = await memory_service.complete_memory(db, user_id, memory_id)
     return success_response(message=result["message"], data=result)
@@ -80,7 +80,7 @@ async def complete_memory(
 async def mark_memory_reviewed(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     result = await memory_service.mark_reviewed(db, user_id, memory_id)
     return success_response(message=result["message"], data=result)
@@ -91,7 +91,7 @@ async def postpone_memory(
     memory_id: str,
     payload: MemoryPostpone,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     result = await memory_service.postpone_memory(db, user_id, memory_id, payload.days)
     return success_response(message=result["message"], data=result)
@@ -101,7 +101,7 @@ async def postpone_memory(
 async def archive_memory(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     result = await memory_service.archive_memory(db, user_id, memory_id)
     return success_response(message=result["message"], data=result)
@@ -111,7 +111,7 @@ async def archive_memory(
 async def delete_memory(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     deleted = await memory_service.delete_memory(db, user_id, memory_id)
     if not deleted:
@@ -123,7 +123,7 @@ async def delete_memory(
 async def get_memory_review_question(
     memory_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     question = await memory_service.generate_review_question(db, user_id, memory_id)
     return success_response(data=question)

@@ -191,10 +191,15 @@ def test_run_bindings_persist_an_immutable_registry_snapshot() -> None:
     assert isinstance(columns.skill_bindings.type, JSON)
     assert isinstance(columns.effective_grants.type, JSON)
     assert "updated_at" not in columns
-    assert _index_names(SkillRunBinding) == {
+    assert {
         "ix_skill_run_bindings_session_created",
         "ix_skill_run_bindings_user_created",
-    }
+    }.issubset(_index_names(SkillRunBinding))
+    assert {
+        "ix_skill_run_bindings_canonical_session",
+        "ix_skill_run_bindings_canonical_user",
+    }.issubset(_index_names(SkillRunBinding))
+    assert ("canonical_user_id", "users.id", "RESTRICT") in _foreign_key_targets(SkillRunBinding)
 
 
 def test_skill_domain_tables_compile_for_mysql() -> None:

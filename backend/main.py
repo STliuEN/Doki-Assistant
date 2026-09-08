@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from app.core.e3_process_environment import E3_PROCESS_ENVIRONMENT  # noqa: F401
+from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
 
 # The deliberate import ordering below captures E2 variables before legacy
 # modules that call ``load_dotenv`` at import time.  Ruff's normal E402 rule
@@ -52,6 +53,9 @@ from app.core.success_response import success_response
 from app.db.db_config import AsyncSessionLocal, verify_database_schema
 from app.db.redis_config import close_redis, connect_redis
 from app.jobs.e2_runtime import build_e2_runner
+from app.jobs.e4_runtime import build_e4_runner
+from app.core.business_boundary import BusinessBoundaryMiddleware
+from app.router.job_router import job_router
 from app.jobs.runner import configure_default_runner
 from app.router.chat import chat_router
 from app.router.health import health_router
@@ -124,7 +128,7 @@ async def lifespan(_app: FastAPI):
     from app.skills.service import skill_service
 
     async with AsyncSessionLocal() as skill_db:
-        installed = await install_standard_skill_seeds(skill_db)
+        installed = 0 if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else await install_standard_skill_seeds(skill_db)
         snapshot = await skill_service.reconcile_registry(skill_db, force=True)
     logger.info(
         "Standard Skill registry initialized: installed=%s revision=%s skills=%s",
@@ -157,7 +161,17 @@ async def lifespan(_app: FastAPI):
         name="standard-skill-registry-reconciler",
     )
     try:
-        e2_runtime = build_e2_runner(environ=E2_PROCESS_ENVIRONMENT)
+        if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") and E2_PROCESS_ENVIRONMENT.get("E2_RUNNER_ENABLED", "false").lower() in {
+            "true",
+            "1",
+            "yes",
+        }:
+            raise RuntimeError("E2 and E4 runners cannot be enabled in the same app")
+        e2_runtime = (
+            build_e4_runner(environ=E4_PROCESS_ENVIRONMENT)
+            if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED")
+            else build_e2_runner(environ=E2_PROCESS_ENVIRONMENT)
+        )
         if e2_runtime is not None:
             configure_default_runner(e2_runtime.runner)
             await e2_runtime.start()
@@ -195,6 +209,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(BusinessBoundaryMiddleware)
+app.include_router(job_router)
 app.add_middleware(SkillDraftBodyLimitMiddleware)
 
 JSON_ENVELOPE_RESPONSES = {

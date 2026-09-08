@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "e4-redis-down-cold-start",
+  "attempt_count": 1,
+  "durable_job_id": "9d241c87-1a2a-45ab-8387-3eb36625170c",
+  "error_code": "invalid_business_job",
+  "external_llm_tested": false,
+  "fixture_deliberately_invalid": true,
+  "http_statuses": {
+    "/health/live": 200,
+    "/health/ready": 503,
+    "/health/runner": 200,
+    "/jobs": 503
+  },
+  "job_status": "dead_letter",
+  "sql_runner_processed_without_redis": true,
+  "success_not_fabricated": true
+}

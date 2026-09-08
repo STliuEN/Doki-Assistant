@@ -8,7 +8,9 @@ import pytest
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.db.uow import SqlUnitOfWork
 from app.models.chat_history import Base
+from app.models.identity_domain import User
 from app.models.skill_domain import (
     Skill,
     SkillAlias,
@@ -33,6 +35,7 @@ from app.skills.service import SkillConflictError, SkillService
 from app.skills.storage import SkillPackageStorage
 
 SKILL_TABLES = (
+    User.__table__,
     Skill.__table__,
     SkillAlias.__table__,
     SkillVersion.__table__,
@@ -682,5 +685,29 @@ def test_agent_run_persists_exact_version_digest_and_grants(tmp_path, monkeypatc
                 assert binding.skill_bindings[0]["version_id"] == published["version_id"]
                 assert binding.skill_bindings[0]["digest"] == published["digest"]
                 assert binding.effective_grants == plan.effective_grants
+
+    _run(scenario())
+
+
+def test_skill_mutation_uses_caller_uow_and_publishes_registry_after_commit(tmp_path) -> None:
+    async def scenario():
+        async with _session_factory(tmp_path / "uow-boundary.db") as factory:
+            service = _service(tmp_path / "uow-boundary-packages")
+            async with SqlUnitOfWork(factory) as uow:
+                draft = await service.create_draft(uow.require_session(), _draft("uow-boundary"), "admin")
+                assert draft["status"] == "draft"
+
+            async with factory() as session:
+                assert await session.scalar(select(Skill).where(Skill.id == draft["skill_id"])) is None
+                assert service.registry.get("uow-boundary") is None
+
+            async with SqlUnitOfWork(factory) as uow:
+                draft = await service.create_draft(uow.require_session(), _draft("uow-boundary"), "admin")
+                published = await _publish(service, uow.require_session(), draft["id"], draft["revision"])
+                assert service.registry.get("uow-boundary") is None
+                await uow.commit()
+
+            assert service.registry.get("uow-boundary") is not None
+            assert service.registry.get("uow-boundary").digest == published["digest"]
 
     _run(scenario())

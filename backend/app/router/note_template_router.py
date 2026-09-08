@@ -23,7 +23,7 @@ note_template_router = APIRouter(prefix="/note-template", tags=["note-template"]
 @note_template_router.get("/list")
 async def list_templates(
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """列出当前用户的所有模板。"""
     svc = get_note_template_service()
@@ -35,7 +35,7 @@ async def list_templates(
 async def create_template(
     payload: NoteTemplateCreate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     """创建自定义模板。"""
@@ -48,7 +48,7 @@ async def create_template(
 async def reorder_templates(
     payload: NoteTemplateReorder,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """重新排序模板。"""
     svc = get_note_template_service()
@@ -63,7 +63,7 @@ async def update_template(
     template_id: str,
     payload: NoteTemplateUpdate,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     """更新自定义模板。"""
@@ -78,7 +78,7 @@ async def update_template(
 async def delete_template(
     template_id: str,
     user_id: str = Depends(get_current_user_id),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     _: None = Depends(rate_limit(limit=20, window=60)),
 ):
     """删除自定义模板。"""

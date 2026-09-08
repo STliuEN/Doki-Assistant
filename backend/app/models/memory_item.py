@@ -1,14 +1,34 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
+from app.models.foundation_types import DIGEST_PATTERN, DIGEST_TYPE, UUID_PATTERN, UUID_TYPE
 
 
 class MemoryItem(Base):
     __tablename__ = "memory_items"
+    __table_args__ = (
+        UniqueConstraint("canonical_id", name="uq_memory_items_canonical_id"),
+        Index("ix_memory_items_canonical_user", "canonical_user_id"),
+        CheckConstraint(
+            f"canonical_id IS NULL OR canonical_id REGEXP '{UUID_PATTERN}'",
+            name="ck_memory_items_canonical_id_uuid",
+        ),
+        CheckConstraint(
+            f"canonical_user_id IS NULL OR canonical_user_id REGEXP '{UUID_PATTERN}'",
+            name="ck_memory_items_canonical_user_uuid",
+        ),
+        CheckConstraint(
+            f"content_digest IS NULL OR content_digest REGEXP '{DIGEST_PATTERN}'",
+            name="ck_memory_items_content_digest",
+        ),
+    )
 
     id = Column(String(36), primary_key=True, comment="UUID")
     user_id = Column(String(36), index=True, nullable=False, comment="用户ID")
+    canonical_id = Column(UUID_TYPE, nullable=True, comment="E4 canonical memory UUID")
+    canonical_user_id = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    content_digest = Column(DIGEST_TYPE, nullable=True, comment="E4 normalized memory content SHA-256")
 
     source_type = Column(String(32), default="manual", index=True, comment="manual/chat/note/translate/rag")
     source_id = Column(String(36), nullable=True, index=True, comment="来源对象ID")

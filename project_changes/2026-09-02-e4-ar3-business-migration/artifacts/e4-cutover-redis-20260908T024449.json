@@ -1,0 +1,222 @@
+{
+  "all_passed": true,
+  "artifact_kind": "e4-local-cutover-redis-matrix",
+  "checks": {
+    "atomic_note_before": {
+      "correlation_id": "c925dfce-6131-487d-8d88-001d1adb4c04",
+      "job_id": "d7733246-a211-4b52-a0c4-d9c5925c6a71",
+      "note_id": "a1accb5c-3dc2-414d-a861-4fb88a414685",
+      "passed": true
+    },
+    "atomic_note_recovered": {
+      "correlation_id": "6601e085-8540-44e5-ad2a-7d381358d647",
+      "job_id": "cd751012-b55c-4411-87fa-ba962cbffa78",
+      "note_id": "0595e4ac-d78d-4c11-9bd3-1b31879e4b2b",
+      "passed": true
+    },
+    "frontend_auth_target": {
+      "passed": true
+    },
+    "frontend_cookie_refresh_logout": {
+      "passed": true
+    },
+    "frontend_job_polling_and_owner_isolation": {
+      "passed": true
+    },
+    "frontend_old_write_paths_retired": {
+      "passed": true,
+      "probes": [
+        {
+          "path": "/api/tools",
+          "status": 410
+        },
+        {
+          "path": "/api/mcp",
+          "status": 410
+        },
+        {
+          "path": "/knowledge/md5/clear",
+          "status": 410
+        },
+        {
+          "path": "/knowledge/reranker/switch",
+          "status": 410
+        }
+      ]
+    },
+    "legacy_process_retired_routes": {
+      "passed": true,
+      "probes": [
+        {
+          "method": "GET",
+          "path": "/user",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/login/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/login/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/register/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/register/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/refresh-token/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/refresh-token/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/logout/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/logout/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/user/detail/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/user/detail/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/file",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/file",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/file/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/file/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/file/upload/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/file/upload/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/admin",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/admin",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/admin/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/admin/",
+          "status": 410
+        },
+        {
+          "method": "GET",
+          "path": "/admin/login/",
+          "status": 410
+        },
+        {
+          "method": "POST",
+          "path": "/admin/login/",
+          "status": 410
+        }
+      ]
+    },
+    "redis_down_http_matrix": {
+      "passed": true,
+      "statuses": {
+        "jobs": 503,
+        "live": 200,
+        "login": 503,
+        "notes": 503,
+        "ready": 503,
+        "runner": 200,
+        "write": 503
+      }
+    },
+    "redis_identity_allowlisted": {
+      "passed": true
+    },
+    "redis_outage_no_sql_business_or_audit_mutation": {
+      "passed": true
+    },
+    "redis_outage_sql_runner_alive": {
+      "passed": true
+    },
+    "redis_pool_recovered_without_app_restart": {
+      "passed": true,
+      "readiness": "degraded"
+    },
+    "source_digest_unchanged_during_cutover": {
+      "passed": true,
+      "tables": 21
+    },
+    "source_frozen_before": {
+      "passed": true
+    },
+    "synthetic_notes_cleaned_with_audits_retained": {
+      "passed": true
+    }
+  },
+  "completed_at": "2026-09-08T02:44:49.318758+00:00",
+  "run_id": "f9923920-606d-44dd-ab39-b08a5eb4393c",
+  "scope": "Loopback HTTP real full FastAPI + Django + Vite + E4 MySQL/Redis; no production DNS/LB/TLS cutover",
+  "started_at": "2026-09-08T02:44:32.340445+00:00"
+}

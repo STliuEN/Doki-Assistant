@@ -1,19 +1,42 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.sql import func
 
 from app.models.chat_history import Base
+from app.models.foundation_types import DIGEST_PATTERN, DIGEST_TYPE, UUID_PATTERN, UUID_TYPE
 
 
 class KnowledgeSourceDocument(Base):
     __tablename__ = "knowledge_source_documents"
     __table_args__ = (
         UniqueConstraint("user_id", "md5", name="uq_knowledge_source_user_md5"),
+        UniqueConstraint("canonical_id", name="uq_knowledge_source_canonical_id"),
+        Index("ix_knowledge_source_canonical_user", "canonical_user_id"),
+        CheckConstraint(
+            f"canonical_id IS NULL OR canonical_id REGEXP '{UUID_PATTERN}'",
+            name="ck_knowledge_source_canonical_id_uuid",
+        ),
+        CheckConstraint(
+            f"canonical_user_id IS NULL OR canonical_user_id REGEXP '{UUID_PATTERN}'",
+            name="ck_knowledge_source_canonical_user_uuid",
+        ),
+        CheckConstraint(
+            f"content_digest IS NULL OR content_digest REGEXP '{DIGEST_PATTERN}'",
+            name="ck_knowledge_source_content_digest",
+        ),
+        CheckConstraint(
+            f"artifact_digest IS NULL OR artifact_digest REGEXP '{DIGEST_PATTERN}'",
+            name="ck_knowledge_source_artifact_digest",
+        ),
     )
 
     id = Column(String(36), primary_key=True)
     user_id = Column(String(64), index=True, nullable=False)
+    canonical_id = Column(UUID_TYPE, nullable=True, comment="E4 canonical document UUID")
+    canonical_user_id = Column(UUID_TYPE, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     md5 = Column(String(32), index=True, nullable=False)
+    content_digest = Column(DIGEST_TYPE, nullable=True, comment="E4 normalized document content SHA-256")
+    artifact_digest = Column(DIGEST_TYPE, nullable=True, comment="E4 original artifact SHA-256")
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_ext = Column(String(32), default="", nullable=False)

@@ -10,10 +10,14 @@ import zipfile
 
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
 from app.core.logger_handler import logger
+from app.db.business_authority import mutate_rows
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.note import Note
 from app.schemas.models import NoteCreate, NoteResponse, NoteUpdate
 from app.schemas.sse import encode_sse
@@ -42,7 +46,7 @@ class NoteService:
         # contract. Keep the argument for the background-init API.
         from app.rag.vector_store import VectorStoreService
 
-        self._notes_store = VectorStoreService()._notes_store
+        self._notes_store = None if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else VectorStoreService()._notes_store
 
     @property
     def notes_store(self):
@@ -104,19 +108,21 @@ class NoteService:
             category=payload.category,
         )
         db.add(note)
-        await db.commit()
-        await db.refresh(note)
-
-        # 向量化写入 ChromaDB
-        try:
-            await self._add_note_vector(db, user_id, note_id, payload.title, payload.content)
-        except Exception as e:
-            logger.error(f"笔记向量化失败 note_id={note_id}: {e}")
-
         # 若用户已提供 tags/category，跳过自动标签生成
         user_provided_meta = payload.tags is not None or payload.category is not None
-        if not user_provided_meta:
-            asyncio.create_task(self._auto_tag_and_review(note_id, user_id, payload.content))
+
+        async def after_commit() -> None:
+            # Chroma and the LLM review are derived projections. They must not
+            # run until the note transaction is durable.
+            try:
+                await self._add_note_vector(db, user_id, note_id, payload.title, payload.content)
+            except Exception as exc:
+                logger.error(f"笔记向量化失败 note_id={note_id}: {exc}")
+            if not user_provided_meta:
+                asyncio.create_task(self._auto_tag_and_review(note_id, user_id, payload.content))
+
+        await persist_service_write(db, callback=after_commit)
+        await db.refresh(note)
 
         return self._doc_to_response(note)
 
@@ -126,7 +132,7 @@ class NoteService:
         1. 更新 MySQL 中的 title/content/category/tags
         2. 如果 content 变更，删除旧向量并写入新向量
         """
-        stmt = select(Note).where(Note.id == note_id, Note.user_id == user_id)
+        stmt = select(Note).where(Note.id == note_id, business_owner_filter(Note, user_id))
         result = await db.execute(stmt)
         note = result.scalar_one_or_none()
         if not note:
@@ -145,17 +151,20 @@ class NoteService:
         if payload.is_pinned is not None:
             note.is_pinned = payload.is_pinned
 
-        await db.commit()
-        await db.refresh(note)
-
-        # content 变更时同步更新向量
+        after_commit = None
         if content_changed:
-            try:
-                # 先删除旧向量，再写入新向量
-                await self._delete_note_vector(db, user_id, note_id)
-                await self._add_note_vector(db, user_id, note_id, note.title, note.content)
-            except Exception as e:
-                logger.error(f"更新笔记向量失败 note_id={note_id}: {e}")
+            async def project_after_commit() -> None:
+                try:
+                    # 先删除旧向量，再写入新向量。
+                    await self._delete_note_vector(db, user_id, note_id)
+                    await self._add_note_vector(db, user_id, note_id, note.title, note.content)
+                except Exception as exc:
+                    logger.error(f"更新笔记向量失败 note_id={note_id}: {exc}")
+
+            after_commit = project_after_commit
+
+        await persist_service_write(db, callback=after_commit)
+        await db.refresh(note)
 
         return self._doc_to_response(note)
 
@@ -165,21 +174,22 @@ class NoteService:
         1. 删除 MySQL 中的笔记和对应复习记忆事项
         2. 删除 ChromaDB 中的向量
         """
-        stmt = select(Note).where(Note.id == note_id, Note.user_id == user_id)
+        stmt = select(Note).where(Note.id == note_id, business_owner_filter(Note, user_id))
         result = await db.execute(stmt)
         note = result.scalar_one_or_none()
         if not note:
             return False
 
         await memory_service.delete_note_memories(db, user_id, note_id)
-        await db.execute(delete(Note).where(Note.id == note_id, Note.user_id == user_id))
-        await db.commit()
+        await db.delete(note)
 
-        # 清理向量
-        try:
-            await self._delete_note_vector(db, user_id, note_id)
-        except Exception as e:
-            logger.error(f"删除笔记向量失败 note_id={note_id}: {e}")
+        async def delete_vector_after_commit() -> None:
+            try:
+                await self._delete_note_vector(db, user_id, note_id)
+            except Exception as exc:
+                logger.error(f"删除笔记向量失败 note_id={note_id}: {exc}")
+
+        await persist_service_write(db, callback=delete_vector_after_commit)
 
         return True
 
@@ -187,7 +197,7 @@ class NoteService:
         """
         根据笔记 ID 和用户 ID 获取笔记详情。
         """
-        stmt = select(Note).where(Note.id == note_id, Note.user_id == user_id)
+        stmt = select(Note).where(Note.id == note_id, business_owner_filter(Note, user_id))
         result = await db.execute(stmt)
         note = result.scalar_one_or_none()
         if not note:
@@ -207,7 +217,7 @@ class NoteService:
         """
         分页查询笔记列表，支持按分类筛选和排序。tag 筛选为内存过滤。
         """
-        conditions = [Note.user_id == user_id]
+        conditions = [business_owner_filter(Note, user_id)]
         if category:
             conditions.append(Note.category == category)
 
@@ -268,7 +278,7 @@ class NoteService:
             return []
 
         # 从 MySQL 获取完整笔记信息并保持向量检索的顺序
-        stmt = select(Note).where(Note.id.in_(note_ids), Note.user_id == user_id)
+        stmt = select(Note).where(Note.id.in_(note_ids), business_owner_filter(Note, user_id))
         result = await db.execute(stmt)
         notes_map = {n.id: n for n in result.scalars().all()}
 
@@ -408,7 +418,7 @@ class NoteService:
             async with AsyncSessionLocal() as session:
                 stmt = (
                     update(Note)
-                    .where(Note.id == note_id, Note.user_id == user_id)
+                    .where(Note.id == note_id, business_owner_filter(Note, user_id))
                     .values(tags=tags, category=category)
                 )
                 await session.execute(stmt)
@@ -492,20 +502,20 @@ class NoteService:
         获取用户的笔记分类统计 —— 动态查询所有存在的分类并计数。
         """
         stmt = select(Note.category, func.count(Note.id)).where(
-            Note.user_id == user_id,
+            business_owner_filter(Note, user_id),
             Note.category.isnot(None),
         ).group_by(Note.category)
         result = await db.execute(stmt)
         categories = [{"category": cat, "count": count} for cat, count in result]
 
         count_stmt = select(func.count(Note.id)).where(
-            Note.user_id == user_id,
+            business_owner_filter(Note, user_id),
             Note.category.is_(None),
         )
         result = await db.execute(count_stmt)
         uncategorized = result.scalar() or 0
 
-        total_stmt = select(func.count(Note.id)).where(Note.user_id == user_id)
+        total_stmt = select(func.count(Note.id)).where(business_owner_filter(Note, user_id))
         result = await db.execute(total_stmt)
         total = result.scalar() or 0
 
@@ -521,7 +531,7 @@ class NoteService:
         返回被删除的笔记数量。
         """
         stmt = select(Note).where(
-            Note.user_id == user_id,
+            business_owner_filter(Note, user_id),
             Note.category == category,
         )
         result = await db.execute(stmt)
@@ -530,16 +540,18 @@ class NoteService:
         if not note_ids:
             return 0
 
-        await db.execute(
-            delete(Note).where(Note.user_id == user_id, Note.category == category)
-        )
-        await db.commit()
+        for note in notes:
+            await memory_service.delete_note_memories(db, user_id, note.id)
+            await db.delete(note)
 
-        for nid in note_ids:
-            try:
-                await self._delete_note_vector(db, user_id, nid)
-            except Exception as e:
-                logger.error(f"删除分类笔记向量失败 note_id={nid}: {e}")
+        async def delete_vectors_after_commit() -> None:
+            for nid in note_ids:
+                try:
+                    await self._delete_note_vector(db, user_id, nid)
+                except Exception as exc:
+                    logger.error(f"删除分类笔记向量失败 note_id={nid}: {exc}")
+
+        await persist_service_write(db, callback=delete_vectors_after_commit)
 
         return len(note_ids)
 
@@ -579,7 +591,7 @@ class NoteService:
         if not note_ids:
             return 0
 
-        stmt = select(Note).where(Note.id.in_(note_ids), Note.user_id == user_id)
+        stmt = select(Note).where(Note.id.in_(note_ids), business_owner_filter(Note, user_id))
         result = await db.execute(stmt)
         existing = result.scalars().all()
         existing_ids = [n.id for n in existing]
@@ -590,14 +602,16 @@ class NoteService:
         for nid in existing_ids:
             await memory_service.delete_note_memories(db, user_id, nid)
 
-        await db.execute(delete(Note).where(Note.id.in_(existing_ids), Note.user_id == user_id))
-        await db.commit()
+        await mutate_rows(db, Note, Note.id.in_(existing_ids), business_owner_filter(Note, user_id), remove=True)
 
-        for nid in existing_ids:
-            try:
-                await self._delete_note_vector(db, user_id, nid)
-            except Exception as e:
-                logger.error(f"批量删除向量失败 note_id={nid}: {e}")
+        async def delete_vectors_after_commit() -> None:
+            for nid in existing_ids:
+                try:
+                    await self._delete_note_vector(db, user_id, nid)
+                except Exception as exc:
+                    logger.error(f"批量删除向量失败 note_id={nid}: {exc}")
+
+        await persist_service_write(db, callback=delete_vectors_after_commit)
 
         return len(existing_ids)
 
@@ -611,14 +625,9 @@ class NoteService:
         if not note_ids:
             return 0
 
-        stmt = (
-            update(Note)
-            .where(Note.id.in_(note_ids), Note.user_id == user_id)
-            .values(category=category)
-        )
-        result = await db.execute(stmt)
-        await db.commit()
-        return result.rowcount
+        count = await mutate_rows(db, Note, Note.id.in_(note_ids), business_owner_filter(Note, user_id), values={"category": category})
+        await persist_service_write(db)
+        return count
 
     async def batch_export_zip(self, db: AsyncSession, user_id: str, note_ids: list[str]) -> bytes:
         """
@@ -648,14 +657,9 @@ class NoteService:
         if not note_ids:
             return 0
 
-        stmt = (
-            update(Note)
-            .where(Note.id.in_(note_ids), Note.user_id == user_id)
-            .values(is_pinned=is_pinned)
-        )
-        result = await db.execute(stmt)
-        await db.commit()
-        return result.rowcount
+        count = await mutate_rows(db, Note, Note.id.in_(note_ids), business_owner_filter(Note, user_id), values={"is_pinned": is_pinned})
+        await persist_service_write(db)
+        return count
 
 
 _note_service_instance: "NoteService | None" = None
@@ -666,5 +670,5 @@ def get_note_service() -> NoteService:
     global _note_service_instance
     if _note_service_instance is None:
         from app.core.background_init import init_manager
-        _note_service_instance = init_manager.note_service
+        _note_service_instance = NoteService() if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else init_manager.note_service
     return _note_service_instance

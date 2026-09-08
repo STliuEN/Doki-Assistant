@@ -11,17 +11,18 @@ import asyncio
 import inspect
 import logging
 import os
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Awaitable, Callable, Mapping, Protocol
 from uuid import uuid4
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.uow import SqlUnitOfWork
 from app.jobs.config import JobRuntimeConfig
-from app.jobs.repository import JobRepository
+from app.jobs.repository import JobRepository, payload_digest
+from app.models.job_domain import Job
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,8 @@ class JobHandlerContext(Protocol):
 
     async def cancellation_requested(self) -> bool: ...
 
+    def mark_sql_completed(self) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class RunnerHandlerContext:
@@ -58,6 +61,10 @@ class RunnerHandlerContext:
     fencing_token: int
     lease_owner: str
     _cancellation_probe: Callable[[], Awaitable[bool]]
+    sql_completed: asyncio.Event = field(default_factory=asyncio.Event)
+
+    def mark_sql_completed(self) -> None:
+        self.sql_completed.set()
 
     async def cancellation_requested(self) -> bool:
         return await self._cancellation_probe()
@@ -158,6 +165,7 @@ class SqlJobRunner:
         lease_owner: str | None = None,
         enabled: bool = True,
         lock_name: str = "doki-e2-sql-runner",
+        claim_registered_only: bool = False,
     ) -> None:
         self.session_factory = session_factory
         self.config = config or JobRuntimeConfig.from_environment()
@@ -165,6 +173,7 @@ class SqlJobRunner:
         self.lease_owner = lease_owner or f"runner-{uuid4()}"
         self.enabled = bool(enabled)
         self.lock_name = lock_name
+        self.claim_registered_only = claim_registered_only
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
         self._lock_session: AsyncSession | None = None
@@ -286,16 +295,20 @@ class SqlJobRunner:
                 attempt_number=int(attempt.attempt_number),
                 fencing_token=int(attempt.fencing_token),
                 lease_owner=self.lease_owner,
+                sql_completed=asyncio.Event(),
                 _cancellation_probe=lambda: self._cancellation_requested(
                     job_id=str(job.id), fencing_token=int(attempt.fencing_token)
                 ),
             )
             result = await self._execute_handler(handler, job.payload_json, context, str(job.id), int(attempt.fencing_token))
-            await self._finish_success(
-                job_id=str(job.id),
-                fencing_token=int(attempt.fencing_token),
-                result=result,
-            )
+            if context.sql_completed.is_set():
+                await self._verify_sql_completion(str(job.id), int(attempt.fencing_token), result)
+            else:
+                await self._finish_success(
+                    job_id=str(job.id),
+                    fencing_token=int(attempt.fencing_token),
+                    result=result,
+                )
             self._set_snapshot(
                 succeeded_count=self._snapshot.succeeded_count + 1,
                 last_completed_at=datetime.now(UTC),
@@ -324,11 +337,22 @@ class SqlJobRunner:
                 active_fencing_token=None,
             )
 
+    async def _verify_sql_completion(self, job_id, fencing_token, result):
+        async with self.session_factory() as session:
+            job = await session.scalar(select(Job).where(Job.id == job_id))
+            if (
+                job is None
+                or job.status != "succeeded"
+                or job.fencing_token != fencing_token
+                or payload_digest(job.result_json) != payload_digest(result)
+            ):
+                raise LeaseLostError("Handler did not durably complete the matching SQL job")
+
     async def _claim(self):
         async with SqlUnitOfWork(self.session_factory) as uow:
             await self._set_claim_isolation(uow.require_session())
             repository = JobRepository(uow.require_session(), self.config)
-            result = await repository.claim_one(lease_owner=self.lease_owner)
+            result = await repository.claim_one(lease_owner=self.lease_owner, job_types=self.registry.names() if self.claim_registered_only else None)
             if result is None:
                 # ``claim_one`` may have recovered an expired lease before
                 # finding no immediately eligible job.  Keep that recovery
@@ -421,14 +445,18 @@ class SqlJobRunner:
                     value = handler_task.result()
                     if not isinstance(value, Mapping):
                         raise JobHandlerError("invalid_result", "job handler must return a JSON object", permanent=True)
-                    if await context.cancellation_requested():
+                    if not context.sql_completed.is_set() and await context.cancellation_requested():
                         raise JobHandlerError(
                             "cancel_requested",
                             "job cancellation was requested before the handler completed",
                             permanent=True,
                         )
                     return dict(value)
+                if context.sql_completed.is_set():
+                    continue
                 if not await self._heartbeat(job_id=job_id, fencing_token=fencing_token):
+                    if context.sql_completed.is_set() or handler_task.done():
+                        continue
                     handler_task.cancel()
                     try:
                         await handler_task

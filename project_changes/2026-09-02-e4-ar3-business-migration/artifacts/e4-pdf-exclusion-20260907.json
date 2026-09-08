@@ -1,0 +1,18 @@
+{
+  "artifact_kind": "e4-user-approved-source-exclusion",
+  "audit_id": "e6ef6c68-c1e5-51a4-bcb5-80b372285969",
+  "authorization_date": "2026-09-07",
+  "blocks_e4_migration": false,
+  "captured_at": "2026-09-07T04:25:12.658920+00:00",
+  "chroma_modified": false,
+  "correlation_id": "e6ef6c68-c1e5-51a4-bcb5-80b372285969",
+  "disposition": "excluded",
+  "excluded_documents": 1,
+  "legacy_chroma_chunks": 16,
+  "other_documents_excluded": false,
+  "prior_snapshots_retained": true,
+  "reason": "User confirmed the missing PDF is an unimportant test document and explicitly authorized discarding it.",
+  "source_locator_sha256": "460f45fe6163b9255e94b1b997e69fbad3d04cba2bf86b73a8344676e4a8b2d6",
+  "source_rows_deleted": 0,
+  "sql_original_rows": 0
+}

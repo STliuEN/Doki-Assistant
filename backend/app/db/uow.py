@@ -6,6 +6,12 @@ from typing import Any, Protocol
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.transaction_context import (
+    clear_post_commit_callbacks,
+    mark_uow_transaction,
+    run_post_commit_callbacks,
+)
+
 
 class AsyncSessionFactory(Protocol):
     def __call__(self) -> AsyncSession: ...
@@ -28,6 +34,7 @@ class SqlUnitOfWork:
         if self.session is not None:
             raise UnitOfWorkError("unit of work cannot be entered twice")
         self.session = self._session_factory()
+        mark_uow_transaction(self.session)
         await self.session.begin()
         # SQLite defers the physical transaction until the first write.  A
         # nested savepoint before that point becomes the outer transaction and
@@ -49,9 +56,11 @@ class SqlUnitOfWork:
             raise UnitOfWorkError("unit of work was already committed")
         await session.commit()
         self._committed = True
+        await run_post_commit_callbacks(session)
 
     async def rollback(self) -> None:
         session = self.require_session()
+        clear_post_commit_callbacks(session)
         await session.rollback()
 
     async def __aexit__(
@@ -65,6 +74,7 @@ class SqlUnitOfWork:
             return
         try:
             if not self._committed:
+                clear_post_commit_callbacks(self.session)
                 await self.session.rollback()
         finally:
             await self.session.close()

@@ -1,0 +1,46 @@
+{
+  "artifact_kind": "e4-source-audit",
+  "blocking_reasons": [
+    "one_md5_sidecar_pdf_has_16_chroma_chunks_but_no_sql_or_project_original_bytes"
+  ],
+  "chat_memory_source_resolution": "46 null source IDs match create_memory tool; no invented session links",
+  "database_writes": false,
+  "declared_fk_reference_count": 230,
+  "exclusions": {
+    "chat_history.alembic_version": {
+      "preserved_in_private_snapshot": true,
+      "reason": "source_schema_bookkeeping",
+      "row_count": 1
+    },
+    "chat_history.review_records": {
+      "preserved_in_private_snapshot": true,
+      "reason": "review_records_auto_migration_explicitly_excluded_by_2026-06-17_plan",
+      "row_count": 5
+    }
+  },
+  "identity_blocked": false,
+  "identity_counts": {
+    "already_mapped_count": 0,
+    "conflict_count": 0,
+    "duplicate_count": 0,
+    "expected_inserts": 314,
+    "expected_noops": 0,
+    "invalid_count": 0,
+    "normalized_count": 314,
+    "orphan_count": 0,
+    "source_key_total": 314,
+    "target_uuid_collision_count": 0,
+    "unique_conflict_count": 0,
+    "validated_count": 314
+  },
+  "identity_report_sha256": "c786a1ad783ac70a27e7917e666a43fb8837aec11083f2436bd759a43477b206",
+  "original_document_bytes": 455311,
+  "original_documents_verified": 6,
+  "partial_observation_not_import_authorization": true,
+  "schema_version": 1,
+  "scope": "identity and declared SQL references; not full business semantics or live import",
+  "skill_actor_resolution": "system matches SYSTEM_ACTOR and seed.py; not an orphan user",
+  "snapshot_content_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a",
+  "target_observation": "Both E4 target and restore were read-only verified empty before this dry-run",
+  "users_from_django": 2
+}

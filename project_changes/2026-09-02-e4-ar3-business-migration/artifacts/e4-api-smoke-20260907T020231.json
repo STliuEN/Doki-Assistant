@@ -1,0 +1,43 @@
+{
+  "application_cutover": false,
+  "artifact_kind": "e4-real-sql-auth-smoke",
+  "captured_at": "2026-09-07T02:02:31.121710+00:00",
+  "scope": "real user router + real E4 SQL; no frontend/full-app lifecycle or projection launch",
+  "source_writes": false,
+  "users": [
+    {
+      "authenticated_detail": 200,
+      "business_owner_coverage": {
+        "notes": {
+          "canonical_owner_rows": 0,
+          "current_service_owner_predicate_rows": 0
+        },
+        "user_model_configs": {
+          "canonical_owner_rows": 0,
+          "current_service_owner_predicate_rows": 0
+        }
+      },
+      "login": 200,
+      "logout": 200,
+      "refresh": 200,
+      "revoked_session_denied": 401
+    },
+    {
+      "authenticated_detail": 200,
+      "business_owner_coverage": {
+        "notes": {
+          "canonical_owner_rows": 7,
+          "current_service_owner_predicate_rows": 7
+        },
+        "user_model_configs": {
+          "canonical_owner_rows": 6,
+          "current_service_owner_predicate_rows": 6
+        }
+      },
+      "login": 200,
+      "logout": 200,
+      "refresh": 200,
+      "revoked_session_denied": 401
+    }
+  ]
+}

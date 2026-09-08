@@ -1,0 +1,29 @@
+{
+  "artifact_kind": "e4-local-validation",
+  "schema_version": 1,
+  "date": "2026-09-07",
+  "evidence_id": "E4-04-PAYLOAD-20260907",
+  "platform": "Windows Python 3.12.3",
+  "scope": "local tests and captured-source payload probe, not live migration",
+  "targeted_tests": {"passed": 38},
+  "full_tests": {"passed": 470, "warnings": 1, "elapsed_seconds": 30.45},
+  "warning": "existing aiosqlite Python 3.12 default datetime adapter deprecation",
+  "ruff": "passed",
+  "compileall": "passed",
+  "git_diff_check_repository_defaults": "passed",
+  "docs": {"status": "passed", "markdown_files": 195, "local_links": 178},
+  "source_probe_replay": "matched recorded evidence; expected blocked result",
+  "source_probe_issue_counts": {"unsupported_entity_type": 64, "missing_key_version": 4},
+  "snapshot_content_sha256": "11e6c61c7518f3af945377d774df57b44c46f995f7ccecf44ac1bc38f0b2847a",
+  "lockfile_and_pyproject_unchanged": true,
+  "live_ddl_executed": false,
+  "business_import_executed": false,
+  "stop_write_executed": false,
+  "cutover_executed": false,
+  "formal_preflight_issued": false,
+  "e4_closed": false,
+  "execution_incidents": [
+    "Windows virtual environment rebuilt after cross-platform uv invocation, then restored with the frozen Windows lock and dev extra",
+    "PowerShell JSON decoding error echoed private snapshot data into tool error output; documented in test-record.md; subsequent probes use explicit UTF-8 and redacted errors"
+  ]
+}

@@ -114,7 +114,7 @@ def _validate_tool_ids(tool_ids: list[str]) -> None:
 async def get_skills_catalog(
     user_id: str = Depends(get_current_user_id),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     can_manage = await is_admin_user(user_id, credentials)
     data = await skill_service.catalog(
@@ -134,7 +134,7 @@ async def get_skills_catalog(
 async def create_skill_draft(
     payload: SkillDraftCreate,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.create_draft(db, payload, actor_id)
@@ -153,7 +153,7 @@ async def import_skill_package(
     file: UploadFile = File(...),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=128),
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     media_type = (file.content_type or "").split(";", 1)[0].strip().lower()
     if media_type not in {"application/zip", "application/x-zip-compressed"}:
@@ -183,7 +183,7 @@ async def import_skill_package(
 async def get_skill_import(
     import_id: str,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.get_import(db, import_id, actor_id)
@@ -201,7 +201,7 @@ async def approve_skill_import(
     import_id: str,
     payload: SkillImportApproveRequest,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     _validate_tool_ids(payload.tools)
     try:
@@ -221,7 +221,7 @@ async def get_skill_detail(
     skill_id: str,
     user_id: str = Depends(get_current_user_id),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     can_manage = await is_admin_user(user_id, credentials)
     try:
@@ -242,7 +242,7 @@ async def save_skill_draft(
     skill_id: str,
     payload: SkillDraftUpdate,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.save_draft(db, skill_id, payload, actor_id)
@@ -260,7 +260,7 @@ async def publish_skill_draft(
     skill_id: str,
     payload: SkillPublishRequest,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     _validate_tool_ids(payload.tools)
     try:
@@ -279,7 +279,7 @@ async def update_skill_settings(
     skill_id: str,
     payload: SkillSettingsUpdate,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     patch = payload.model_dump(exclude={"expected_revision"}, exclude_unset=True)
     if patch.get("tools") is not None:
@@ -301,7 +301,7 @@ async def update_skill_settings(
 async def get_skill_versions(
     skill_id: str,
     _: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.list_versions(db, skill_id)
@@ -320,7 +320,7 @@ async def activate_skill_version(
     version_id: str,
     payload: SkillActivateRequest,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.activate_version(
@@ -344,7 +344,7 @@ async def rollback_skill(
     skill_id: str,
     payload: SkillRollbackRequest,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         data = await skill_service.rollback(
@@ -364,7 +364,7 @@ async def export_skill_version(
     skill_id: str,
     version_id: str,
     _: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         archive, filename = await skill_service.export_version(db, skill_id, version_id)
@@ -381,7 +381,7 @@ async def export_skill_version(
 async def list_skill_resources(
     skill_id: str,
     _: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         resources = await skill_service.list_resources(db, skill_id)
@@ -395,7 +395,7 @@ async def read_skill_resource(
     skill_id: str,
     resource_path: str,
     _: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         content, media_type = await skill_service.read_resource(db, skill_id, resource_path)
@@ -413,7 +413,7 @@ async def archive_skill(
     skill_id: str,
     payload: SkillArchiveRequest,
     actor_id: str = Depends(require_skill_admin),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         await skill_service.archive(

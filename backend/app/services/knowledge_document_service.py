@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.business_owner import business_owner_filter
+from app.db.transaction_context import persist_service_write
 from app.models.knowledge_document import KnowledgeSourceDocument
 
 
@@ -55,7 +57,7 @@ class KnowledgeDocumentService:
     ) -> tuple[KnowledgeSourceDocument, bool]:
         md5_hex = self._md5(file_input.content)
         stmt = select(KnowledgeSourceDocument).where(
-            KnowledgeSourceDocument.user_id == user_id,
+            business_owner_filter(KnowledgeSourceDocument, user_id),
             KnowledgeSourceDocument.md5 == md5_hex,
         )
         result = await db.execute(stmt)
@@ -91,7 +93,7 @@ class KnowledgeDocumentService:
         doc.embedding_base_url = embedding_config.get("base_url", "")
         doc.error_message = None
 
-        await db.commit()
+        await persist_service_write(db)
         await db.refresh(doc)
         return doc, created
 
@@ -113,7 +115,7 @@ class KnowledgeDocumentService:
         doc.embedding_model = embedding_config.get("model_name", "")
         doc.embedding_base_url = embedding_config.get("base_url", "")
         doc.error_message = None
-        await db.commit()
+        await persist_service_write(db)
 
     async def mark_failed(
         self,
@@ -127,19 +129,19 @@ class KnowledgeDocumentService:
             return
         doc.status = "failed"
         doc.error_message = error_message[:4000]
-        await db.commit()
+        await persist_service_write(db)
 
     async def get_source(self, db: AsyncSession, user_id: str, document_id: str) -> KnowledgeSourceDocument | None:
         stmt = select(KnowledgeSourceDocument).where(
             KnowledgeSourceDocument.id == document_id,
-            KnowledgeSourceDocument.user_id == user_id,
+            business_owner_filter(KnowledgeSourceDocument, user_id),
         )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_source_by_filename(self, db: AsyncSession, user_id: str, filename: str) -> KnowledgeSourceDocument | None:
         stmt = select(KnowledgeSourceDocument).where(
-            KnowledgeSourceDocument.user_id == user_id,
+            business_owner_filter(KnowledgeSourceDocument, user_id),
             KnowledgeSourceDocument.original_filename == filename,
         )
         result = await db.execute(stmt)
@@ -148,7 +150,7 @@ class KnowledgeDocumentService:
     async def list_sources(self, db: AsyncSession, user_id: str) -> list[dict]:
         stmt = (
             select(KnowledgeSourceDocument)
-            .where(KnowledgeSourceDocument.user_id == user_id)
+            .where(business_owner_filter(KnowledgeSourceDocument, user_id))
             .order_by(KnowledgeSourceDocument.created_at.desc())
         )
         result = await db.execute(stmt)
@@ -157,7 +159,7 @@ class KnowledgeDocumentService:
     async def iter_sources(self, db: AsyncSession, user_id: str) -> list[KnowledgeSourceDocument]:
         stmt = (
             select(KnowledgeSourceDocument)
-            .where(KnowledgeSourceDocument.user_id == user_id)
+            .where(business_owner_filter(KnowledgeSourceDocument, user_id))
             .order_by(KnowledgeSourceDocument.created_at.asc())
         )
         result = await db.execute(stmt)
@@ -168,7 +170,7 @@ class KnowledgeDocumentService:
         if not doc:
             return None
         await db.delete(doc)
-        await db.commit()
+        await persist_service_write(db)
         return doc
 
     async def delete_all(self, db: AsyncSession, user_id: str) -> int:
@@ -176,7 +178,7 @@ class KnowledgeDocumentService:
         count = len(docs)
         for doc in docs:
             await db.delete(doc)
-        await db.commit()
+        await persist_service_write(db)
         return count
 
 
