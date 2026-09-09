@@ -1,5 +1,12 @@
 # E4/AR-3/S3 测试与迁移证据
 
+## 2026-09-09 current verification addendum
+
+- 浏览器预检使用测试用户完成登录、笔记列表、创建、详情重载、列表持久化回显和删除清理；所有相关 HTTP 请求返回 200，session 已停止。
+- SQL 只读复核确认该临时笔记的 `business.created` 和 `business.deleted` 审计事件均有 actor、scope、digest 和 correlation；删除后 `notes` 中剩余 0 行。
+- live target 复核：批次 `e4-business-live-20260907` 为 `reconciled`，312 个实体全部 `reconciled`，`migration.reconciled` 审计事件 313 条；源 21 表摘要仍匹配。
+- 本记录只补充当前状态，不改写下方历史 checkpoint。最终用户验收仍未执行，这是 E4-08 唯一待办。
+
 ## 2026-09-08 本轮执行结论（优先于下方历史记录）
 
 - 本轮用户明确要求执行完整生命周期、Redis 故障、源停写、旧进程部署和 DSN/流量切换。已完成的是**本机单实例、loopback HTTP 的实际切换**，不是外网 DNS/LB/TLS 或多实例生产部署。

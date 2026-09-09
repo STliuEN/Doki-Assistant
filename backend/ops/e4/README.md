@@ -1,6 +1,6 @@
 # E4 isolated MySQL topology
 
-## Current execution status: 2026-09-08
+## Current execution status: 2026-09-09
 
 The local single-instance application cutover is executed, not merely configured.
 Vite on loopback 18080 proxies to FastAPI 18000 (including `/jobs`); the running
@@ -21,7 +21,7 @@ the final local profile explicitly enables rate limiting, unlike the first probe
 The final restore matches 39 tables and 2,539 rows. Backup SHA-256:
 `bbcf14de7d4024aadc523d5e923fd73de917ad25c5396cf77c31b6c0d66a1b75`.
 The original 312 business entities, 314 mappings and 48 FK constraints still pass.
-Backend 491 tests, frontend 28 tests/build, Ruff and compileall pass.
+Backend 502 tests, frontend 28 tests/build, Ruff and compileall pass.
 See repository-relative
 `project_changes/2026-09-02-e4-ar3-business-migration/artifacts/e4-full-lifecycle-cutover-20260908.json`.
 
@@ -41,16 +41,16 @@ to the old frozen source: new target auth/job/audit facts would be missing there
 No OS service manager or automatic reboot deployment is installed.
 
 **Not certified:** production shared storage, DNS/load-balancer/TLS cutover,
-browser visual acceptance, or the external-LLM success/failure matrix. Final
-FastAPI runs as local development with DEBUG off, rate limiting on and
-`SKILL_STORAGE_SHARED=false`; an earlier true flag was not shared-volume proof.
-Local Ollama success, timeout, connection-refusal, and malformed metadata job
-cases were verified on September 9, 2026. Failures retry and dead-letter
-without committing note metadata or review memory. The migration batch is now
-`reconciled` through the formal repository state machine. Browser login remains
-blocked by bsk CLI/extension protocol drift; this development single-instance
-run is not production DNS/LB/TLS/shared-volume evidence, and E4 still awaits
-explicit user acceptance.
+or the external-LLM success/failure matrix. Final FastAPI runs as local
+development with DEBUG off, rate limiting on and `SKILL_STORAGE_SHARED=false`;
+an earlier true flag was not shared-volume proof. Local Ollama success, timeout,
+connection-refusal, and malformed metadata job cases were verified on September
+9, 2026. Failures retry and dead-letter without committing note metadata or
+review memory. The migration batch is now `reconciled` through the formal
+repository state machine. Local browser preflight also passed on September 9,
+2026 (login, notes create/reload/list, cleanup, and SQL audit verification);
+final user acceptance is still pending. This development single-instance run
+is not production DNS/LB/TLS/shared-volume evidence.
 
 Earlier diagnostic output exposed credentials. Target app, approval and JWT
 signing secrets were rotated; the old app password is rejected. Only the E4

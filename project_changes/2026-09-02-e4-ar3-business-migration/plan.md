@@ -1,5 +1,12 @@
 # E4/AR-3/S3 业务数据迁移与唯一写权威
 
+## 2026-09-09 current status addendum
+
+- E4-08 的全部实施、live verification、证据整理和审阅材料已完成；当前状态为 `待用户验收`，未将 E4 标为关闭。
+- E4-07 的本地生命周期、Redis 故障/恢复、旧写入口封闭、真实本地 Ollama 成功/失败矩阵、前端实际写入和 SQL 审计核验均已完成；浏览器页面级预检也已完成。
+- 当前唯一保留的 E4-08 动作是用户最终验收。生产 DNS/LB/TLS/共享卷不在本机单实例证据范围；外部供应商 LLM 不因本地验证而冒称已验证。
+- 当前证据：`artifacts/e4-browser-acceptance-preflight-20260909.json`、`artifacts/e4-migration-reconcile-20260909T022009.json`、`artifacts/e4-model-job-matrix-20260909T030827.json`、`artifacts/e4-business-reconcile-20260909T071840.json`。
+
 ## 2026-09-08 本轮执行结论（优先于下方历史记录）
 
 - 本轮用户明确要求执行完整生命周期、Redis 故障、源停写、旧进程部署和 DSN/流量切换。已完成的是**本机单实例、loopback HTTP 的实际切换**，不是外网 DNS/LB/TLS 或多实例生产部署。
@@ -15,7 +22,7 @@
 
 日期：2026-09-02  
 最近更新：2026-09-08（本机生命周期/Redis 故障、源冻结、旧进程封闭和本地切流通过）
-状态：实施中  
+状态：待用户验收
 负责人：Codex  
 审阅/批准人：用户  
 用户确认：2026-09-02，用户完成 E4 grilling 并确认按本计划实施；2026-09-05 明确要求停止 prep、直接执行 E4 改动。授权包含分批 inventory、导入、停写窗口内切换和 FastAPI 唯一业务写权威，不授权删除旧输入。

@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "e4-browser-acceptance-preflight",
+  "captured_at": "2026-09-09T07:26:40Z",
+  "scope": "local single-instance browser preflight; non-final acceptance",
+  "browser_session_stopped": true,
+  "checks": {
+    "login": { "passed": true, "http_status": 200, "redirect_path": "/notes" },
+    "notes_list_before": { "passed": true, "http_status": 200 },
+    "note_create": { "passed": true, "http_status": 200, "through_proxy": true, "used_test_data": true },
+    "note_detail_reload": { "passed": true, "http_status": 200, "title_and_content_visible": true },
+    "notes_list_after": { "passed": true, "http_status": 200, "created_title_and_content_visible": true },
+    "test_cleanup": { "passed": true, "http_status": 200, "temporary_note_deleted": true },
+    "sql_audit": { "passed": true, "create_and_delete_have_actor_scope_digest_correlation": true },
+    "no_sensitive_browser_data_recorded": true
+  },
+  "result": "verified-live"
+}
