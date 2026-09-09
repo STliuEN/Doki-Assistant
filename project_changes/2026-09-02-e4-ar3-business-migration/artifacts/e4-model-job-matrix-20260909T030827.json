@@ -1,0 +1,194 @@
+{
+  "cases": [
+    {
+      "attempt_error_codes": [
+        null
+      ],
+      "attempt_outcomes": [
+        "succeeded"
+      ],
+      "attempts": 1,
+      "audit_error_codes": [],
+      "business_audit_delta": 2,
+      "business_unchanged": false,
+      "case": "real_ollama_success",
+      "error_code": null,
+      "injection": null,
+      "job_id": "08c581db-2fdb-4cb1-8cb6-dc59fd56c88c",
+      "observed_states": [
+        "succeeded"
+      ],
+      "passed": true,
+      "result_present": true,
+      "review_memory_count": 1,
+      "status": "succeeded"
+    },
+    {
+      "attempt_error_codes": [
+        "model_timeout",
+        "model_timeout"
+      ],
+      "attempt_outcomes": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "attempts": 2,
+      "audit_error_codes": [
+        "model_timeout",
+        "model_timeout"
+      ],
+      "business_audit_delta": 0,
+      "business_unchanged": true,
+      "case": "real_http_read_timeout",
+      "error_code": "model_timeout",
+      "injection": "Actual localhost Ollama HTTP client with a 1ms read deadline",
+      "job_id": "37999f37-f5af-442a-ab4f-b4f8c638686d",
+      "observed_states": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "passed": true,
+      "result_present": false,
+      "review_memory_count": 0,
+      "status": "dead_letter"
+    },
+    {
+      "attempt_error_codes": [
+        "model_connection_error",
+        "model_connection_error"
+      ],
+      "attempt_outcomes": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "attempts": 2,
+      "audit_error_codes": [
+        "model_connection_error",
+        "model_connection_error"
+      ],
+      "business_audit_delta": 0,
+      "business_unchanged": true,
+      "case": "real_connection_refused",
+      "error_code": "model_connection_error",
+      "injection": "Actual Ollama client aimed at a verified closed loopback port",
+      "job_id": "98ee3b43-e749-41b0-b435-a29467e0c6b2",
+      "observed_states": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "passed": true,
+      "result_present": false,
+      "review_memory_count": 0,
+      "status": "dead_letter"
+    },
+    {
+      "attempt_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "attempt_outcomes": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "attempts": 2,
+      "audit_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "business_audit_delta": 0,
+      "business_unchanged": true,
+      "case": "invalid_json",
+      "error_code": "invalid_tag_result",
+      "injection": "Controlled malformed model response; not a real generated response",
+      "job_id": "a44f7767-a285-4dca-8266-606fa246afd0",
+      "observed_states": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "passed": true,
+      "result_present": false,
+      "review_memory_count": 0,
+      "status": "dead_letter"
+    },
+    {
+      "attempt_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "attempt_outcomes": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "attempts": 2,
+      "audit_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "business_audit_delta": 0,
+      "business_unchanged": true,
+      "case": "invalid_tags",
+      "error_code": "invalid_tag_result",
+      "injection": "Controlled malformed model response; not a real generated response",
+      "job_id": "4d3aaa2c-b5c1-4e76-8708-145dd23fbc15",
+      "observed_states": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "passed": true,
+      "result_present": false,
+      "review_memory_count": 0,
+      "status": "dead_letter"
+    },
+    {
+      "attempt_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "attempt_outcomes": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "attempts": 2,
+      "audit_error_codes": [
+        "invalid_tag_result",
+        "invalid_tag_result"
+      ],
+      "business_audit_delta": 0,
+      "business_unchanged": true,
+      "case": "invalid_category",
+      "error_code": "invalid_tag_result",
+      "injection": "Controlled malformed model response; not a real generated response",
+      "job_id": "3ead02fa-5e85-4709-ba10-abe9c0218ed0",
+      "observed_states": [
+        "retry_wait",
+        "dead_letter"
+      ],
+      "passed": true,
+      "result_present": false,
+      "review_memory_count": 0,
+      "status": "dead_letter"
+    }
+  ],
+  "cleanup": "Only recorded synthetic notes and review memories deleted via BusinessSession; jobs/audits retained",
+  "finished_at": "2026-09-09T03:08:27.750534+00:00",
+  "fixture_ids": [
+    "92b6ef11-5f73-4d48-a7e6-b86ef8a71869",
+    "3763c848-cfa4-478f-83fb-fb9372ee8cb6",
+    "ee1d0497-e920-4ece-856a-5361af1f988e",
+    "157ff5ec-d574-423c-af63-54c0c19aaeb2",
+    "df91e6cd-c862-4e6d-b6ae-51068c9f4be4",
+    "495e94aa-edde-4a74-8ba5-040aa2dc1ead"
+  ],
+  "new_fixture_jobs_cancelled": 12,
+  "old_fixture_jobs_cancelled": 15,
+  "passed": true,
+  "run_id": "af07b17e-1dff-4c2f-8671-945e3f3b3640",
+  "runtime_config": {
+    "max_attempts": 2,
+    "retry_delays_seconds": [
+      1
+    ],
+    "scope": "matrix process only; deployed defaults unchanged"
+  },
+  "started_at": "2026-09-09T03:08:04.079514+00:00"
+}

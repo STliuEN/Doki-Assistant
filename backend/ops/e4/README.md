@@ -44,8 +44,13 @@ No OS service manager or automatic reboot deployment is installed.
 browser visual acceptance, or the external-LLM success/failure matrix. Final
 FastAPI runs as local development with DEBUG off, rate limiting on and
 `SKILL_STORAGE_SHARED=false`; an earlier true flag was not shared-volume proof.
-Ollama fallback was observed. E5 generations remain inactive; E4 is not closed
-and its migration batch remains imported pending remaining validation/acceptance.
+Local Ollama success, timeout, connection-refusal, and malformed metadata job
+cases were verified on September 9, 2026. Failures retry and dead-letter
+without committing note metadata or review memory. The migration batch is now
+`reconciled` through the formal repository state machine. Browser login remains
+blocked by bsk CLI/extension protocol drift; this development single-instance
+run is not production DNS/LB/TLS/shared-volume evidence, and E4 still awaits
+explicit user acceptance.
 
 Earlier diagnostic output exposed credentials. Target app, approval and JWT
 signing secrets were rotated; the old app password is rejected. Only the E4

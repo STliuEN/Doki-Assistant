@@ -1,0 +1,17 @@
+{
+  "after_batch_status": "reconciled",
+  "after_entity_status_counts": {
+    "reconciled": 312
+  },
+  "audit_events_before": 1252,
+  "before_batch_status": "imported",
+  "before_entity_status_counts": {
+    "imported": 312
+  },
+  "captured_at": "2026-09-09T02:20:09.967519+00:00",
+  "entities_reconciled_this_run": 312,
+  "formal_repository_state_machine": true,
+  "migration_batch_id": "e4-business-live-20260907",
+  "migration_reconciled_audit_events_after": 313,
+  "uow_committed": true
+}

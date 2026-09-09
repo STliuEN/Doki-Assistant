@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import httpx
 import pytest
 from sqlalchemy import DateTime, event, func, select, text, update
 from sqlalchemy.dialects import mysql, sqlite
@@ -17,6 +19,7 @@ from app.db.business_authority import BusinessSession, BusinessWriteError, _norm
 from app.db.transaction_context import persist_service_write
 from app.db.uow import SqlUnitOfWork
 from app.jobs.business_handlers import business_handlers
+from app.jobs.repository import JobRepository
 from app.jobs.runner import SqlJobRunner
 from app.models.chat_history import Base, ChatMessage, ChatSession
 from app.models.identity_domain import User
@@ -208,6 +211,74 @@ def test_enrichment_result_and_business_writes_are_single_fenced_commit(tmp_path
                 assert {job.job_type: job.status for job in jobs} == {"e4.note.enrich": "succeeded", "e4.note.project": "queued"}
                 assert await session.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.action == "job.fenced_rejected")) == 0
             assert calls == ["private content"]
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ('response_content', 'failure', 'error_code'),
+    [
+        ('not JSON', None, 'invalid_tag_result'),
+        ('[]', None, 'invalid_tag_result'),
+        ('{}', None, 'invalid_tag_result'),
+        ('{"tags": "invalid", "category": "life"}', None, 'invalid_tag_result'),
+        ('{"tags": [1], "category": "life"}', None, 'invalid_tag_result'),
+        ('{"tags": [], "category": "unknown"}', None, 'invalid_tag_result'),
+        ('{"tags": [], "category": null}', None, 'invalid_tag_result'),
+        ([], None, 'invalid_tag_result'),
+        (None, TimeoutError('sensitive provider detail'), 'model_timeout'),
+        (None, httpx.ReadTimeout('sensitive provider detail'), 'model_timeout'),
+        (None, httpx.ConnectError('sensitive provider detail'), 'model_connection_error'),
+    ],
+)
+def test_model_failures_retry_then_dead_letter_without_business_mutation(tmp_path, monkeypatch, response_content, failure, error_code):
+    from app.core.background_init import init_manager
+
+    model = SimpleNamespace(ainvoke=AsyncMock(return_value=SimpleNamespace(content=response_content), side_effect=failure))
+    monkeypatch.setattr(init_manager, 'chat_model', model)
+    clock = datetime.now(UTC) + timedelta(hours=1)
+
+    async def database_now(_repository):
+        return clock
+
+    monkeypatch.setattr(JobRepository, '_database_now', database_now)
+
+    async def scenario():
+        nonlocal clock
+        async with database(tmp_path / 'model-failures.db') as factory:
+            async with factory() as session:
+                row = note()
+                session.add(row)
+                await session.commit()
+                original_digest = row.content_digest
+                original_audits = await session.scalar(select(func.count()).select_from(AuditEvent).where(AuditEvent.action.like('business.%')))
+            runner = SqlJobRunner(factory, registry=business_handlers(factory), claim_registered_only=True)
+            for attempt_number in range(1, 6):
+                assert await runner.run_once()
+                expected_status = 'dead_letter' if attempt_number == 5 else 'retry_wait'
+                async with factory() as session:
+                    saved = await session.get(Note, row.id)
+                    job = await session.scalar(select(Job).where(Job.job_type == 'e4.note.enrich'))
+                    attempt = await session.scalar(select(JobAttempt).where(JobAttempt.job_id == job.id, JobAttempt.attempt_number == attempt_number))
+                    assert (job.status, job.error_code, job.attempt_count) == (expected_status, error_code, attempt_number)
+                    assert job.result_json is None
+                    assert (attempt.outcome, attempt.error_code) == (expected_status, error_code)
+                    assert 'sensitive provider detail' not in job.error_detail
+                    assert saved.tags is None and saved.category is None and saved.content_digest == original_digest
+                    assert await session.scalar(select(func.count()).select_from(MemoryItem)) == 0
+                    business_audits = await session.scalar(
+                        select(func.count()).select_from(AuditEvent).where(AuditEvent.action.like('business.%'))
+                    )
+                    assert business_audits == original_audits
+                    error_audits = await session.scalar(
+                        select(func.count()).select_from(
+                            AuditEvent,
+                        ).where(AuditEvent.job_id == job.id, AuditEvent.error_code == error_code)
+                    )
+                    assert error_audits == attempt_number
+                clock += timedelta(hours=1)
+            assert not await runner.run_once()
+            assert model.ainvoke.await_count == 5
+
     asyncio.run(scenario())
 
 

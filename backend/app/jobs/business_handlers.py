@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 
+import httpx
 from sqlalchemy import select
 
 from app.db.business_authority import BusinessWriteError, canonical_uuid
@@ -67,19 +68,29 @@ def business_handlers(factory, *, projector=None, tagger=None) -> JobHandlerRegi
             from app.services.note_service import NoteService
             from app.utils.prompt_loader import load_prompt
             prompt = load_prompt('auto_tag_prompt').replace('{content}', original_content)
-            response = await asyncio.wait_for(init_manager.chat_model.ainvoke([HumanMessage(content=prompt)]), timeout=60)
-            result = json.loads(NoteService._extract_json(response.content))
+            try:
+                response = await asyncio.wait_for(init_manager.chat_model.ainvoke([HumanMessage(content=prompt)]), timeout=60)
+            except (TimeoutError, httpx.TimeoutException) as error:
+                raise JobHandlerError('model_timeout', 'Note metadata model timed out') from error
+            except httpx.TransportError as error:
+                raise JobHandlerError('model_connection_error', 'Note metadata model transport failed') from error
+            try:
+                if not isinstance(response.content, str):
+                    raise ValueError('Expected text response')
+                result = json.loads(NoteService._extract_json(response.content))
+            except (ValueError, TypeError) as error:
+                raise JobHandlerError('invalid_tag_result', 'Invalid note metadata response') from error
         else:
             result = await tagger(original_content)
         if not isinstance(result, dict):
             raise JobHandlerError('invalid_tag_result', 'Invalid note metadata response')
-        tags = result.get('tags', [])
-        category = result.get('category', 'life')
+        tags = result.get('tags')
+        category = result.get('category')
         if (
             not isinstance(tags, list)
             or not all(isinstance(tag, str) for tag in tags)
             or not isinstance(category, str)
-            or len(category) > 50
+            or category not in {'work', 'study', 'life', 'project'}
             or len(tags) > 100
             or any(len(tag) > 100 for tag in tags)
         ):
