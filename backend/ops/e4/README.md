@@ -1,6 +1,6 @@
 # E4 isolated MySQL topology
 
-## Current execution status: 2026-09-09
+## Current execution status: 2026-09-10
 
 The local single-instance application cutover is executed, not merely configured.
 Vite on loopback 18080 proxies to FastAPI 18000 (including `/jobs`); the running
@@ -48,9 +48,10 @@ connection-refusal, and malformed metadata job cases were verified on September
 9, 2026. Failures retry and dead-letter without committing note metadata or
 review memory. The migration batch is now `reconciled` through the formal
 repository state machine. Local browser preflight also passed on September 9,
-2026 (login, notes create/reload/list, cleanup, and SQL audit verification);
-final user acceptance is still pending. This development single-instance run
-is not production DNS/LB/TLS/shared-volume evidence.
+2026 (login, notes create/reload/list, cleanup, and SQL audit verification).
+The user approved closing E4 on September 10, 2026; intermediate materials are
+retained. This development single-instance run is not production
+DNS/LB/TLS/shared-volume evidence.
 
 Earlier diagnostic output exposed credentials. Target app, approval and JWT
 signing secrets were rotated; the old app password is rejected. Only the E4

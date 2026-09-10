@@ -1,11 +1,11 @@
 # E4/AR-3/S3 测试与迁移证据
 
-## 2026-09-09 current verification addendum
+## 2026-09-10 closure verification addendum
 
 - 浏览器预检使用测试用户完成登录、笔记列表、创建、详情重载、列表持久化回显和删除清理；所有相关 HTTP 请求返回 200，session 已停止。
 - SQL 只读复核确认该临时笔记的 `business.created` 和 `business.deleted` 审计事件均有 actor、scope、digest 和 correlation；删除后 `notes` 中剩余 0 行。
 - live target 复核：批次 `e4-business-live-20260907` 为 `reconciled`，312 个实体全部 `reconciled`，`migration.reconciled` 审计事件 313 条；源 21 表摘要仍匹配。
-- 本记录只补充当前状态，不改写下方历史 checkpoint。最终用户验收仍未执行，这是 E4-08 唯一待办。
+- 本记录只补充当前状态，不改写下方历史 checkpoint。用户已于 2026-09-10 明确批准关闭 E4；仅关闭状态，不清理中间材料。
 
 ## 2026-09-08 本轮执行结论（优先于下方历史记录）
 
@@ -35,12 +35,12 @@
 
 早期私有 `e4-redis-failure-recovery-20260908.json` 将正常登录新增 audit 行错误计入“业务无变化”，该比较为 false；没有改写成成功。随后正式矩阵以独立业务摘要、故障窗口内无业务/audit 新写核对，证据为 `artifacts/e4-cutover-redis-20260908T024931.json`。早期 HTTP 系统代理 502 和启动配置失败也保留私有日志，不作为应用验收失败或成功的替代证据。
 
-日期：2026-09-02  
-最近更新：2026-09-08（完整应用、本机切流及 Redis 故障矩阵）
-状态：实施中  
+日期：2026-09-10
+最近更新：2026-09-10（用户批准关闭 E4）
+状态：已关闭
 负责人：Codex  
 审阅/批准人：用户  
-用户确认：2026-09-02，Q1-Q43 完成；执行确认已收到，验收确认尚未发生。
+用户确认：2026-09-02 完成 Q1-Q43 执行授权；2026-09-10 完成最终审阅并明确批准关闭 E4，仅关闭状态，不清理中间材料。
 
 本文件只记录 E4 准备和后续迁移证据。证据状态只使用 `verified-local`、`verified-live`、`blocked`、`not-run`；`fixture`、`mock`、`historical`、`observed-only` 是证据类型或限制，不是状态。`verified-local` 只证明仓库/隔离环境中的动作，不证明在线业务数据或生产切换。
 

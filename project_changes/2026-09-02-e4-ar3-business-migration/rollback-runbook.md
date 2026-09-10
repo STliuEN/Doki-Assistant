@@ -25,10 +25,10 @@ Django 的生产 CORS 白名单已补入本地 `.env`，可在其目录使用 `.
 
 生产共享卷、DNS/LB/TLS 和开机自启未交付；最终 FastAPI 为本地 development、DEBUG false、rate limit true、shared storage false。不得用 `SKILL_STORAGE_SHARED=true` 冒充已经挂载共享卷。认证签名密钥、target app 密码和 approval 已轮换；旧登录 access token 必须重新登录，第三方 API key 需要用户在供应商端轮换。
 
-日期：2026-09-02  
-状态：实施中  
+日期：2026-09-10
+状态：已关闭
 适用范围：E4/AR-3 业务数据迁移和唯一写权威切换  
-执行状态：已授权进入正式代码实施/分批执行；真实命令仍受 allowlist、preflight、backup 和 gate 约束
+执行状态：E4 已完成并经用户批准关闭；中间材料保留，后续 E5/E6/E7/E8 仍须单独授权。
 
 ## 0. 绝对前提
 

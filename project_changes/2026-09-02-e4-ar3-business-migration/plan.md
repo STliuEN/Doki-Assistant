@@ -1,10 +1,11 @@
 # E4/AR-3/S3 业务数据迁移与唯一写权威
 
-## 2026-09-09 current status addendum
+## 2026-09-10 closure status addendum
 
-- E4-08 的全部实施、live verification、证据整理和审阅材料已完成；当前状态为 `待用户验收`，未将 E4 标为关闭。
-- E4-07 的本地生命周期、Redis 故障/恢复、旧写入口封闭、真实本地 Ollama 成功/失败矩阵、前端实际写入和 SQL 审计核验均已完成；浏览器页面级预检也已完成。
-- 当前唯一保留的 E4-08 动作是用户最终验收。生产 DNS/LB/TLS/共享卷不在本机单实例证据范围；外部供应商 LLM 不因本地验证而冒称已验证。
+- 用户已于 2026-09-10 明确批准关闭 E4；关闭范围仅为 E4 状态，不执行中间材料清理。
+- E4-01 至 E4-08 的实施、live verification、证据整理和审阅材料均已完成，E4 当前状态为 `已关闭`。
+- 关闭依据包括 source/target/restore 对账、FastAPI 唯一写权威、旧入口封闭、生命周期/Redis/runner 故障矩阵、真实本地 Ollama 矩阵、浏览器页面级预检和 SQL 审计核验。
+- E5/E6/E7/E8 不因 E4 关闭而自动启动；生产 DNS/LB/TLS/共享卷及外部供应商 LLM 仍不在本机证据范围。
 - 当前证据：`artifacts/e4-browser-acceptance-preflight-20260909.json`、`artifacts/e4-migration-reconcile-20260909T022009.json`、`artifacts/e4-model-job-matrix-20260909T030827.json`、`artifacts/e4-business-reconcile-20260909T071840.json`。
 
 ## 2026-09-08 本轮执行结论（优先于下方历史记录）
@@ -22,15 +23,15 @@
 
 日期：2026-09-02  
 最近更新：2026-09-08（本机生命周期/Redis 故障、源冻结、旧进程封闭和本地切流通过）
-状态：待用户验收
+状态：已关闭
 负责人：Codex  
 审阅/批准人：用户  
-用户确认：2026-09-02，用户完成 E4 grilling 并确认按本计划实施；2026-09-05 明确要求停止 prep、直接执行 E4 改动。授权包含分批 inventory、导入、停写窗口内切换和 FastAPI 唯一业务写权威，不授权删除旧输入。
+用户确认：2026-09-02 完成 E4 实施授权；2026-09-05 要求停止 prep、直接执行 E4 改动；2026-09-10 明确批准关闭 E4，仅关闭状态，不清理中间材料。
 
 ## 执行授权与确认纪律
 
 - **执行确认（已收到）**：用户对本计划作完整审阅后，以本轮 Q1-Q43 答案一次性授权 E4 计划内的开发、只读盘点、隔离演练、分批导入、停写和 FastAPI 切换。授权不覆盖未列入 allowlist 的资源、未知 server UUID、未知密钥版本、删除旧输入或后续 E5/E6/E7/E8 阶段。
-- **验收确认（尚未发生）**：实现和证据完成后，本批只能先标为 `待验证`；用户第二次审阅并明确验收后，才可标为 `已关闭`。
+- **验收确认（已发生）**：用户已于 2026-09-10 完成第二次审阅并明确批准关闭 E4。
 - 分批 gate、checkpoint、暂停/恢复和回滚记录属于执行证据，不增加用户确认次数。
 - 用户要求 Q41 由本执行者接手；Q42 确认按文档执行；Q43 要求参照 E0-E3 的状态机、证据、恢复和清理方式。
 - **正式执行指令（已收到，2026-09-05）**：用户要求停止 prep，直接执行 E4 改动。本轮不再新增 `E4-PREP-*` 编号；历史 prep 记录仅作为历史证据保留。
@@ -186,8 +187,8 @@
 - [x] `E4-04`：正式 allowlist、独立凭据、角色 preflight、空库与 populated dump/restore 已真实执行；312 条导入、0 quarantine，重放 0 imported / 312 skipped。证据只涵盖已捕获快照，不涵盖缺失 PDF。
 - [x] `E4-05`：源已最终冻结、摘要无增量漂移；本机 FastAPI 实际 DSN 与前端代理流量已切 target，并保留独立恢复点。仅本机范围，不代表外网生产切换。
 - [x] `E4-06`：本机当前代码已部署切流；前端笔记新写入 canonical owner/digest、audit/job 同事务，旧 Django 26 路由及 ORM/raw SQL 拒绝，E4 runner 实际运行。管理员可解除源保护的边界明确保留。
-- [ ] `E4-07`：已有真实认证/owner、runner kill/restart/lease/fencing、确定性 handler、accepted SSE；新增完整 main 生命周期、两次优雅关闭、Redis 正常/故障/恢复/故障冷启动及前端实际写入均通过。真实外部 LLM 成功/故障矩阵与浏览器人工验收未覆盖，不整体标完成。
-- [ ] `E4-08`：E4 整体仍为 `实施中`；完整证据完成后提交 `待验证`，用户第二次验收确认后才可 `已关闭`。
+- [x] `E4-07`：真实认证/owner、runner kill/restart/lease/fencing、确定性 handler、accepted SSE、完整 main 生命周期、两次优雅关闭、Redis 正常/故障/恢复/故障冷启动、前端实际写入、真实本地 Ollama 成功/失败矩阵和浏览器页面级预检均通过；外部供应商 LLM、生产 DNS/LB/TLS/共享卷不在本机证据范围。
+- [x] `E4-08`：完整证据包已审阅，用户于 2026-09-10 明确批准关闭；E4 已标记为 `已关闭`，不执行中间材料清理。
 
 ## 6. 原始静态发现与实现差异（当前进度见任务清单）
 
@@ -225,7 +226,7 @@
 - [ ] API/SSE/polling/runner 只提交和展示 SQL 事实；Redis 丢失不影响正确性，核心 readiness 不依赖 runner 存活。
 - [ ] 重复执行幂等；租约过期、旧 fencing token、kill/restart、超时、取消、异常和孤儿 job 均按预期 fail-closed/重试/DLQ。
 - [ ] 失败恢复到迁移前健康快照的 restore-forward 已实际演练；旧输入仍保留，未授权删除为零。
-- [ ] 实现者提交 `待验证`，审阅人完成证据检查，用户明确确认关闭。
+- [x] 实现者提交 `待验证`，审阅人完成证据检查，用户于 2026-09-10 明确确认关闭。
 
 ## 9. 回滚方案
 
@@ -241,17 +242,17 @@
 
 - **已解除**：数据库迁移基础 gate、测试用户、Skill 输入 adapter/密钥版本；本轮进一步完成日常 canonical 身份、audit/job 同事务、tracked CRUD、任务查询和旧入口代码封闭。新证据：`artifacts/e4-write-authority-20260907.json`。
 - **PDF 已处置**：用户明确允许丢弃该测试文档，SQL 审计 action `migration.source_excluded` 已落地；证据 `artifacts/e4-pdf-exclusion-20260907.json`。不再阻塞迁移；其它原件、源快照和 Chroma 残留未删除。
-- **E4-06 部署验证**：已实现 E4 BusinessSession、owner/parent 不可变校验、审计/持久 job、聊天成对原子写入和旧 Django HTTP/ORM 拒绝；真实 E4 MySQL/API 的新增/删除/回滚/标签 handler/SQL polling/accepted SSE 通过。旧运行进程未重启、永久 DSN 未改，不能宣称现场已无双写。
-- **E4-05 停写/切换**：尚未停止旧源写入、冻结最终源或切换应用流量；下一步是运行拓扑/依赖核验、实际停写窗口、最终漂移检查和受控切换，不再重复索要已可查参数。
-- **E4-07 完整验证**：当前真实 handler 使用确定性 tagger，未实际调用 LLM；完整 app lifespan、真实 Redis outage、全部业务故障矩阵仍待执行。知识/笔记/embedding 投影 job 保留 queued，只有 E5 generation worker 才可消费，不能计为向量完成。
+- **E4-06 部署验证**：E4 BusinessSession、owner/parent 不可变校验、审计/持久 job、聊天成对原子写入、旧 Django HTTP/ORM 拒绝及本机 target 切流均已通过。生产多实例、DNS/LB/TLS 和共享卷不在本机证据范围。
+- **E4-05 停写/切换**：源已冻结并保持只读，本机 FastAPI 已切 target；正式停写、切换和恢复证据见 2026-09-08 主证据及 runbook，历史未执行描述仅保留作时间线。
+- **E4-07 完整验证**：完整 app lifespan、真实 Redis outage/recovery、业务故障矩阵、本地 Ollama 成功/失败、浏览器页面级预检均已完成。知识/笔记/embedding 投影 job 保留 queued，只有 E5 generation worker 才可消费，不能计为向量完成。
 - **表示语义**：旧源 DATETIME 字面值保留，不推断历史 SYSTEM 时区。日常新写入按 MySQL 实际精度规范化，有时区值转 UTC 后存无时区字面；JSON 比较口径不变。
-- **验收**：全量 `488 passed, 1 warning`、Ruff/compileall 通过；本轮恢复为 39 表/2,407 行全等。最终用户验收未发生，E4 仍为 `实施中`。
+- **验收**：全量 `502 passed, 1 warning`、前端 `28 passed`、build、Ruff、compileall、文档和 diff 门禁通过；用户于 2026-09-10 明确批准关闭，E4 状态为 `已关闭`。中间材料按用户要求保留。
 
 ## 11. 用户确认记录（2026-09-02）
 
 本轮用户确认摘要：Q1 完整授权；Q2/Q9 采用在线只读并直接建立最终数据库 canonical shadow；Q4 纳入聊天/会话、笔记/模板、记忆、知识源/原始字节、图片/媒体、MD5、模型/Embedding 配置及必要 Skill 关联，Skill 完整发布交 E6；Q5 固定 UUID/UUIDv5 并复用 E3 `users.id`；Q6/Q11 关键身份、FK、内容、权限、唯一约束、审计和跨域引用 fail-closed，非关键问题可 quarantine；Q7 FastAPI 唯一业务写入口，Django/旧脚本/文件只读；Q10 分批执行并记录文档和过程；Q12/Q27 原始文档和媒体进入 SQL，字节级一致；Q13/Q37 用户/Embedding 入 SQL、reranker 保持版本化配置、key-version 未确认不迁移密文；Q14/Q32/Q36 冻结完整 Skill 输入接口，E6 不重构输入接口；Q18/Q29 修复 reorder 路由；Q19/Q28 additive 扩展 `migration_maps`；Q20 Chroma 作用域冲突交 E5；Q23-Q25 快照、checkpoint、稳定排序和幂等批次；Q26 密文问题仅 quarantine 配置域；Q30 每项先更新计划并关联证据/回滚点；Q31/Q33/Q40 仅两次确认；Q34/Q43 所有 E 阶段结束验收后统一清理中间材料；Q35 不增加 3306 特殊保护但执行通用身份核验；Q38/Q42 不设固定停写时长，记录实际开始/结束并以 gate 失败阻断；Q39 批次大小由 inventory 决定；Q41 当前执行者接手。
 
-执行确认语义：`批准 E4 计划并按已确认范围实施（含导入、停写和 FastAPI 切换；不删除旧输入）`。验收确认尚未发生。
+执行确认语义：`批准 E4 计划并按已确认范围实施（含导入、停写和 FastAPI 切换；不删除旧输入）`。用户于 2026-09-10 明确批准关闭 E4，仅关闭状态，不清理中间材料。
 
 ## 12. 当前清理策略
 

@@ -1,0 +1,15 @@
+{
+  "artifact_kind": "e4-closure-decision",
+  "closed_at": "2026-09-10",
+  "scope": "E4 status closure only; intermediate material cleanup not authorized",
+  "user_approval": "explicit",
+  "status": "closed",
+  "evidence": [
+    "e4-full-lifecycle-cutover-20260908.json",
+    "e4-migration-reconcile-20260909T022009.json",
+    "e4-model-job-matrix-20260909T030827.json",
+    "e4-browser-acceptance-preflight-20260909.json",
+    "e4-business-reconcile-20260909T071840.json"
+  ],
+  "follow_on_stages": "not_activated"
+}
