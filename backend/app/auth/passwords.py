@@ -54,7 +54,7 @@ def _verify_pbkdf2(stored_hash: str, password: str) -> PasswordVerification:
         return PasswordVerification(False)
     if len(expected) not in {20, 32}:
         return PasswordVerification(False)
-    actual = hashlib.pbkdf2_hmac(algorithm.removeprefix("sha"), _password_bytes(password), match.group("salt").encode("utf-8"), iterations)
+    actual = hashlib.pbkdf2_hmac(algorithm, _password_bytes(password), match.group("salt").encode("utf-8"), iterations)
     return PasswordVerification(hmac.compare_digest(actual, expected), True)
 
 

@@ -1,0 +1,202 @@
+{
+  "stage": "E6E7",
+  "recorded_at": "2026-09-14T16:31:03.796179+00:00",
+  "target": "127.0.0.1:33427/doki_e4",
+  "mysql_global_flags": [
+    0,
+    0
+  ],
+  "counts": {
+    "users": 3,
+    "skills": 10,
+    "skill_versions": 10,
+    "skill_installations": 10,
+    "skill_aliases": 10,
+    "skill_packages": 10,
+    "skill_package_uploads": 10,
+    "skill_imports": 0,
+    "source_media": 0,
+    "media_assets": 0,
+    "authorization_grants": 8,
+    "audit_events": 2218,
+    "knowledge_source_documents": 6,
+    "notes": 7
+  },
+  "administrators": {
+    "skill_admin": "STliuEN",
+    "security_admin": "STliuEN-security-admin",
+    "distinct_ids": true,
+    "security_password_verified": true,
+    "human_reviewers_claimed": 1
+  },
+  "skills": [
+    {
+      "skill_id": "352e97b5-5993-4410-81c6-50439dbbac94",
+      "name": "system-context",
+      "status": "enabled",
+      "grant_id": "05183cec-ecb8-4d3f-a583-7579faabc8e9",
+      "expires_at": "2026-10-14 15:21:09.524866",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "465c5eff-d89f-432c-970f-938734ab925d",
+      "name": "review-planner",
+      "status": "enabled",
+      "grant_id": "4a237d5c-b73f-499e-9652-e3bda7d37b98",
+      "expires_at": "2026-10-14 15:21:09.806445",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "4753f96b-31ba-4e55-ae79-f1cf4c5b7e68",
+      "name": "memory-read",
+      "status": "enabled",
+      "grant_id": "31d505a5-475b-4f84-a530-5cd2ade9163c",
+      "expires_at": "2026-10-14 15:20:49.999115",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "576014e9-8c69-4836-bc96-b00766db5475",
+      "name": "public-info-lookup",
+      "status": "disabled",
+      "reason": "external MCP unsupported in E6/E7 local A/limited-B scope"
+    },
+    {
+      "skill_id": "752888e1-7154-4164-8b78-88c7ecc71559",
+      "name": "knowledge-research",
+      "status": "enabled",
+      "grant_id": "1c8528d7-5072-4381-adc7-f2ec892722d6",
+      "expires_at": "2026-10-14 15:21:09.713303",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "88b36b89-8f39-4a74-ae6e-820df0111658",
+      "name": "note-writer",
+      "status": "enabled",
+      "grant_id": "ff51b0c9-f4c4-4d6f-a30c-2d61e48b6c00",
+      "expires_at": "2026-10-14 15:21:09.898063",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "88f26935-da8a-4326-bc2c-3c3d63d55d9e",
+      "name": "memory-cleanup",
+      "status": "enabled",
+      "grant_id": "6b04d1f9-bb4d-4ec4-bbc0-4eeedd82b392",
+      "expires_at": "2026-10-14 15:21:09.430798",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "9ccd3cfb-92f0-4dbe-bc48-92f433c75dae",
+      "name": "memory-write",
+      "status": "enabled",
+      "grant_id": "73385300-33bf-49f5-85ae-bc313bf61283",
+      "expires_at": "2026-10-14 15:42:34.502395",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "a4829879-adf3-4ad8-9ea8-e7a4e0ea6e04",
+      "name": "note-research",
+      "status": "enabled",
+      "grant_id": "8bf658ae-e0fd-418c-ada7-2ea3c7e3f4e5",
+      "expires_at": "2026-10-14 15:21:09.619539",
+      "grant_valid": true
+    },
+    {
+      "skill_id": "f5c5dd65-1621-4ceb-9a98-7f6da53d6efe",
+      "name": "mcp-smoke-test",
+      "status": "disabled",
+      "reason": "external MCP unsupported in E6/E7 local A/limited-B scope"
+    }
+  ],
+  "rag": [
+    {
+      "status": "ready",
+      "revision": 4,
+      "query_revision": 2,
+      "job_id": null,
+      "job_status": null,
+      "error_code": null,
+      "index_config": {
+        "schema_version": 1,
+        "splitter": "recursive",
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "parser_version": "e5-v1"
+      },
+      "query_config": {
+        "schema_version": 1,
+        "top_k": 10,
+        "hyde": false,
+        "bm25": true,
+        "notes": true,
+        "rerank": true,
+        "hyde_model": "qwen3:0.6b",
+        "hyde_model_digest": null,
+        "reranker_model": "qwen3-reranker-4b",
+        "reranker_model_digest": "0d0c6a0f4f6e1758baf9eb6b214b5416bab5a851b469a5be1fb96ac715b7c1e1",
+        "source_ids": []
+      },
+      "generations": {
+        "knowledge": {
+          "active": "d1c6f595-44d8-4f78-8354-82c4dba96dbf",
+          "staging": null,
+          "chunks": 57
+        },
+        "notes": {
+          "active": "2e641fea-d37f-4eaa-a3e0-4c23e95fe3c1",
+          "staging": null,
+          "chunks": 11
+        }
+      },
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa"
+    },
+    {
+      "status": "ready",
+      "revision": 5,
+      "query_revision": 2,
+      "job_id": null,
+      "job_status": null,
+      "error_code": null,
+      "index_config": {
+        "schema_version": 1,
+        "splitter": "recursive",
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "parser_version": "e5-v1"
+      },
+      "query_config": {
+        "schema_version": 1,
+        "top_k": 10,
+        "hyde": false,
+        "bm25": true,
+        "notes": true,
+        "rerank": true,
+        "hyde_model": "qwen3:0.6b",
+        "hyde_model_digest": null,
+        "reranker_model": "qwen3-reranker-4b",
+        "reranker_model_digest": "0d0c6a0f4f6e1758baf9eb6b214b5416bab5a851b469a5be1fb96ac715b7c1e1",
+        "source_ids": []
+      },
+      "generations": {
+        "knowledge": {
+          "active": "899abae2-ff10-43fe-a576-2c1e5c24fc60",
+          "staging": null,
+          "chunks": 0
+        },
+        "notes": {
+          "active": "a4a4e447-3607-4a17-b23d-25dc7786e6d9",
+          "staging": null,
+          "chunks": 0
+        }
+      },
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12"
+    }
+  ],
+  "status": "passed",
+  "stable_legacy_packages_verified": 10,
+  "new_api": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  }
+}

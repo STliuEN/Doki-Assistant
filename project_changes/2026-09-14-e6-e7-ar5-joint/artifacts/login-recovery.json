@@ -1,0 +1,93 @@
+{
+  "target_recovery": {
+    "username": "STliuEN",
+    "user_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+    "before": {
+      "status": "active",
+      "roles": [
+        "user"
+      ]
+    },
+    "after": {
+      "status": "active",
+      "roles": [
+        "skill_admin",
+        "user"
+      ]
+    },
+    "password_reset": true,
+    "authentication_verified": true,
+    "old_sessions_revoked": 3,
+    "verification_session_revoked": true,
+    "audit_id": "045f3d1d-01c1-47d5-89ed-e13d21b47a43",
+    "mode": "target",
+    "recorded_at": "2026-09-14T09:18:57.057313+00:00",
+    "backup_sha256": "4992f8fee9b17cfdef0d71688c7a0c4ce7a450df42f94fc7fa38322c03360368",
+    "new_api_unchanged": true
+  },
+  "http": {
+    "wrong_password_status": 401,
+    "login_status": 200,
+    "username": "STliuEN",
+    "user_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+    "profile_status": 200,
+    "refresh_status": 200,
+    "catalog_status": 200,
+    "catalog_permissions": null,
+    "logout_status": 200,
+    "revoked_access_status": 401,
+    "browser_submit_completed": true
+  },
+  "browser": {
+    "url": "http://127.0.0.1:18080/skills",
+    "notes": 7,
+    "skills": 10,
+    "admin_controls_visible": true,
+    "errors": 0,
+    "warnings": 2
+  },
+  "checks": {
+    "password_and_token_tests": 16,
+    "guard_tests": 29,
+    "ruff": "passed",
+    "diff": "passed"
+  },
+  "files": [
+    {
+      "path": "backend/app/auth/passwords.py",
+      "sha256": "650b963ba609ef376d29af14bf04e7f9c48a618df500f0ce59e7ea1774624a7c"
+    },
+    {
+      "path": "backend/app/db/e4_guard.py",
+      "sha256": "517bb7bbe29e3c8eac67b1d5b6e7693e67febf2f190905cfaf974e2a08a110b8"
+    },
+    {
+      "path": "backend/ops/e6_e7/acceptance_env.py",
+      "sha256": "48f310464058a4138d32256530f026489501b8820cfc1c1442587d648170f20e"
+    },
+    {
+      "path": "backend/ops/e6_e7/target_env.py",
+      "sha256": "017936e9b0cac3f56cd33850f95e0cca30c6824ae6e9159d94bda3ed6b1b2e63"
+    },
+    {
+      "path": "backend/ops/e6_e7/recover_account.py",
+      "sha256": "d73bbe3edf7b5785ae98c76fdfe1a5f01bf4bf4bbe8bfcbdb7b95cf0fd82adc0"
+    },
+    {
+      "path": "backend/ops/e6_e7/start_development.py",
+      "sha256": "5538a3b6e61ed8e45dbbeacdf1ea96c4f1d6146ad4f7f1ffb027205770f14039"
+    },
+    {
+      "path": "backend/tests/test_auth_password_compatibility.py",
+      "sha256": "c8fb655811d8db3979ed293cbf27b34c11c5af04c1693ae6358ea5a3627b6ed0"
+    },
+    {
+      "path": "backend/tests/test_e6_e7_guard.py",
+      "sha256": "f9f72945b1491bb751d691240bd419d5c0b2d5c33368330fbe94d55e9db6c533"
+    },
+    {
+      "path": "output/playwright/e6e7-login-skill-admin.png",
+      "sha256": "62148c3adfd203dfa5c28ad3bb0e460e282e4232280bfad855622293897c571b"
+    }
+  ]
+}

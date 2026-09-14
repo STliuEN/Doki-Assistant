@@ -662,12 +662,19 @@ class KnowledgeService:
             raise HTTPException(status_code=404, detail=f"源文件 {filename} 不存在")
         return source_doc
 
-    async def handle_get_batch_images(self, user_id: str, md5: str) -> dict:
+    async def handle_get_batch_images(self, user_id: str, md5: str, db: AsyncSession | None = None) -> dict:
         """
         一次性读取某个文档的所有提取图片，以 base64 data URL 的形式返回。
         这样前端可以一次请求拿到所有图片，然后根据 chunk 中的 image_paths 按需渲染，
         避免了每个图片单独发 HTTP 请求的性能开销（尤其适合移动端或图片较多的场景）。
         """
+        from app.skills.authorization import live_checks_enabled
+        if db is not None:
+            from app.services.sql_media import batch_images
+            return await batch_images(db, user_id, md5)
+        if live_checks_enabled():
+            raise HTTPException(503, "SQL media authority is required")
+
         try:
             normalized_md5 = normalize_md5(md5)
             image_dir = resolve_image_storage_dir(user_id, normalized_md5, create=False)

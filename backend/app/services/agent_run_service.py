@@ -250,8 +250,33 @@ async def prepare_agent_run(
             for skill in selected_skills
         },
     }
+    if db is not None and getattr(skill_service, "storage", None) is None:
+        from app.skills.authorization import authorized_grant, grant_snapshot
+        for captured in skill_bindings:
+            installation = await skill_service._installation(db, captured["skill_id"], for_update=True)
+            if installation is None or installation.active_version is None:
+                raise HTTPException(403, "Skill authorization is unavailable")
+            grant = await authorized_grant(db, installation, installation.active_version)
+            if (installation.active_version_id != captured["version_id"]
+                    or int(installation.revision) != captured["installation_revision"]):
+                raise HTTPException(409, "Skill version changed during run preparation")
+            await skill_service._verify_version_storage(db, installation.active_version)
+            captured["authorization"] = grant_snapshot(grant)
     resolved_run_id = run_id or str(uuid.uuid4())
     if db is not None:
+        from app.db.business_authority import uses_business_authority
+        from app.db.business_owner import business_owner_matches
+        from app.models.chat_history import ChatSession
+
+        if session_id is not None and uses_business_authority(db):
+            parent = await db.get(ChatSession, session_id, with_for_update=True)
+            if parent is None:
+                # A first-turn binding needs its canonical parent before the
+                # stream starts; both rows commit or roll back together.
+                db.add(ChatSession(id=session_id, user_id=user_id))
+                await db.flush()
+            elif not business_owner_matches(parent, user_id):
+                raise HTTPException(status_code=403, detail="The session does not belong to this user")
         db.add(
             SkillRunBinding(
                 run_id=resolved_run_id,

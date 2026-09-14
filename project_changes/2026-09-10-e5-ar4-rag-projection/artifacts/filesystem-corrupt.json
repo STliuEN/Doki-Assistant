@@ -1,0 +1,9 @@
+{
+  "fault": "corrupt",
+  "real_filesystem_fault": true,
+  "http": 503,
+  "reason": "chroma_validation_failed",
+  "core_auth": 200,
+  "repair_job": "9c0c5077-b1b9-46e6-b084-a6556b5b2e93",
+  "passed": true
+}

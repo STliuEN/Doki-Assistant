@@ -11,6 +11,7 @@ class KnowledgeSourceDocument(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "md5", name="uq_knowledge_source_user_md5"),
         UniqueConstraint("canonical_id", name="uq_knowledge_source_canonical_id"),
+        UniqueConstraint("canonical_id", "canonical_user_id", name="uq_knowledge_source_id_owner"),
         Index("ix_knowledge_source_canonical_user", "canonical_user_id"),
         CheckConstraint(
             f"canonical_id IS NULL OR canonical_id REGEXP '{UUID_PATTERN}'",

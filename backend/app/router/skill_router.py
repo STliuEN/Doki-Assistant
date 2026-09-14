@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import Depends, File, Header, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from fastapi.routing import APIRouter
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.skill_registry import skill_registry
 from app.core.success_response import success_response
 from app.db.db_config import get_db
 from app.schemas.api import ApiResponse
-from app.skills.package import SkillPackageError
+from app.skills.package import DEFAULT_SKILL_PACKAGE_LIMITS, SkillPackageError
 from app.skills.schema import (
     SkillActivateRequest,
     SkillArchiveRequest,
@@ -36,7 +38,7 @@ from app.skills.service import (
     SkillRegistryStaleError,
     skill_service,
 )
-from app.utils.auth_utils import get_current_user_id, is_admin_user, require_skill_admin, security
+from app.utils.auth_utils import get_current_user_id, is_admin_user, require_security_admin, require_skill_admin, security
 
 SKILL_MUTATION_ERROR_RESPONSES = {
     status.HTTP_400_BAD_REQUEST: {
@@ -110,6 +112,51 @@ def _validate_tool_ids(tool_ids: list[str]) -> None:
         )
 
 
+class SkillGrantRequest(BaseModel):
+    expected_revision: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=4096)
+    expires_at: datetime | None = None
+
+
+class SkillGrantDecision(BaseModel):
+    expected_policy_revision: int = Field(ge=1)
+    expected_subject_revision: int = Field(ge=1)
+    expected_content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reason: str = Field(min_length=1, max_length=4096)
+
+
+@skill_router.get("/{identifier}/authorization")
+async def get_skill_authorization(identifier: str, actor_id: str = Depends(get_current_user_id),
+                                  db: AsyncSession = Depends(get_db, scope="function")):
+    from app.skills.grant_service import inspect_grant
+    try:
+        return success_response(data=await inspect_grant(db, identifier, actor_id))
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+
+
+@skill_router.post("/{identifier}/authorization")
+async def request_skill_authorization(identifier: str, payload: SkillGrantRequest,
+                                      actor_id: str = Depends(require_skill_admin),
+                                      db: AsyncSession = Depends(get_db, scope="function")):
+    from app.skills.grant_service import request
+    try:
+        return success_response(data=await request(db, identifier, actor_id, **payload.model_dump()))
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+
+
+@skill_router.post("/{identifier}/authorization/{grant_id}/{decision}")
+async def decide_skill_authorization(identifier: str, grant_id: str, decision: str, payload: SkillGrantDecision,
+                                     actor_id: str = Depends(require_security_admin),
+                                     db: AsyncSession = Depends(get_db, scope="function")):
+    from app.skills.grant_service import decide
+    try:
+        return success_response(data=await decide(db, identifier, actor_id, grant_id, decision, **payload.model_dump()))
+    except (SkillNotFoundError, SkillConflictError, SkillPackageError) as exc:
+        _raise_service_error(exc)
+
+
 @skill_router.get("/catalog", response_model=ApiResponse[SkillCatalogResponse])
 async def get_skills_catalog(
     user_id: str = Depends(get_current_user_id),
@@ -162,7 +209,7 @@ async def import_skill_package(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Skill imports require an application/zip file",
         )
-    limit = skill_service.storage.limits.max_archive_bytes
+    limit = DEFAULT_SKILL_PACKAGE_LIMITS.max_archive_bytes
     archive = await file.read(limit + 1)
     await file.close()
     if len(archive) > limit:

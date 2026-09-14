@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-14",
+  "confirmed": true,
+  "count": 8,
+  "user_reply": "确认这 8 条来源映射（推荐）",
+  "source": "explicit user reply in this session",
+  "timing": "User source verification after model results; labels and thresholds frozen before testing",
+  "independent_blind_annotation": false,
+  "plan_sha256": "d3a10400d2470e53dd229d36bb68e0ab836bd1702760e8e0918da3d8a21cd4f4"
+}

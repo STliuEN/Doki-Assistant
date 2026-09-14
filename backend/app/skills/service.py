@@ -6,6 +6,7 @@ import asyncio
 import base64
 import binascii
 import hashlib
+import inspect
 import logging
 import uuid
 import zipfile
@@ -50,7 +51,8 @@ from app.skills.schema import (
     normalize_routing_examples,
     validate_skill_resource_budget,
 )
-from app.skills.storage import StoredSkillPackage, render_skill_markdown, skill_package_storage
+from app.skills.sql_storage import SqlSkillPackageStorage
+from app.skills.storage import StoredSkillPackage, render_skill_markdown
 
 SYSTEM_SCOPE_TYPE = "system"
 SYSTEM_SCOPE_KEY = "global"
@@ -193,8 +195,13 @@ def _installation_settings(
 
 class SkillService:
     def __init__(self) -> None:
-        self.storage = skill_package_storage
+        self.storage = None  # Explicit adapters are for offline tests/import tools only.
         self.registry = standard_skill_registry
+
+    async def _storage_call(self, db, operation, *args, actor_id=None, **kwargs):
+        storage = self.storage or SqlSkillPackageStorage(db, actor_id=actor_id)
+        result = getattr(storage, operation)(*args, **kwargs)
+        return await result if inspect.isawaitable(result) else result
 
     @staticmethod
     async def _next_version_number(db: AsyncSession, skill_id: str) -> int:
@@ -272,11 +279,12 @@ class SkillService:
                 granted_by=actor_id,
             )
             db.add(grant)
-        else:
+        elif grant.grants != grants or grant.revoked_at is not None:
             grant.grants = grants
             grant.revision = int(grant.revision) + 1
             grant.granted_by = actor_id
             grant.revoked_at = None
+            installation.authorization_grant_id = None
         await db.flush()
         return grant
 
@@ -287,11 +295,11 @@ class SkillService:
                 f"Skill revision changed from {expected_revision} to {installation.revision}; reload before saving"
             )
 
-    def _verify_version_storage(self, version: SkillVersion) -> StoredSkillPackage:
+    async def _verify_version_storage(self, db, version: SkillVersion) -> StoredSkillPackage:
         """Revalidate immutable package bytes before changing the active pointer."""
 
         try:
-            stored = self.storage.load_archive(
+            stored = await self._storage_call(db, "load_archive",
                 version.storage_key,
                 expected_digest=version.package_digest,
             )
@@ -300,6 +308,8 @@ class SkillService:
                 "storage_unavailable",
                 "Skill package storage is temporarily unavailable",
             ) from exc
+        if self.storage is None and (not version.package_id or version.package_id != stored.package_id):
+            raise SkillPackageError("package_binding_invalid", "Version is not bound to this SQL package")
         manifest = _manifest(stored.package)
         stored_version_note = str((version.manifest or {}).get("version_note", ""))
         manifest["version_note"] = stored_version_note
@@ -465,8 +475,8 @@ class SkillService:
 
         return build_skill_archive(files)
 
-    def _read_version_resources(self, version: SkillVersion) -> dict[str, bytes]:
-        archive_bytes = self.storage.read_archive(
+    async def _read_version_resources(self, db, version: SkillVersion) -> dict[str, bytes]:
+        archive_bytes = await self._storage_call(db, "read_archive",
             version.storage_key,
             expected_digest=version.package_digest,
         )
@@ -521,6 +531,7 @@ class SkillService:
             package_format=SkillPackageFormat.AGENT_SKILLS_V1,
             source=source,
             package_digest=stored.digest,
+            package_id=stored.package_id,
             storage_key=stored.storage_key,
             package_size_bytes=stored.archive_size,
             name=stored.package.metadata.name,
@@ -539,7 +550,7 @@ class SkillService:
     async def create_draft(self, db: AsyncSession, payload: SkillDraftCreate, actor_id: str) -> dict[str, Any]:
         if await self._find_skill(db, payload.name, include_archived=True) is not None:
             raise SkillConflictError("Skill name or alias already exists")
-        stored = self.storage.store_archive(self._archive_from_draft(payload))
+        stored = await self._storage_call(db, "store_archive", self._archive_from_draft(payload))
         skill = Skill(canonical_name=stored.package.metadata.name, created_by=actor_id)
         db.add(skill)
         try:
@@ -605,8 +616,8 @@ class SkillService:
             raise SkillNotFoundError(identifier)
         self._assert_revision(installation, payload.expected_revision)
         base_version = installation.draft_version or installation.active_version
-        existing_resources = self._read_version_resources(base_version) if base_version and payload.resources is None else None
-        stored = self.storage.store_archive(self._archive_from_draft(payload, existing_resources=existing_resources))
+        existing_resources = await self._read_version_resources(db, base_version) if base_version and payload.resources is None else None
+        stored = await self._storage_call(db, "store_archive", self._archive_from_draft(payload, existing_resources=existing_resources))
         if stored.package.metadata.name != skill.canonical_name:
             raise SkillConflictError("Renaming a Skill is not supported; create a new Skill instead")
         version = await self._create_version(
@@ -686,7 +697,10 @@ class SkillService:
                 "Idempotency-Key is already bound to a different actor or archive"
             ) from exc
         try:
-            stored = self.storage.store_archive(archive_bytes)
+            if self.storage is None:
+                upload = await SqlSkillPackageStorage(db, actor_id=actor_id).store_raw(archive_bytes)
+                import_record.upload_id = upload.id
+            stored = await self._storage_call(db, "store_archive", archive_bytes, actor_id=actor_id)
         except (SkillPackageError, OSError) as exc:
             package_error = (
                 exc
@@ -717,6 +731,8 @@ class SkillService:
             await db.refresh(import_record)
             return self._import_response(import_record)
 
+        import_record.package_id = stored.package_id
+        import_record.upload_id = stored.upload_id
         import_record.staged_storage_key = stored.storage_key
         import_record.package_digest = stored.digest
         import_record.package_size_bytes = stored.archive_size
@@ -804,11 +820,11 @@ class SkillService:
                 raise SkillConflictError("Published import version is no longer available")
             # Idempotent retries must not bypass the same immutable Storage
             # check required before the original active-pointer transition.
-            self._verify_version_storage(published_version)
+            await self._verify_version_storage(db, published_version)
             return await self.get_detail(db, record.skill_id, can_manage=True)
         if record.status != SkillImportStatus.AWAITING_APPROVAL or not record.staged_storage_key:
             raise SkillConflictError(f"Import is not awaiting approval: {record.status}")
-        stored = self.storage.load_archive(
+        stored = await self._storage_call(db, "load_archive",
             record.staged_storage_key,
             expected_digest=record.package_digest,
         )
@@ -862,7 +878,7 @@ class SkillService:
             parent_version_id=parent.id if parent else None,
             status=SkillVersionStatus.READY,
         )
-        self._verify_version_storage(version)
+        await self._verify_version_storage(db, version)
         has_scripts = bool((version.requested_capabilities or {}).get("scripts"))
         # AR-0 containment: importing and approving a package never enables
         # it in the same operation. Enablement is a separate, auditable
@@ -956,10 +972,10 @@ class SkillService:
             raise SkillConflictError("Skill has no draft to publish")
         self._assert_revision(installation, expected_revision)
         version = installation.draft_version
-        self._verify_version_storage(version)
+        await self._verify_version_storage(db, version)
         compatibility = (version.manifest or {}).get("compatibility", {})
         runtime_ready = bool(compatibility.get("runtime_ready", False))
-        effective_enabled = enabled and runtime_ready
+        effective_enabled = enabled and runtime_ready and self.storage is not None
         before = {"revision": int(installation.revision), "active_version_id": installation.active_version_id}
         version.status = SkillVersionStatus.READY
         version.published_at = _now()
@@ -1030,7 +1046,7 @@ class SkillService:
             if patch["enabled"] and not compatibility.get("runtime_ready", False):
                 raise SkillConflictError("This Skill is not runtime ready and cannot be enabled")
             if patch["enabled"] and installation.active_version is not None:
-                self._verify_version_storage(installation.active_version)
+                await self._verify_version_storage(db, installation.active_version)
             installation.status = SkillInstallationStatus.ENABLED if patch["enabled"] else SkillInstallationStatus.DISABLED
             settings["installed_disabled"] = False
             if not patch["enabled"]:
@@ -1048,6 +1064,9 @@ class SkillService:
                 tools=settings.get("tools", []),
                 actor_id=actor_id,
             )
+            if self.storage is None and installation.status == SkillInstallationStatus.ENABLED:
+                from app.skills.authorization import authorized_grant
+                await authorized_grant(db, installation, installation.active_version, require_enabled=False)
         await self._bump_registry(db, skill_id=skill.id, event_type="skill_settings_changed")
         self._audit(
             db,
@@ -1090,14 +1109,15 @@ class SkillService:
         version = result.scalar_one_or_none()
         if version is None:
             raise SkillNotFoundError(version_id)
-        self._verify_version_storage(version)
+        await self._verify_version_storage(db, version)
         before_id = installation.active_version_id
         installation.active_version_id = version.id
         installation.draft_version_id = None
         runtime_ready = bool((version.manifest or {}).get("compatibility", {}).get("runtime_ready", False))
-        if not runtime_ready:
+        if not runtime_ready or self.storage is None:
             installation.status = SkillInstallationStatus.DISABLED
             installation.settings = {**dict(installation.settings or {}), "default": False}
+            installation.authorization_grant_id = None
         installation.revision = int(installation.revision) + 1
         installation.updated_by = actor_id
         await self._upsert_capability_grant(
@@ -1235,7 +1255,7 @@ class SkillService:
         if version is None:
             raise SkillNotFoundError(version_id)
         return (
-            self.storage.read_archive(
+            await self._storage_call(db, "read_archive",
                 version.storage_key,
                 expected_digest=version.package_digest,
             ),
@@ -1264,7 +1284,7 @@ class SkillService:
         resource = resources.get(resource_path)
         if resource is None or resource_path == "SKILL.md":
             raise SkillNotFoundError(resource_path)
-        content = self.storage.read_resource(
+        content = await self._storage_call(db, "read_resource",
             version.storage_key,
             resource_path,
             max_bytes=MAX_RESOURCE_READ_BYTES,
@@ -1367,10 +1387,7 @@ class SkillService:
             if version is None or version.status != SkillVersionStatus.READY:
                 continue
             try:
-                package = self.storage.load_archive(
-                    version.storage_key,
-                    expected_digest=version.package_digest,
-                ).package
+                package = (await self._verify_version_storage(db, version)).package
                 if package.metadata.name != version.name:
                     raise SkillPackageError("metadata_changed", "stored name does not match version metadata")
                 if package.metadata.description != version.description:
@@ -1406,6 +1423,16 @@ class SkillService:
                     "network": [],
                     "secrets": [],
                 }
+                runtime_enabled = installation.status == SkillInstallationStatus.ENABLED
+                if self.storage is None:
+                    from app.auth.errors import AuthError
+                    from app.skills.authorization import authorized_grant
+                    try:
+                        approved = await authorized_grant(db, installation, version)
+                        effective_grants = dict(approved.grant_json["capabilities"])
+                    except AuthError:
+                        runtime_enabled = False
+                        effective_grants = {"tools": [], "resources": {"read": []}, "scripts": [], "network": [], "secrets": []}
                 readable_resources = set(
                     (effective_grants.get("resources") or {}).get("read", [])
                 )
@@ -1435,7 +1462,7 @@ class SkillService:
                         digest=version.package_digest,
                         installation_revision=int(installation.revision),
                         is_default=bool(settings.get("default", False)),
-                        enabled=installation.status == SkillInstallationStatus.ENABLED,
+                        enabled=runtime_enabled,
                         order=int(settings.get("order", 100)),
                         visibility=settings.get("visibility", "public"),
                         always_on=bool(settings.get("always_on", False)),

@@ -55,6 +55,10 @@ async def resolve_confirmed_tool(
     if int(binding.registry_revision) != registry_revision:
         raise _invalid("the pending action registry revision does not match its run binding")
 
+    from app.skills.authorization import live_checks_enabled, validate_run
+    if live_checks_enabled():
+        await validate_run(db, user_id, run_id, session_id=binding.session_id, tool_id=tool_id)
+
     grants = binding.effective_grants if isinstance(binding.effective_grants, dict) else {}
     granted_tools = grants.get("tools")
     if not isinstance(granted_tools, list) or tool_id not in granted_tools:

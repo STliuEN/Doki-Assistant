@@ -4,10 +4,11 @@ import { toast } from 'sonner'
 import { Upload, FileText, Trash2, Loader2, CheckCircle2, AlertCircle, RefreshCw, Database, RotateCcw, Download, SlidersHorizontal } from 'lucide-react'
 import { knowledgeApi } from '../api/knowledge'
 import { useSSE } from '../hooks/useSSE'
-import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage, LocalRerankerModel, RerankerConfig } from '../types/api'
+import type { EmbeddingConfig, KnowledgeDocument, KnowledgeSSEMessage, LocalRerankerModel, RagStatus, RerankerConfig } from '../types/api'
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import DocumentDetailDrawer from '../components/knowledge/DocumentDetailDrawer'
+import RagSettings from '../components/knowledge/RagSettings'
 import { getAccessToken } from '../stores/useUserStore'
 
 interface UploadFile {
@@ -36,6 +37,8 @@ export default function KnowledgeBase() {
   const { t } = useTranslation()
   const { start: startSSE } = useSSE()
   const [docs, setDocs] = useState<KnowledgeDocument[]>([])
+  const [ragStatus, setRagStatus] = useState<RagStatus | null>(null)
+  const ragVersion = useRef('')
   const [loading, setLoading] = useState(true)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([])
   const [uploadTotal, setUploadTotal] = useState(0)
@@ -68,12 +71,30 @@ export default function KnowledgeBase() {
       const res = await knowledgeApi.list()
       const documents = (res.data as { documents: KnowledgeDocument[] } | undefined)?.documents || []
       setDocs(documents)
+      setUploadFiles(previous => previous.map(file => {
+        const document = documents.find(value => value.id === file.documentId)
+        return file.status === 'queued' && document?.status === 'indexed'
+          ? { ...file, status: 'success', progress: 100, chunkCount: document.chunk_count, stage: '索引已就绪' } : file
+      }))
     } catch {
       toast.error('加载文档列表失败')
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const onRagStatus = useCallback((value: RagStatus) => {
+    setRagStatus(value)
+    const version = `${value.revision}:${value.status}`
+    if (ragVersion.current !== version) {
+      ragVersion.current = version
+      void loadDocs()
+      if (value.status === 'failed') setUploadFiles(previous => previous.map(file => file.status === 'queued'
+        ? { ...file, status: 'fail', error: '索引构建失败，请重试' } : file))
+    }
+  }, [loadDocs])
+
+  useEffect(() => { setUploadDone(uploadFiles.filter(file => file.status === 'success' || file.status === 'fail').length) }, [uploadFiles])
 
   const loadEmbedding = useCallback(async () => {
     try {
@@ -133,7 +154,9 @@ export default function KnowledgeBase() {
   useEffect(() => {
     loadDocs()
     loadEmbedding()
-    loadReranker()
+    void knowledgeApi.ragStatus().catch((error: { response?: { status?: number } }) => {
+      if (error.response?.status === 404) void loadReranker()
+    })
   }, [loadDocs, loadEmbedding, loadReranker])
 
   const updateUploadFile = (data: KnowledgeSSEMessage, patch: Partial<UploadFile>) => {
@@ -167,7 +190,8 @@ export default function KnowledgeBase() {
       {
         onKnowledgeProgress: (data: KnowledgeSSEMessage) => {
           if (data.event_type === 'accepted') {
-            setUploadFiles((prev) => prev.map((uf) => ({ ...uf, status: 'queued', progress: 10, stage: '已进入索引队列' })))
+            setUploadFiles((prev) => prev.map((uf) => ({ ...uf, status: 'queued', progress: 10, stage: '已进入索引队列',
+              documentId: data.documents?.find(document => document.filename === uf.file.name)?.id })))
           } else if (data.event_type === 'queued') {
             updateUploadFile(data, { status: 'queued' })
           } else if (data.event_type === 'processing' || data.event_type === 'slicing_completed' || data.event_type === 'writing') {
@@ -360,6 +384,8 @@ export default function KnowledgeBase() {
         )}
       </div>
 
+      <RagSettings onStatus={onRagStatus} />
+
       <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -373,7 +399,7 @@ export default function KnowledgeBase() {
           </div>
           <button
             onClick={handleSwitchEmbedding}
-            disabled={switchingEmbedding}
+            disabled={switchingEmbedding || ragStatus?.status === 'building' || ragStatus?.status === 'queued'}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-[var(--color-accent)] text-white disabled:opacity-50"
           >
             <RotateCcw size={15} className={switchingEmbedding ? 'animate-spin' : ''} />
@@ -408,7 +434,7 @@ export default function KnowledgeBase() {
         </div>
       </div>
 
-      <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+      {!ragStatus && reranker && <div className="mb-5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <SlidersHorizontal size={16} className="text-[var(--color-accent)] shrink-0" />
@@ -491,7 +517,7 @@ export default function KnowledgeBase() {
           </label>
         </div>
         <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">切换重排序模型不会重建知识库索引。</p>
-      </div>
+      </div>}
 
       <div
         onDragOver={handleDragOver}

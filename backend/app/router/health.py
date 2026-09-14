@@ -1,3 +1,5 @@
+import os
+
 from fastapi import HTTPException
 from fastapi.routing import APIRouter
 
@@ -8,6 +10,24 @@ from app.jobs.runner import get_default_runner_status
 from app.skills.storage import skill_package_storage
 
 health_router = APIRouter(prefix="/health")
+
+
+async def sql_skill_storage_ready():
+    from sqlalchemy import select
+
+    from app.db.db_config import AsyncSessionLocal
+    from app.models.skill_domain import SkillInstallation, SkillVersion
+    from app.skills.sql_storage import SqlSkillPackageStorage
+
+    try:
+        async with AsyncSessionLocal() as db:
+            versions = await db.scalars(select(SkillVersion).join(
+                SkillInstallation, SkillInstallation.active_version_id == SkillVersion.id))
+            for version in versions:
+                await SqlSkillPackageStorage(db).load_archive(version.storage_key, expected_digest=version.package_digest)
+        return True
+    except Exception:
+        return False
 
 @health_router.get("/live", tags=["健康检查"], summary="健康检查")
 async def get_health_application_status():
@@ -26,11 +46,17 @@ async def get_health_readiness():
     mysql_status = await check_mysql_connection()
     # 检查redis连接
     redis_status = await check_redis_connection()
-    skill_storage_status = skill_package_storage.check_health()
+    sql_mode = os.getenv("E6E7_ENABLED", "false").lower() == "true"
+    skill_storage_status = await sql_skill_storage_ready() if sql_mode else skill_package_storage.check_health()
     try:
-        from app.rag.vector_store import VectorStoreService
+        if os.getenv("E5_RAG_ENABLED", "false").lower() == "true":
+            # E5 has no global projection: authenticated reads validate each
+            # owner's SQL generation and Chroma receipt independently.
+            chroma_projection = {"status": "owner_scoped", "authority": "sql_generation", "status_endpoint": "/rag/status"}
+        else:
+            from app.rag.vector_store import VectorStoreService
 
-        chroma_projection = VectorStoreService.projection_health()
+            chroma_projection = VectorStoreService.projection_health()
     except Exception as exc:
         chroma_projection = {
             "status": "unknown",
@@ -44,7 +70,7 @@ async def get_health_readiness():
         return success_response(
             message="health readiness status",
             data={
-                "status": "ok" if chroma_projection["status"] == "ready" else "degraded",
+                "status": "ok" if chroma_projection["status"] in {"ready", "owner_scoped"} else "degraded",
                 "dependencies": {
                     "mysql": "ready",
                     "redis": "ready",

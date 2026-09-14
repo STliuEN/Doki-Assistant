@@ -1,0 +1,115 @@
+{
+  "stage": "E6E7",
+  "target": true,
+  "security_admin": {
+    "username": "STliuEN-security-admin",
+    "user_id": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+    "roles": [
+      "security_admin"
+    ],
+    "independent_from": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+    "password_verified": true,
+    "approval_boundary": "Distinct application accounts, one authorizing human"
+  },
+  "skills": [
+    {
+      "skill_id": "4753f96b-31ba-4e55-ae79-f1cf4c5b7e68",
+      "installation_id": "0bd6221a-f57a-4705-a089-ab91faf78e45",
+      "grant_id": "31d505a5-475b-4f84-a530-5cd2ade9163c",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "88f26935-da8a-4326-bc2c-3c3d63d55d9e",
+      "installation_id": "49882114-9944-47e2-aa54-239e1d382219",
+      "grant_id": "6b04d1f9-bb4d-4ec4-bbc0-4eeedd82b392",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "352e97b5-5993-4410-81c6-50439dbbac94",
+      "installation_id": "4de3b473-93dd-4876-b658-5b1d32085331",
+      "grant_id": "05183cec-ecb8-4d3f-a583-7579faabc8e9",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "a4829879-adf3-4ad8-9ea8-e7a4e0ea6e04",
+      "installation_id": "5205e99f-babc-4292-8a6a-a7aaed446e75",
+      "grant_id": "8bf658ae-e0fd-418c-ada7-2ea3c7e3f4e5",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "752888e1-7154-4164-8b78-88c7ecc71559",
+      "installation_id": "53cb801e-5851-4afc-81d1-517eafe6d579",
+      "grant_id": "1c8528d7-5072-4381-adc7-f2ec892722d6",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "465c5eff-d89f-432c-970f-938734ab925d",
+      "installation_id": "846d6e2f-1e69-4dea-9c8f-d20abe0a31f8",
+      "grant_id": "4a237d5c-b73f-499e-9652-e3bda7d37b98",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "88b36b89-8f39-4a74-ae6e-820df0111658",
+      "installation_id": "9d7df4c2-86b2-45b6-a8e1-824881d0bba1",
+      "grant_id": "ff51b0c9-f4c4-4d6f-a30c-2d61e48b6c00",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true,
+      "reused": true
+    },
+    {
+      "skill_id": "f5c5dd65-1621-4ceb-9a98-7f6da53d6efe",
+      "installation_id": "9ee684ce-1839-437f-9a39-8bab8831086b",
+      "status": "unsupported",
+      "enabled": false,
+      "skipped": "SKILL_AUTHORIZATION_REQUIRED",
+      "reason": "Skill contains an unavailable tool"
+    },
+    {
+      "skill_id": "9ccd3cfb-92f0-4dbe-bc48-92f433c75dae",
+      "installation_id": "db00dac7-0318-46bb-81d1-a9285768d6e7",
+      "grant_id": "73385300-33bf-49f5-85ae-bc313bf61283",
+      "status": "approved",
+      "approved_by": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "enabled": true
+    },
+    {
+      "skill_id": "576014e9-8c69-4836-bc96-b00766db5475",
+      "installation_id": "fd12816d-d471-4281-80c9-5fc35a9d7670",
+      "status": "unsupported",
+      "enabled": false,
+      "skipped": "SKILL_AUTHORIZATION_REQUIRED",
+      "reason": "Skill contains an unavailable tool"
+    }
+  ],
+  "media": {
+    "owner_read": true,
+    "cross_user_rejected": true,
+    "corruption_rejected": true,
+    "fixture": "transactional-target-only",
+    "rolled_back": true
+  },
+  "clock": {
+    "host_utc": "2026-09-14T15:42:20.429159+00:00",
+    "sql_utc": "2026-09-14 15:42:20.318841"
+  },
+  "status": "passed"
+}

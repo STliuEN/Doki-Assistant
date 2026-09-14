@@ -18,9 +18,9 @@ async def rag_summary_tool(query: str, user_id: str = None) -> str:
     authenticated_user_id = get_current_user_id_from_context()
     if user_id and authenticated_user_id and user_id != authenticated_user_id:
         return "错误: user_id 与当前认证用户不匹配"
-    effective_user_id = authenticated_user_id or user_id
+    effective_user_id = authenticated_user_id if E5_RAG_ENABLED else authenticated_user_id or user_id
     if not effective_user_id:
-        return "错误: 无法确定用户身份，请提供有效的user_id"
+        return "错误: 缺少有效的认证上下文，请重新登录"
 
     if E5_RAG_ENABLED:
         from app.db.db_config import AsyncSessionLocal

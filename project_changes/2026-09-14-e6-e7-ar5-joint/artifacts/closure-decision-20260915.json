@@ -1,0 +1,74 @@
+{
+  "stage": "E6E7/AR-5",
+  "status": "closed",
+  "closed_at": "2026-09-14T16:31:12.346603+00:00",
+  "scope": "Local Windows single instance, SQL authority, A/limited-B Skills, runner concurrency 1",
+  "authorization": "User requested completing remaining blockers and creating a new administrator using their name",
+  "acceptance": {
+    "JV01": "passed",
+    "JV02": "passed",
+    "JV03": "passed",
+    "JV04": "passed",
+    "JV05": "passed",
+    "JV06": "passed",
+    "JV07": "passed",
+    "JV08": "passed",
+    "JV09": "passed"
+  },
+  "remaining_in_scope_blockers": [],
+  "waivers": [],
+  "backend_passed": 539,
+  "frontend_passed": 29,
+  "target": "127.0.0.1:33427/doki_e4",
+  "schema": "20260914_0010_e6e7_sql_authority",
+  "target_counts": {
+    "users": 3,
+    "skills": 10,
+    "skill_versions": 10,
+    "skill_installations": 10,
+    "skill_aliases": 10,
+    "skill_packages": 10,
+    "skill_package_uploads": 10,
+    "skill_imports": 0,
+    "source_media": 0,
+    "media_assets": 0,
+    "authorization_grants": 8,
+    "audit_events": 2218,
+    "knowledge_source_documents": 6,
+    "notes": 7
+  },
+  "enabled_skills": 8,
+  "disabled_unsupported": [
+    "mcp-smoke-test",
+    "public-info-lookup"
+  ],
+  "security_admin": "STliuEN-security-admin",
+  "human_reviewers_claimed": 1,
+  "role_boundary": "Distinct application identities; not two independently reviewing humans",
+  "evidence_matrix": "../contracts.md",
+  "review": "../closure-review.md",
+  "supersedes": "e6-e7-final-decision.json (historical incomplete report; imports count corrected to zero)",
+  "new_api_unchanged": true,
+  "mysql_global_flags": [
+    0,
+    0
+  ],
+  "legacy_inputs_retained": true,
+  "excluded": [
+    "E8",
+    "physical deletion",
+    "C/scripts/external MCP",
+    "production deployment and RPO/RTO"
+  ],
+  "frozen": [
+    "SKILL-GATE",
+    "ARCH-GATE",
+    "product work packages 7-10"
+  ],
+  "limitations": [
+    "Detailed coverage boundaries in contracts.md",
+    "Synthetic fixtures on real SQL/model",
+    "Grants expire in about 30 days; renewal requires another approval",
+    "Historical failed attempts retained"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "stage": "E6E7",
+  "recorded_at": "2026-09-14T10:35:56.596136+00:00",
+  "target": {
+    "container": "doki-e4-20260903-mysql",
+    "endpoint": "127.0.0.1:33427/doki_e4",
+    "schema": "20260914_0010_e6e7_sql_authority"
+  },
+  "migration": {
+    "skill_packages": 10,
+    "skill_package_uploads": 10,
+    "skill_imports": 10,
+    "installations_enabled": 0,
+    "installations_disabled": 10,
+    "source_media": 0,
+    "mysql_read_only": 0,
+    "mysql_super_read_only": 0
+  },
+  "replica_acceptance": {
+    "media": "./../../.runtime/e6e7-login-replica-20260914/media-acceptance.json",
+    "authorization": "./../../.runtime/e6e7-login-replica-20260914/authorization-acceptance.json",
+    "media_positive_owner_read": true,
+    "media_cross_user_rejected": true,
+    "media_corruption_rejected": true,
+    "four_eyes_self_approval_rejected": true,
+    "four_eyes_independent_approval": true,
+    "revoke_fail_closed": true,
+    "expiry_fail_closed": true,
+    "grant_drift_fail_closed": true,
+    "fixture_scope": "replica-only; temporary security_admin binding was not written to target"
+  },
+  "api": {
+    "login": 200,
+    "skill_catalog": 200,
+    "skill_authorization_query": 200,
+    "missing_image": 404,
+    "missing_image_batch": 404
+  },
+  "verification": {
+    "backend_pytest": "536 passed, 1 warning",
+    "frontend_lint": "passed",
+    "frontend_tests": "29 passed",
+    "frontend_build": "passed",
+    "ruff": "passed",
+    "compileall": "passed"
+  },
+  "new_api": {
+    "status": "running",
+    "restart_count": 0,
+    "changed": false
+  },
+  "decision": {
+    "E5": "closed by prior explicit user confirmation",
+    "E6": "blocked_at_final_gate",
+    "E7": "blocked_at_final_gate",
+    "joint": "not_closed",
+    "blocking_gaps": [
+      "Target has no independent security_admin identity; the 10 migrated installations remain disabled and have no approved AuthorizationGrant.",
+      "Target historical source_media count is zero; media positive/negative evidence is replica synthetic only.",
+      "Because target authorization and real target media evidence are absent, JV03, JV05, JV06, JV07 and JV08 cannot be claimed fully passed."
+    ]
+  }
+}

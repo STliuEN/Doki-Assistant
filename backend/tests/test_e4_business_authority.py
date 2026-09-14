@@ -72,6 +72,42 @@ def note(**values):
     return Note(id=str(uuid4()), user_id=OWNER, title="fixture", content="private content", **values)
 
 
+def test_first_agent_run_creates_parent_and_rejects_foreign_session(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.agent.skill_registry import SkillResolution
+    from app.services import agent_run_service
+    from app.skills.registry import SkillRegistrySnapshot
+
+    snapshot = SkillRegistrySnapshot(revision=1, skills=())
+    monkeypatch.setattr(agent_run_service, "skill_service", SimpleNamespace(
+        storage=object(), reconcile_registry=AsyncMock(return_value=snapshot)))
+    monkeypatch.setattr(agent_run_service, "mcp_tool_registry", SimpleNamespace(ensure_fresh=AsyncMock(return_value=False)))
+    monkeypatch.setattr(agent_run_service, "resolve_skills", lambda *_args, **_kwargs: SkillResolution(
+        skill_ids=[], tool_ids=[], tools=[], skill_prompts=[], notices=[]))
+
+    async def scenario():
+        async with database(tmp_path / "first-agent-run.db") as factory:
+            session_id = str(uuid4())
+            kwargs = dict(query="First turn", model_config_id=None, prompt_type=None,
+                          skill_ids=[], tool_ids=["explicit-offline-selection"], session_id=session_id)
+            async with factory() as db:
+                plan = await agent_run_service.prepare_agent_run(db, OWNER, **kwargs)
+            async with factory() as db:
+                parent = await db.get(ChatSession, session_id)
+                binding = await db.get(SkillRunBinding, plan.run_id)
+                assert parent.canonical_user_id == OWNER
+                assert binding.canonical_session_id == parent.canonical_id
+                assert binding.canonical_user_id == OWNER
+                with pytest.raises(HTTPException) as rejected:
+                    await agent_run_service.prepare_agent_run(db, OTHER, **kwargs)
+                assert rejected.value.status_code == 403
+                await db.rollback()
+            async with factory() as db:
+                assert await db.scalar(select(func.count()).select_from(SkillRunBinding)) == 1
+    asyncio.run(scenario())
+
+
 def test_registry_acknowledgement_uses_guarded_rows_and_is_idempotent(tmp_path):
     from app.skills.registry import SkillRegistrySnapshot
     from app.skills.service import SkillService

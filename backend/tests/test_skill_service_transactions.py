@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db.uow import SqlUnitOfWork
 from app.models.chat_history import Base
-from app.models.identity_domain import User
+from app.models.identity_domain import AuthorizationGrant, User
+from app.models.projection_domain import SkillPackage, SkillPackageUpload
 from app.models.skill_domain import (
     Skill,
     SkillAlias,
@@ -36,6 +37,9 @@ from app.skills.storage import SkillPackageStorage
 
 SKILL_TABLES = (
     User.__table__,
+    AuthorizationGrant.__table__,
+    SkillPackage.__table__,
+    SkillPackageUpload.__table__,
     Skill.__table__,
     SkillAlias.__table__,
     SkillVersion.__table__,

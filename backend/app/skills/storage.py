@@ -111,6 +111,8 @@ class StoredSkillPackage:
     digest: str
     storage_key: str
     archive_size: int
+    package_id: str | None = None
+    upload_id: str | None = None
 
 
 class SkillPackageStorage:

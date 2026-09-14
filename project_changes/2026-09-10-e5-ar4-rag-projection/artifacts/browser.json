@@ -1,0 +1,145 @@
+{
+  "passed": true,
+  "browser": "Edge via Playwright CLI",
+  "captures": [
+    {
+      "name": "queued",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "queued",
+        "text": "等待构建\n\n构建完成后恢复检索，可离开或刷新此页面。",
+        "top_k": "3",
+        "chunk_size": "800",
+        "index_edit_disabled": true
+      },
+      "screenshot": "browser/e5-queued.png",
+      "raw_capture_sha256": "49cebc4e1688db1599b5fe836c76c8c08e479ded51b35fb551013b82bf288041"
+    },
+    {
+      "name": "building",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "building",
+        "text": "正在构建\n\n构建完成后恢复检索，可离开或刷新此页面。",
+        "top_k": "5",
+        "chunk_size": "1000",
+        "index_edit_disabled": true
+      },
+      "screenshot": "browser/e5-building.png",
+      "raw_capture_sha256": "58f365f6b7b526e8b8a62111f7247b8a9aa7c8a7cff41269fb71c5060e0f2330"
+    },
+    {
+      "name": "ready",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "ready",
+        "text": "检索已就绪\n\n知识 1 段 · 笔记 0 段",
+        "top_k": "5",
+        "chunk_size": "1000",
+        "index_edit_disabled": false
+      },
+      "screenshot": "browser/e5-ready.png",
+      "raw_capture_sha256": "9d2aa08c3de38d05a61cfb4b9d747d74c59337647000056d4a2641c2efd9bd49"
+    },
+    {
+      "name": "query-saved",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "ready",
+        "text": "检索已就绪\n\n知识 1 段 · 笔记 0 段",
+        "top_k": "3",
+        "chunk_size": "1000",
+        "index_edit_disabled": false
+      },
+      "screenshot": "browser/e5-query-saved.png",
+      "raw_capture_sha256": "3c820b78dd1d8f19be49292d3cc1cd128b52b2607f49772d2b83cb730fe0d502"
+    },
+    {
+      "name": "index-queued",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "queued",
+        "text": "等待构建\n\n构建完成后恢复检索，可离开或刷新此页面。",
+        "top_k": "3",
+        "chunk_size": "800",
+        "index_edit_disabled": true
+      },
+      "screenshot": "browser/e5-index-queued.png",
+      "raw_capture_sha256": "f848704c847eb22904f8976ce7dacec40f081d8021cbce0766dff22daeb30ace"
+    },
+    {
+      "name": "failed",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "failed",
+        "text": "构建失败\n\n知识 1 段 · 笔记 0 段",
+        "top_k": "3",
+        "chunk_size": "800",
+        "index_edit_disabled": false
+      },
+      "screenshot": "browser/e5-failed.png",
+      "raw_capture_sha256": "ab8c09a4f493ffd4e47a46f24f864254d6b8aa1638578404076423be4ea0aa49"
+    },
+    {
+      "name": "restarted",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "ready",
+        "text": "检索已就绪\n\n知识 1 段 · 笔记 0 段",
+        "top_k": "3",
+        "chunk_size": "800",
+        "index_edit_disabled": false
+      },
+      "screenshot": "browser/e5-restarted.png",
+      "raw_capture_sha256": "9b30a9e107e845437ec5ac003ea39de2b509e2e696050810d6b10c31c10acef2"
+    },
+    {
+      "name": "chunks",
+      "result": {
+        "chunks_label": "文档片段 (1)",
+        "verified_chunk_visible": true
+      },
+      "screenshot": "browser/e5-chunks.png",
+      "raw_capture_sha256": "90a0d1cba31541aab1226fe4f0767a2933eadb030af951ceeb12b5a6d5bf6064"
+    },
+    {
+      "name": "upload",
+      "result": {
+        "state": "queued",
+        "queued_message": 1,
+        "ready_message": 0
+      },
+      "screenshot": "browser/e5-upload.png",
+      "raw_capture_sha256": "2b02c8729f21c9a893887706cb4e0c7cf71b24f86d63f9a0c5e2253e3c9ea717"
+    },
+    {
+      "name": "uploaded",
+      "result": {
+        "state": "ready",
+        "queued_message": 0,
+        "ready_message": 1
+      },
+      "screenshot": "browser/e5-uploaded.png",
+      "raw_capture_sha256": "a59a17b4d27c9d0ad2e0adf51724695be2e6b09a9e78daa2a5bcb100101d992b"
+    },
+    {
+      "name": "api-restarted",
+      "result": {
+        "url": "http://127.0.0.1:18081/knowledge",
+        "state": "ready",
+        "text": "检索已就绪\n\n知识 2 段 · 笔记 0 段",
+        "top_k": "3",
+        "chunk_size": "800",
+        "index_edit_disabled": false
+      },
+      "screenshot": "browser/e5-api-restarted.png",
+      "raw_capture_sha256": "0bc0e0efe4afe0623865f15139c095d35b280632388c7c960bac95ac17a6ddac"
+    }
+  ],
+  "api_restart": {
+    "before_pid": 49084,
+    "after_pid": 41872,
+    "same_replica": true
+  },
+  "scope": "Real routers in scoped API harness; full main lifespan and Redis not evaluated"
+}

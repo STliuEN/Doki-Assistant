@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import os
 import uuid
@@ -93,6 +94,11 @@ class KnowledgeDocumentService:
         doc.embedding_base_url = embedding_config.get("base_url", "")
         doc.error_message = None
 
+        if os.getenv("E6E7_ENABLED", "false").lower() == "true":
+            from app.services.sql_media import extract_images, store_source_images
+            images = await asyncio.to_thread(extract_images, file_input.content, doc.file_ext)
+            await db.flush()  # BusinessSession assigns the canonical owner/source.
+            await store_source_images(db, doc, images)
         await persist_service_write(db)
         await db.refresh(doc)
         return doc, created

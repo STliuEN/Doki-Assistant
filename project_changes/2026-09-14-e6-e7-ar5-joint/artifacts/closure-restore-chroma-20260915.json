@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "sql_only": true,
+  "legacy_package_path": "absent",
+  "chroma_validation": true,
+  "package_raw_canonical_resource_verified": true,
+  "source_image_download_batch_verified": true,
+  "revoked_run_denied": true,
+  "authorization_audit_verified": true,
+  "table_counts": {
+    "skill_packages": 14,
+    "skill_package_uploads": 16,
+    "skill_imports": 8,
+    "source_media": 2,
+    "media_assets": 2,
+    "authorization_grants": 9,
+    "audit_events": 2300
+  },
+  "foreign_keys": 9,
+  "chroma": [
+    {
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "kind": "knowledge",
+      "chunks": 58,
+      "ids_digest": "44e8887ed86dba80d05c26719bc98de0e327b37b4998ccde4e78a6778e9f404f",
+      "generation": "a7cc51e1-2af5-455a-86ea-cbb1a11fe23f"
+    },
+    {
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "kind": "notes",
+      "chunks": 13,
+      "ids_digest": "c67097e93375fe0e515e7d59f4be9aba287640e7608bc1baa885a079f062e9db",
+      "generation": "96557d49-5cdb-4a83-86fa-3be73d64efac"
+    },
+    {
+      "owner": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "kind": "knowledge",
+      "chunks": 0,
+      "ids_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "generation": "9d012871-b7bd-4291-98d1-4bc83b634fcd"
+    },
+    {
+      "owner": "eb4a32d9-5eef-4e01-b461-b605656f3af1",
+      "kind": "notes",
+      "chunks": 0,
+      "ids_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "generation": "444df35d-d094-4ea8-88ea-67050081f9af"
+    },
+    {
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "kind": "knowledge",
+      "chunks": 1,
+      "ids_digest": "33d2addfd82a84cf5b0568e19dec6d7c3b487c46d88450f80db3806add0a5ec1",
+      "generation": "4442c980-12ae-41b8-a26d-e520b549cba9"
+    },
+    {
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "kind": "notes",
+      "chunks": 0,
+      "ids_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "generation": "c26a3515-bb88-4cb7-9573-8ba91ec2ddde"
+    }
+  ],
+  "missing_chroma_fail_closed": "chroma_read_failed"
+}

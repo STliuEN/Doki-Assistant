@@ -1,0 +1,12 @@
+{
+  "stage": "E5/S4/AR-4",
+  "status": "closed",
+  "status_zh": "已关闭",
+  "explicit_user_confirmation": true,
+  "recorded_at": "2026-09-14T09:00:21.538308+00:00",
+  "user_instruction": "关闭e5,执行e6-e7的准备，两个伴生，一起执行",
+  "technical_verdict": "closure-review.json",
+  "sealed_index_sha256": "ede07b98e8fd2becb7392376afc09de1a19f53b615b09847c999e88f995c3dfc",
+  "follow_on": "E6 and E7 joint preparation authorized by this new instruction",
+  "record_policy": "Addendum after E5 seal; original E5 evidence remains unchanged"
+}

@@ -45,6 +45,7 @@ def test_import_route_rejects_non_zip_media_type_before_service(monkeypatch) -> 
 
 
 def test_import_route_rejects_oversized_archive_before_service(monkeypatch) -> None:
+    monkeypatch.setattr(router_module, "DEFAULT_SKILL_PACKAGE_LIMITS", SimpleNamespace(max_archive_bytes=3))
     called = False
 
     async def fail_if_called(*args, **kwargs):

@@ -1,0 +1,47 @@
+{
+  "schema_version": 2,
+  "stage": "E5/S4/AR-4",
+  "status": "closed",
+  "status_zh": "已关闭",
+  "closed_at": "2026-09-14T07:58:37.360889+00:00",
+  "decision_owner": "Codex under explicit user execution/closure authorization",
+  "scope": "Windows local single instance; SQL runner concurrency 1",
+  "gates": {
+    "C1": "passed",
+    "C2": "passed",
+    "C3": "passed",
+    "C4": "passed",
+    "C5": "passed",
+    "C6": "passed"
+  },
+  "acceptance": {
+    "V01": "passed",
+    "V02": "passed",
+    "V03": "passed",
+    "V04": "passed",
+    "V05": "passed",
+    "V06": "passed",
+    "V07": "passed",
+    "V08": "passed",
+    "V09": "passed"
+  },
+  "remaining_e5_blockers": [],
+  "waivers": [],
+  "human_labels_confirmed": true,
+  "label_timing": "Frozen by Codex before testing; explicitly confirmed by user after testing; not independent blind labels",
+  "follow_on_stages": "not_activated",
+  "frozen": [
+    "E6",
+    "SKILL-GATE",
+    "ARCH-GATE",
+    "product 7-10"
+  ],
+  "limitations": [
+    "HyDE Q4 missed: 7/8; frozen minimum 0.75 met",
+    "Only eight local relevance cases; sample p95 from seven warm requests",
+    "Six historical e4.note.enrich dead letters retained",
+    "Scoped API harness: full main/Redis/MCP/deployment not tested",
+    "Native Linux/macOS and production RPO/RTO/high concurrency not tested",
+    "Historical procedural deviations preserved"
+  ]
+}

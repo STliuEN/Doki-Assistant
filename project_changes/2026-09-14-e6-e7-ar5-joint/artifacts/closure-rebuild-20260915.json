@@ -1,0 +1,128 @@
+{
+  "status": "passed",
+  "owners": [
+    {
+      "status": "ready",
+      "revision": 12,
+      "query_revision": 2,
+      "job_id": null,
+      "job_status": null,
+      "error_code": null,
+      "index_config": {
+        "schema_version": 1,
+        "splitter": "recursive",
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "parser_version": "e5-v1"
+      },
+      "query_config": {
+        "schema_version": 1,
+        "top_k": 10,
+        "hyde": false,
+        "bm25": true,
+        "notes": true,
+        "rerank": true,
+        "hyde_model": "qwen3:0.6b",
+        "hyde_model_digest": null,
+        "reranker_model": "qwen3-reranker-4b",
+        "reranker_model_digest": "0d0c6a0f4f6e1758baf9eb6b214b5416bab5a851b469a5be1fb96ac715b7c1e1",
+        "source_ids": []
+      },
+      "generations": {
+        "knowledge": {
+          "active": "a7cc51e1-2af5-455a-86ea-cbb1a11fe23f",
+          "staging": null,
+          "chunks": 58
+        },
+        "notes": {
+          "active": "96557d49-5cdb-4a83-86fa-3be73d64efac",
+          "staging": null,
+          "chunks": 13
+        }
+      },
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa"
+    },
+    {
+      "status": "ready",
+      "revision": 9,
+      "query_revision": 1,
+      "job_id": null,
+      "job_status": null,
+      "error_code": null,
+      "index_config": {
+        "schema_version": 1,
+        "splitter": "recursive",
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "parser_version": "e5-v1"
+      },
+      "query_config": {
+        "schema_version": 1,
+        "top_k": 10,
+        "hyde": false,
+        "bm25": true,
+        "notes": true,
+        "rerank": true,
+        "hyde_model": "qwen3:0.6b",
+        "hyde_model_digest": null,
+        "reranker_model": "qwen3-reranker-4b",
+        "reranker_model_digest": null,
+        "source_ids": []
+      },
+      "generations": {
+        "knowledge": {
+          "active": "9d012871-b7bd-4291-98d1-4bc83b634fcd",
+          "staging": null,
+          "chunks": 0
+        },
+        "notes": {
+          "active": "444df35d-d094-4ea8-88ea-67050081f9af",
+          "staging": null,
+          "chunks": 0
+        }
+      },
+      "owner": "eb4a32d9-5eef-4e01-b461-b605656f3af1"
+    },
+    {
+      "status": "ready",
+      "revision": 13,
+      "query_revision": 2,
+      "job_id": null,
+      "job_status": null,
+      "error_code": null,
+      "index_config": {
+        "schema_version": 1,
+        "splitter": "recursive",
+        "chunk_size": 1000,
+        "chunk_overlap": 150,
+        "parser_version": "e5-v1"
+      },
+      "query_config": {
+        "schema_version": 1,
+        "top_k": 10,
+        "hyde": false,
+        "bm25": true,
+        "notes": true,
+        "rerank": true,
+        "hyde_model": "qwen3:0.6b",
+        "hyde_model_digest": null,
+        "reranker_model": "qwen3-reranker-4b",
+        "reranker_model_digest": "0d0c6a0f4f6e1758baf9eb6b214b5416bab5a851b469a5be1fb96ac715b7c1e1",
+        "source_ids": []
+      },
+      "generations": {
+        "knowledge": {
+          "active": "4442c980-12ae-41b8-a26d-e520b549cba9",
+          "staging": null,
+          "chunks": 1
+        },
+        "notes": {
+          "active": "c26a3515-bb88-4cb7-9573-8ba91ec2ddde",
+          "staging": null,
+          "chunks": 0
+        }
+      },
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12"
+    }
+  ]
+}

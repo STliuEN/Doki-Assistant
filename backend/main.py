@@ -60,6 +60,7 @@ from app.jobs.runner import configure_default_runner
 from app.router.chat import chat_router
 from app.router.health import health_router
 from app.router.knowledge_router import knowledge_router
+from app.router.rag_router import rag_router
 from app.router.mcp_router import mcp_router
 from app.router.memory_router import memory_router
 from app.router.model_config_router import model_config_router
@@ -183,7 +184,7 @@ async def lifespan(_app: FastAPI):
         # A rejected E2 preflight must not leave the already-started
         # reconciler (or an engine created before runner.start failed) alive.
         if e2_runtime is not None:
-            await e2_runtime.runner.stop()
+            await e2_runtime.stop()
             await e2_runtime.engine.dispose()
         configure_default_runner(None)
         skill_registry_stop.set()
@@ -193,7 +194,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         if e2_runtime is not None:
-            await e2_runtime.runner.stop()
+            await e2_runtime.stop()
             await e2_runtime.engine.dispose()
         configure_default_runner(None)
         from app.agent.mcp.provider import mcp_provider
@@ -242,6 +243,7 @@ async def add_process_time_header(request: Request, call_next):
 # 集成API路由
 app.include_router(chat_router)
 app.include_router(knowledge_router)
+app.include_router(rag_router)
 app.include_router(health_router, responses=JSON_ENVELOPE_RESPONSES)
 app.include_router(user_router, responses=JSON_ENVELOPE_RESPONSES)
 app.include_router(note_router)

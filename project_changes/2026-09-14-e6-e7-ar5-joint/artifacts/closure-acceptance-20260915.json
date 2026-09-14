@@ -1,0 +1,80 @@
+{
+  "stage": "E6E7",
+  "fixture": "synthetic-inputs-real-SQL-and-application-services",
+  "checks": [
+    {
+      "case": "concurrent import idempotency and key conflict",
+      "passed": true,
+      "import_id": "c284cb3e-0195-4ac0-9688-e8ff36648df1"
+    },
+    {
+      "case": "publish disabled and verified raw/canonical/resource export roundtrip",
+      "passed": true,
+      "skill_id": "ff06af9c-d3f8-4311-a9e2-a3d8349df735",
+      "version_id": "7f2d5f35-92ac-4f7a-91d3-6b0f67a0e4a2"
+    },
+    {
+      "case": "traversal upload quarantined with no installation",
+      "passed": true,
+      "error_code": null
+    },
+    {
+      "case": "four-eyes including dual-role self-approval and ordinary-user rejection",
+      "passed": true,
+      "grant_id": "fb9157a5-2341-4781-9cbe-aba578fdfe8a"
+    },
+    {
+      "case": "real RunBinding resource tool note side effect job provenance and confirmation positive",
+      "passed": true,
+      "run_id": "e0ddf98a-82d8-4dc9-b643-45a8a1024ec2",
+      "note_id": "65eabc89-969b-4b64-9514-10fb10aa2e2a",
+      "jobs": [
+        "7bdd6170-5160-496a-b665-6ed01498a429",
+        "8cae9a88-e44c-4eba-a0a0-94644e093bc7"
+      ]
+    },
+    {
+      "case": "expiry mutation rejected while enabled; rollback restores positive control",
+      "passed": true
+    },
+    {
+      "case": "digest mutation rejected while enabled; rollback restores positive control",
+      "passed": true
+    },
+    {
+      "case": "SQL package corruption fails closed with no filesystem fallback",
+      "passed": true
+    },
+    {
+      "case": "revoke propagates to new run existing tool resource queued-job and deferred confirmation; no second note",
+      "passed": true
+    },
+    {
+      "case": "embedded-media application ingest download batch owner same-MD5 deletion corruption and rollback",
+      "passed": true
+    }
+  ],
+  "restore_fixture": {
+    "skill_id": "ff06af9c-d3f8-4311-a9e2-a3d8349df735",
+    "version_id": "7f2d5f35-92ac-4f7a-91d3-6b0f67a0e4a2",
+    "storage_key": "objects/e9/e986bbb5d2778f4d0e41aff00f02a699eda798badbb0e1492215eba2ea4606ad.zip",
+    "package_digest": "e986bbb5d2778f4d0e41aff00f02a699eda798badbb0e1492215eba2ea4606ad",
+    "raw_sha256": "675ab516fc4ab1812786d5be87b65cc46146675ead7248a0e9bbaf0214317c5f",
+    "resource_sha256": "a3f5c3a7fd52996da7183fb3e83926faa9a65ec5358cad65b0a1d17c39e55887",
+    "run_id": "e0ddf98a-82d8-4dc9-b643-45a8a1024ec2",
+    "grant_id": "fb9157a5-2341-4781-9cbe-aba578fdfe8a",
+    "grant_status": "revoked",
+    "note_id": "65eabc89-969b-4b64-9514-10fb10aa2e2a",
+    "media_md5": "1e8e5e6cec27699cbdf91cc204652491",
+    "source_ids": [
+      "781b6720-c4ef-4096-ac86-8587de07cc09",
+      "ac87ae51-5104-4c22-a01c-af7712157a60"
+    ],
+    "asset_ids": [
+      "f2f069e1-936b-5b03-ae1f-e57b1ab343e7",
+      "af781d37-7a62-5afc-b904-f24cf0e5eea5"
+    ],
+    "image_sha256": "8a6bd51e221cb3aec0051514825877c0d226aa7d25ac9f8bd5b256780ebc73e7"
+  },
+  "status": "passed"
+}

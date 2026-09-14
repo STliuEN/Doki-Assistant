@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-09-14",
+  "code_commit": "aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5",
+  "owner": "Codex",
+  "user_request": "修改更新相关文档 执行e5收口",
+  "execution_and_closure_authorized": true,
+  "stage": "E5/S4/AR-4",
+  "stage_status": "待验证",
+  "verdict": "not_closed",
+  "stage_closed": false,
+  "reason": "Local implementation and live branch smoke do not satisfy all confirmed E5 exit requirements.",
+  "remaining_requirements": [
+    {
+      "id": "C1",
+      "scope": "Query SQL authority, source/chunk validation, authentication and group readiness"
+    },
+    {
+      "id": "C2",
+      "scope": "Restart reconciliation, stale in-flight writes, bounded cleanup and crash/fence tests"
+    },
+    {
+      "id": "C3",
+      "scope": "Uniform E5 HTTP degraded/503 contract and real fault/core-service matrix"
+    },
+    {
+      "id": "C4",
+      "scope": "Persistent query/index configuration and API/browser refresh recovery"
+    },
+    {
+      "id": "C5",
+      "scope": "Deterministic candidates, model configuration, relevance labels and frozen quality/latency thresholds"
+    },
+    {
+      "id": "C6",
+      "scope": "Guarded E5 operations and restored SQL to fresh Chroma rebuild evidence"
+    }
+  ],
+  "waivers": [],
+  "transferred_requirements": [],
+  "follow_on_stages_activated": [],
+  "protected_services": {
+    "new_api_metadata_unchanged": true,
+    "target_global_flags_observed": [
+      0,
+      0
+    ],
+    "global_read_only_set": false
+  },
+  "review_document": "../closure-review.md",
+  "evidence_index": "evidence-index.json"
+}

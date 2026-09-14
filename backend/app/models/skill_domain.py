@@ -151,6 +151,7 @@ class SkillVersion(Base):
     schema_version = Column(String(32), nullable=False, default="1", server_default="1")
     source = Column(String(32), nullable=False, comment="import/editor/legacy/system")
     package_digest = Column(String(64), nullable=False, comment="Immutable SHA-256 digest")
+    package_id = Column(UUID_TYPE, ForeignKey("skill_packages.id", ondelete="RESTRICT"), nullable=True, index=True)
     storage_key = Column(String(500), nullable=False, comment="Immutable canonical Storage object key")
     package_size_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     name = Column(String(128), nullable=False)
@@ -182,6 +183,7 @@ class SkillVersion(Base):
 
 class SkillInstallation(Base):
     __tablename__ = "skill_installations"
+    authorization_grant_id = Column(UUID_TYPE, ForeignKey("authorization_grants.id", ondelete="RESTRICT"), nullable=True, index=True)
     __table_args__ = (
         UniqueConstraint("skill_id", "scope_type", "scope_key", name="uq_skill_installations_scope"),
         ForeignKeyConstraint(
@@ -278,6 +280,8 @@ class SkillCapabilityGrant(Base):
 
 class SkillImport(Base):
     __tablename__ = "skill_imports"
+    package_id = Column(UUID_TYPE, ForeignKey("skill_packages.id", ondelete="RESTRICT"), nullable=True, index=True)
+    upload_id = Column(UUID_TYPE, ForeignKey("skill_package_uploads.id", ondelete="RESTRICT"), nullable=True, index=True)
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_skill_imports_idempotency_key"),
         Index("ix_skill_imports_status_created", "status", "created_at"),

@@ -1,0 +1,166 @@
+- generic [ref=e2]:
+  - generic [ref=e29]:
+    - complementary [ref=e30]:
+      - generic [ref=e31]:
+        - heading "Doki Assistant" [level=1] [ref=e32]
+        - button "收起侧栏" [ref=e33] [cursor=pointer]
+      - navigation [ref=e36]:
+        - link "笔记" [ref=e37] [cursor=pointer]:
+          - /url: /notes
+        - link "AI 对话" [ref=e41] [cursor=pointer]:
+          - /url: /chat
+        - link "实时翻译" [ref=e44] [cursor=pointer]:
+          - /url: /translate
+        - link "会话管理" [ref=e49] [cursor=pointer]:
+          - /url: /sessions
+        - link "记忆中心" [ref=e54] [cursor=pointer]:
+          - /url: /memory
+        - link "知识库" [ref=e57] [cursor=pointer]:
+          - /url: /knowledge
+        - link "Skill" [ref=e60] [cursor=pointer]:
+          - /url: /skills
+        - link "工具库" [ref=e63] [cursor=pointer]:
+          - /url: /tools
+      - generic [ref=e65]:
+        - link "个人信息" [ref=e66] [cursor=pointer]:
+          - /url: /profile
+        - link "模型选择" [ref=e70] [cursor=pointer]:
+          - /url: /model-settings
+        - link "系统设置" [ref=e72] [cursor=pointer]:
+          - /url: /settings
+        - link "关于我们" [ref=e76] [cursor=pointer]:
+          - /url: /about
+        - button "退出登录" [ref=e79] [cursor=pointer]
+    - main [ref=e83]:
+      - generic [ref=e114]:
+        - complementary [ref=e115]:
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - heading "Skill" [level=1] [ref=e118]
+              - paragraph [ref=e119]: 标准 package 与本地能力
+            - generic [ref=e120]:
+              - button "导入本地 ZIP" [ref=e121] [cursor=pointer]
+              - button "新增 Skill" [ref=e125] [cursor=pointer]
+          - generic [ref=e127]:
+            - button "系统上下文 legacy_migration v1" [ref=e128] [cursor=pointer]:
+              - generic [ref=e129]: 系统上下文
+              - generic [ref=e132]:
+                - generic [ref=e133]: legacy_migration
+                - generic [ref=e134]: v1
+            - button "知识库问答 legacy_migration v1" [ref=e135] [cursor=pointer]:
+              - generic [ref=e136]: 知识库问答
+              - generic [ref=e139]:
+                - generic [ref=e140]: legacy_migration
+                - generic [ref=e141]: v1
+            - button "笔记检索 legacy_migration v1" [ref=e142] [cursor=pointer]:
+              - generic [ref=e143]: 笔记检索
+              - generic [ref=e146]:
+                - generic [ref=e147]: legacy_migration
+                - generic [ref=e148]: v1
+            - button "笔记写入 legacy_migration v1" [ref=e149] [cursor=pointer]:
+              - generic [ref=e150]: 笔记写入
+              - generic [ref=e153]:
+                - generic [ref=e154]: legacy_migration
+                - generic [ref=e155]: v1
+            - button "记忆事项·记录与变更 legacy_migration v1" [ref=e156] [cursor=pointer]:
+              - generic [ref=e157]: 记忆事项·记录与变更
+              - generic [ref=e160]:
+                - generic [ref=e161]: legacy_migration
+                - generic [ref=e162]: v1
+            - button "记忆事项·查询 legacy_migration v1" [ref=e163] [cursor=pointer]:
+              - generic [ref=e164]: 记忆事项·查询
+              - generic [ref=e167]:
+                - generic [ref=e168]: legacy_migration
+                - generic [ref=e169]: v1
+            - button "记忆事项·清理（归档/删除） legacy_migration v1" [ref=e170] [cursor=pointer]:
+              - generic [ref=e171]: 记忆事项·清理（归档/删除）
+              - generic [ref=e174]:
+                - generic [ref=e175]: legacy_migration
+                - generic [ref=e176]: v1
+            - button "复习计划 legacy_migration v1" [ref=e177] [cursor=pointer]:
+              - generic [ref=e178]: 复习计划
+              - generic [ref=e181]:
+                - generic [ref=e182]: legacy_migration
+                - generic [ref=e183]: v1
+            - button "MCP 连通性测试 legacy_migration v1" [ref=e184] [cursor=pointer]:
+              - generic [ref=e185]: MCP 连通性测试
+              - generic [ref=e188]:
+                - generic [ref=e189]: legacy_migration
+                - generic [ref=e190]: v1
+            - button "外部信息查询 legacy_migration v1" [ref=e191] [cursor=pointer]:
+              - generic [ref=e192]: 外部信息查询
+              - generic [ref=e195]:
+                - generic [ref=e196]: legacy_migration
+                - generic [ref=e197]: v1
+        - main [ref=e198]:
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - generic [ref=e202]:
+                  - heading "系统上下文" [level=2] [ref=e203]
+                  - generic [ref=e204]: ready
+                  - generic [ref=e205]: A
+                - generic [ref=e206]:
+                  - generic [ref=e207]: 来源：legacy_migration
+                  - generic [ref=e208]: 版本：1
+                  - generic "system_context" [ref=e209]: 内部 ID：system_conte
+                  - generic "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896" [ref=e210]: 摘要：fee357f6cbda
+              - generic [ref=e211]:
+                - button "导出" [ref=e212] [cursor=pointer]
+                - button "归档" [ref=e216] [cursor=pointer]
+                - button "保存" [disabled] [ref=e220]
+            - navigation "Skill 详情" [ref=e225]:
+              - button "内容" [ref=e226] [cursor=pointer]
+              - button "管理设置" [active] [ref=e230] [cursor=pointer]
+              - button "版本" [ref=e234] [cursor=pointer]
+            - generic [ref=e239]:
+              - region "Skill 安全授权" [ref=e267]:
+                - heading "安全授权" [level=3] [ref=e268]
+                - paragraph [ref=e269]: 已批准，可在管理设置启用
+                - paragraph [ref=e270]: 保存或发布内容后，由 Skill 管理员提交申请，另一位安全管理员核对并批准，然后启用。更换版本或能力需要重新审批。
+                - generic [ref=e271]:
+                  - paragraph [ref=e272]: 工具：current_time、user_info
+                  - paragraph [ref=e273]: 可读资源：无
+                  - paragraph [ref=e274]: 到期时间：2026/10/14 15:21:09
+                  - paragraph [ref=e275]: 已审内容摘要：fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896
+                - generic [ref=e276]:
+                  - text: 申请或决定理由
+                  - textbox "授权理由" [ref=e277]
+                - generic [ref=e278]:
+                  - button "撤销授权" [disabled] [ref=e279]
+                  - button "刷新状态" [ref=e280] [cursor=pointer]
+              - generic [ref=e247]:
+                - generic [ref=e281]:
+                  - checkbox "已启用" [checked] [ref=e282]
+                  - text: 已启用
+                - generic [ref=e283]:
+                  - checkbox "默认选择" [ref=e284]
+                  - text: 默认选择
+                - generic [ref=e285]:
+                  - checkbox "参与意图路由" [checked] [ref=e286]
+                  - text: 参与意图路由
+                - generic [ref=e287]:
+                  - checkbox "选中后常驻" [checked] [ref=e288]
+                  - text: 选中后常驻
+                - generic [ref=e289]:
+                  - text: 可见性
+                  - combobox "可见性" [ref=e290]:
+                    - option "公开" [selected]
+                    - option "仅自己"
+                - generic [ref=e291]:
+                  - text: 排序
+                  - spinbutton "排序" [ref=e292]: "10"
+              - generic [ref=e252]:
+                - generic [ref=e293]: Tool / MCP 映射
+                - button "当前时间 / 用户信息 2 / 18" [ref=e296] [cursor=pointer]:
+                  - generic [ref=e297]:
+                    - generic [ref=e298]: 当前时间 / 用户信息
+                    - generic [ref=e299]: 2 / 18
+              - generic [ref=e300]:
+                - generic [ref=e301]:
+                  - text: 正向路由样例（每行一条）
+                  - textbox "正向路由样例（每行一条）" [ref=e302]: 现在几点 今天几号 我是谁
+                - generic [ref=e303]:
+                  - text: 负向路由样例（每行一条）
+                  - textbox "负向路由样例（每行一条）" [ref=e304]
+  - region "Notifications alt+T"

@@ -7,7 +7,9 @@ from pathlib import PurePosixPath
 
 from langchain_core.tools import BaseTool, tool
 
+from app.skills.authorization import execution_authority, live_checks_enabled
 from app.skills.registry import RuntimeSkill
+from app.skills.sql_storage import SqlSkillPackageStorage
 from app.skills.storage import skill_package_storage
 
 MAX_RUNTIME_RESOURCE_BYTES = 64 * 1024
@@ -54,6 +56,9 @@ def build_resource_tools(skills: list[RuntimeSkill]) -> list[BaseTool]:
         skill = by_identifier.get(skill_id)
         if skill is None:
             return "The requested Skill is not selected for this run."
+        if live_checks_enabled():
+            async with execution_authority(skill_id=skill.stable_id) as db:
+                await SqlSkillPackageStorage(db).load_archive(skill.storage_key, expected_digest=skill.digest)
         resources = [
             {
                 "path": resource.path,
@@ -89,12 +94,19 @@ def build_resource_tools(skills: list[RuntimeSkill]) -> list[BaseTool]:
                 f"(size={resource.size}, sha256={resource.sha256})."
             )
         try:
-            content = skill_package_storage.read_resource(
-                skill.storage_key,
-                resource.path,
-                max_bytes=MAX_RUNTIME_RESOURCE_BYTES,
-                expected_digest=skill.digest,
-            ).decode("utf-8")
+            if live_checks_enabled():
+                async with execution_authority(skill_id=skill.stable_id, resource_path=resource.path) as db:
+                    content = (await SqlSkillPackageStorage(db).read_resource(
+                        skill.storage_key, resource.path, max_bytes=MAX_RUNTIME_RESOURCE_BYTES,
+                        expected_digest=skill.digest,
+                    )).decode("utf-8")
+            else:
+                content = skill_package_storage.read_resource(
+                    skill.storage_key,
+                    resource.path,
+                    max_bytes=MAX_RUNTIME_RESOURCE_BYTES,
+                    expected_digest=skill.digest,
+                ).decode("utf-8")
         except UnicodeDecodeError:
             return f"Resource {resource.path} is not valid UTF-8 and cannot be loaded into the prompt."
         if len(content) > MAX_RUNTIME_RESOURCE_CHARS:

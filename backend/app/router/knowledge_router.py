@@ -2,7 +2,7 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,11 +29,6 @@ from app.schemas.sse import SSE_OPENAPI_RESPONSE
 from app.services.embedding_config_service import get_embedding_config_service
 from app.services.reranker_config_service import get_reranker_config_service
 from app.utils.auth_utils import get_current_user_id
-from app.utils.knowledge_image_paths import (
-    InvalidKnowledgeImagePath,
-    get_image_media_type,
-    resolve_knowledge_image_path,
-)
 
 knowledge_router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 CHROMA_PROJECTION_UNAVAILABLE_RESPONSE = {
@@ -424,11 +419,17 @@ async def switch_reranker(
 async def get_document_detail(
         filename: str,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
     """获取文档详情内容"""
-    document = await knowledge_service.handle_get_document_detail(user_id, filename)
+    from app.db.db_config import E5_RAG_ENABLED
+    if E5_RAG_ENABLED:
+        from app.rag.projection.documents import detail
+        document = await detail(db, user_id, filename)
+    else:
+        document = await knowledge_service.handle_get_document_detail(user_id, filename)
     return success_response(data=document)
 
 
@@ -440,12 +441,18 @@ async def get_document_detail(
 async def get_document_chunks(
         filename: str,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
     """获取文档切片信息"""
-    chunks = await knowledge_service.handle_get_document_chunks(user_id, filename)
-    return success_response(data=chunks)
+    from app.db.db_config import E5_RAG_ENABLED
+    if E5_RAG_ENABLED:
+        from app.rag.projection.documents import chunks
+        value = await chunks(db, user_id, filename)
+    else:
+        value = await knowledge_service.handle_get_document_chunks(user_id, filename)
+    return success_response(data=value)
 
 
 @knowledge_router.get("/source")
@@ -466,39 +473,24 @@ async def download_source_file(
     )
 
 
-# 图片服务端点：提供 PDF 中提取的原始图片的访问入口。
-# 图片本身存储在服务器文件系统中，不直接对外暴露路径，而是通过此 API 做鉴权后返回。
-# 这对安全性很重要——用户必须持有有效 JWT token 才能访问自己的图片。
+# SQL media access is bound to canonical owner and source, including legacy MD5 URLs.
 @knowledge_router.get("/image/{md5}/{filename}")
 async def serve_knowledge_image(
-        md5: str,
-        filename: str,
+        md5: str, filename: str,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    """
-    返回PDF中提取的原始图片（需JWT鉴权）
-    图片存储在 data/extracted_images/{user_id}/{md5}/{filename}
-    """
-    try:
-        image_path = resolve_knowledge_image_path(user_id, md5, filename, must_exist=True)
-        media_type = get_image_media_type(filename)
-    except InvalidKnowledgeImagePath as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="图片不存在")
-
-    return FileResponse(image_path, media_type=media_type)
+    from app.services.sql_media import image_response
+    image = await image_response(db, user_id, md5, filename)
+    return Response(image["content"], media_type=image["mime_type"], headers={"X-Content-Type-Options": "nosniff"})
 
 
-# 批量图片获取接口：一次性拿到某个文档的所有图片，前端缓存后按需展示。
-# 使用 base64 编码嵌入 JSON 中，减少前端的 HTTP 请求次数（尤其适合移动端）。
 @knowledge_router.get("/images/all/{md5}", response_model=ApiResponse[Any])
 async def serve_batch_images(
         md5: str,
         user_id: str = Depends(get_current_user_id),
-        knowledge_service: KnowledgeService = Depends(get_knowledge_service),
-        _: None = Depends(rate_limit(limit=10, window=60))
+        db: AsyncSession = Depends(get_db, scope="function"),
+        _: None = Depends(rate_limit(limit=10, window=60)),
 ):
-    """返回指定PDF的所有图片（单次请求，JSON + base64）"""
-    result = await knowledge_service.handle_get_batch_images(user_id, md5)
-    return success_response(data=result)
+    from app.services.sql_media import batch_images
+    return success_response(data=await batch_images(db, user_id, md5))

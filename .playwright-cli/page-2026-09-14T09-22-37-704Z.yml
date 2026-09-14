@@ -1,0 +1,139 @@
+- generic [ref=e2]:
+  - generic [ref=e42]:
+    - complementary [ref=e43]:
+      - generic [ref=e44]:
+        - heading "Doki Assistant" [level=1] [ref=e45]
+        - button "收起侧栏" [ref=e46] [cursor=pointer]
+      - navigation [ref=e49]:
+        - link "笔记" [ref=e50] [cursor=pointer]:
+          - /url: /notes
+        - link "AI 对话" [ref=e54] [cursor=pointer]:
+          - /url: /chat
+        - link "实时翻译" [ref=e57] [cursor=pointer]:
+          - /url: /translate
+        - link "会话管理" [ref=e62] [cursor=pointer]:
+          - /url: /sessions
+        - link "记忆中心" [ref=e67] [cursor=pointer]:
+          - /url: /memory
+        - link "知识库" [ref=e70] [cursor=pointer]:
+          - /url: /knowledge
+        - link "Skill" [ref=e73] [cursor=pointer]:
+          - /url: /skills
+        - link "工具库" [ref=e76] [cursor=pointer]:
+          - /url: /tools
+      - generic [ref=e78]:
+        - link "个人信息" [ref=e79] [cursor=pointer]:
+          - /url: /profile
+        - link "模型选择" [ref=e83] [cursor=pointer]:
+          - /url: /model-settings
+        - link "系统设置" [ref=e85] [cursor=pointer]:
+          - /url: /settings
+        - link "关于我们" [ref=e89] [cursor=pointer]:
+          - /url: /about
+        - button "退出登录" [ref=e92] [cursor=pointer]
+    - main [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - heading "笔记" [level=1] [ref=e99]
+          - button "新建笔记" [ref=e100] [cursor=pointer]
+        - generic [ref=e102]:
+          - textbox "搜索笔记..." [ref=e107]
+          - button "管理分类" [ref=e108] [cursor=pointer]
+        - generic [ref=e112]:
+          - button "全部" [ref=e113] [cursor=pointer]
+          - button "工作" [ref=e114] [cursor=pointer]
+          - button "学习" [ref=e115] [cursor=pointer]
+          - button "生活" [ref=e116] [cursor=pointer]
+          - button "技术" [ref=e117] [cursor=pointer]
+          - button "其他" [ref=e118] [cursor=pointer]
+        - generic [ref=e119]:
+          - generic [ref=e122] [cursor=pointer]:
+            - generic [ref=e123]:
+              - heading "[全功能测试] 毕业要求速查表 - 2026-06-17" [level=3] [ref=e124]
+              - generic [ref=e125]:
+                - button "置顶" [ref=e126]
+                - generic [ref=e129]: 6月17日
+            - paragraph [ref=e130]: "## 研究生毕业要求速查表 > 测试创建时间：2026-06-17 18:09 | 专业 | 总学分 | 课程学分 | 必修课 | 必修环节 | |------|:--:|:--:|:--:|:--:| | 计算机学硕 | ≥29 | ≥25 | ≥15 | ≥4 | | 软件工程学硕 | ≥33 | ≥29 | ≥18 | ≥3 | | 电子信息专硕 | ≥33 | ≥25 | ≥15 |"
+            - generic [ref=e131]:
+              - generic [ref=e132]: 研究生毕业
+              - generic [ref=e133]: 学分要求
+              - generic [ref=e134]: 硕士
+              - generic [ref=e135]: 学习
+          - generic [ref=e141] [cursor=pointer]:
+            - generic [ref=e142]:
+              - heading "[全功能测试] 测试笔记-毕业要求摘录" [level=3] [ref=e143]
+              - generic [ref=e144]:
+                - button "置顶" [ref=e145]
+                - generic [ref=e148]: 6月17日
+            - paragraph [ref=e149]: "## 全功能测试笔记 创建时间：2026-06-17 17:57 ### 毕业要求要点（摘自知识库） - 计算机科学与技术学硕：总学分 ≥ 29，课程学分 ≥ 25，必修课 ≥ 15，必修环节 ≥ 4 - 软件工程学硕：总学分 ≥ 33，课程学分 ≥ 29，必修课 ≥ 18，必修环节 ≥ 3 - 电子信息专硕：总学分 ≥ 33，课程学分 ≥ 25，必修环节 ≥ 8 此笔记用于验证 crea"
+            - generic [ref=e150]:
+              - generic [ref=e151]: 毕业要求
+              - generic [ref=e152]: 学分
+              - generic [ref=e153]: 硕士
+              - generic [ref=e154]: 测试
+              - generic [ref=e155]: 学习
+          - generic [ref=e161] [cursor=pointer]:
+            - generic [ref=e162]:
+              - heading "各专业毕业要求差异速记" [level=3] [ref=e163]
+              - generic [ref=e164]:
+                - button "置顶" [ref=e165]
+                - generic [ref=e168]: 6月16日
+            - paragraph [ref=e169]: "## 各专业毕业要求差异速记 | 维度 | 计算机学硕 | 软件工程学硕 | 电子信息专硕 | |------|:--:|:--:|:--:| | 总学分 | **29**（最低） | **33** | **33** | | 课程学分 | ≥25 | ≥29（最高） | ≥25 | | 必修课底线 | ≥15 | ≥18（最高） | ≥15 | | 必修环节 | ≥4 | ≥3（最低） | **"
+            - generic [ref=e170]:
+              - generic [ref=e171]: 毕业要求
+              - generic [ref=e172]: 研究生
+              - generic [ref=e173]: 学分对比
+              - generic [ref=e174]: 专业差异
+              - generic [ref=e175]: 学习
+          - generic [ref=e181] [cursor=pointer]:
+            - generic [ref=e182]:
+              - heading "五个专业培养方案差异对比" [level=3] [ref=e183]
+              - generic [ref=e184]:
+                - button "置顶" [ref=e185]
+                - generic [ref=e188]: 6月16日
+            - paragraph [ref=e189]: "## 一、总览对比 | 维度 | 计算机科学与技术 | 软件工程 | 电子信息/人工智能 | 电子信息/计算机技术 | 电子信息/新一代电子信息技术 | |------|:--:|:--:|:--:|:--:|:--:| | **学位类型** | 学术学位 | 专业学位 | 专业学位 | 专业学位 | 专业学位 | | **总学分** | ≥29 | ≥33 | ≥33 | ≥33 | ≥33"
+            - generic [ref=e190]:
+              - generic [ref=e191]: 考研
+              - generic [ref=e192]: 专业对比
+              - generic [ref=e193]: 计算机
+              - generic [ref=e194]: 研究生
+              - generic [ref=e195]: 学习
+          - generic [ref=e201] [cursor=pointer]:
+            - generic [ref=e202]:
+              - heading "2025版计算机科学与技术专业研究生培养方案-毕业要求（修订版）" [level=3] [ref=e203]
+              - generic [ref=e204]:
+                - button "置顶" [ref=e205]
+                - generic [ref=e208]: 6月16日
+            - paragraph [ref=e209]: "# 2025版计算机科学与技术专业研究生培养方案 — 毕业要求 ## 总学分：≥ 29 | 组成部分 | 学分要求 | |----------|----------| | **课程学分** | ≥ 25（其中必修课 ≥ 15） | | **必修环节** | ≥ 4 | --- ## 一、课程学分（≥ 25） ### 1. 公共必修课（5 学分） | 课程 | 学分 | 学期 | |--"
+            - generic [ref=e210]:
+              - generic [ref=e211]: 研究生培养方案
+              - generic [ref=e212]: 毕业要求
+              - generic [ref=e213]: 学分要求
+              - generic [ref=e214]: 计算机科学与技术
+              - generic [ref=e215]: 学习
+          - generic [ref=e221] [cursor=pointer]:
+            - generic [ref=e222]:
+              - heading "2025版计算机科学与技术专业研究生培养方案-毕业要求" [level=3] [ref=e223]
+              - generic [ref=e224]:
+                - button "置顶" [ref=e225]
+                - generic [ref=e228]: 6月16日
+            - paragraph [ref=e229]: "# 2025版计算机科学与技术专业研究生培养方案 — 毕业要求 ## 总学分：≥ 29 | 组成部分 | 学分要求 | |----------|----------| | **课程学分** | ≥ 25（其中必修课 ≥ 15） | | **必修环节** | ≥ 4 | --- ## 一、课程学分（≥ 25） ### 1. 公共必修课（5 学分） | 课程 | 学分 | |------|"
+            - generic [ref=e230]:
+              - generic [ref=e231]: 研究生培养方案
+              - generic [ref=e232]: 毕业要求
+              - generic [ref=e233]: 学分规划
+              - generic [ref=e234]: 计算机科学
+              - generic [ref=e235]: 学习
+          - generic [ref=e241] [cursor=pointer]:
+            - generic [ref=e242]:
+              - heading "全工具链测试笔记" [level=3] [ref=e243]
+              - generic [ref=e244]:
+                - button "置顶" [ref=e245]
+                - generic [ref=e248]: 6月16日
+            - paragraph [ref=e249]: 这是一篇用于后端日志检查的测试笔记，验证 create_note_tool 是否正常工作。
+            - generic [ref=e250]:
+              - generic [ref=e251]: 后端
+              - generic [ref=e252]: 日志
+              - generic [ref=e253]: 测试
+              - generic [ref=e254]: 工作
+  - region "Notifications alt+T"

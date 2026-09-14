@@ -175,6 +175,7 @@ class SqlJobRunner:
         self.lock_name = lock_name
         self.claim_registered_only = claim_registered_only
         self._stop_event = asyncio.Event()
+        self.started = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
         self._lock_session: AsyncSession | None = None
         self._snapshot = RunnerSnapshot(enabled=self.enabled, lease_owner=self.lease_owner)
@@ -197,6 +198,7 @@ class SqlJobRunner:
         if self._task is not None and not self._task.done():
             return
         self._stop_event.clear()
+        self.started.clear()
         self._set_snapshot(status="starting", last_error=None)
         self._task = asyncio.create_task(self.run_forever(), name="e2-sql-job-runner")
 
@@ -229,6 +231,7 @@ class SqlJobRunner:
                 self._set_snapshot(status="failed", last_error="runner process lock is held by another instance")
                 return
             self._set_snapshot(status="running", last_error=None)
+            self.started.set()
             while not self._stop_event.is_set():
                 try:
                     await self.run_once()
@@ -250,6 +253,7 @@ class SqlJobRunner:
             self._set_snapshot(status="failed", last_error=message)
         finally:
             await self._release_process_lock()
+            self.started.set()
             if self._snapshot.status == "running":
                 self._set_snapshot(status="stopped")
 
@@ -430,7 +434,13 @@ class SqlJobRunner:
         job_id: str,
         fencing_token: int,
     ) -> Mapping[str, Any]:
-        result = handler(payload, context)
+        async def authorized_handler():
+            from app.skills.authorization import job_authority
+            async with job_authority(self.session_factory, payload):
+                value = handler(payload, context)
+                return await value if inspect.isawaitable(value) else value
+
+        result = authorized_handler()
         if inspect.isawaitable(result):
             handler_task = asyncio.create_task(result, name=f"e2-job-{job_id}")
         else:

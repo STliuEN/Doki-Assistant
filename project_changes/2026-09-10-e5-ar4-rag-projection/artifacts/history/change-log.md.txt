@@ -1,0 +1,31 @@
+# E5 变更日志
+
+状态：待验证。2026-09-14 收口复核未通过；不是等待重新授权。
+
+| 时间 | commit/文件/schema | 变更 | 原因 | 影响 | 回滚点 | 负责人 | 证据 |
+|---|---|---|---|---|---|---|---|
+| 2026-09-10 | docs/architecture_rewrite_plan.md、architecture-target-blueprint-2026-08-26.md、architecture-execution-handoff-2026-08-26.md | 同步 E4 已关闭、E5 待你确认 | HEAD a2d7381 已有 E4 关闭记录，三份主文档仍写实施中 | 修正入口状态；未改变已有架构决策 | 本轮前 HEAD 与 git diff | Codex | E4 artifacts/e4-closure-20260910.json |
+| 2026-09-10 | 本目录 plan.md、change-log.md、test-record.md | 建立 E5 审查、决策树、任务依赖、故障/恢复合同与验收矩阵 | 阶段概要缺少执行顺序和关键失败窗口 | 供 grilling 与实施前审阅，待决方案未生效 | 本轮新增文档 diff | Codex | E5-P01/E5-P02 |
+| 2026-09-10 | 本目录 plan.md、test-record.md | 补充 SQL/Chroma fence 边界、原文变更发布缺口、完整 scope generation、降级吞错与环境/命令基线 | 两项独立只读核验发现具体执行缺口 | 明确必做实施项与启动前检查；未运行应用或消费任务 | 本轮新增文档 diff | Codex | E5-P02/E5-P04 |
+| 2026-09-10 | 交接手册与本目录文档 | 修正行尾空格并完成文档门禁 | 首轮 diff 检查发现新行空格 | 199 Markdown 文件、205 本地链接及 diff 检查通过 | 本轮 diff | Codex | E5-P03 |
+| 2026-09-10 | 三份主文档与本目录 plan.md/test-record.md | 写回 Q1/Q2 按建议、Q3 全量迁移且不考虑旧访问性；提出 Q4-Q7 | 用户已回答第一轮设计前沿 | 固定每用户隔离、索引/查询配置分类及首次迁移 RAG 503；移除健康旧 RAG 连续服务/自动回退建议 | 本轮文档 diff；第一轮问题保留确认记录 | Codex | E5-P05；plan.md 第 4 节 |
+| 2026-09-14 | 本目录 plan.md、change-log.md、test-record.md | 写回 Q4-Q7 全部按建议，并进入 E5 实施中 | 用户已确认全部执行建议 | 固定相关停写、知识/笔记成组开放、全量失败阻断、日常重建 503 | 本轮前 E5 计划版本 | Codex | E5-P06 |
+
+## 准备期未做（历史边界，后续已实施）
+
+- 未修改业务代码、SQL schema、任务状态、模型配置或 Chroma collection。
+- 未连接业务数据库、启动/停止应用、运行迁移或故障注入。
+- 未使用现有凭据、启动 E5 consumer、清空 E4 queued job 或删除旧输入/中间材料。
+- 未重跑 E4 全量测试；历史结果不记为本轮通过。
+
+上列“未做”只对应 2026-09-10 准备期，不能用于描述 2026-09-14 实施后状态。
+
+## 实施与收口复核
+
+| 时间 | commit/文件/schema | 变更与原因 | 影响与回滚边界 | 负责人 | 证据 |
+|---|---|---|---|---|---|
+| 2026-09-14 | `aa3adf4`；backend/app/rag/projection、business_authority、knowledge/note、API/UI；schema `20260914_0009_e5_rag_runtime` | 实现 SQL snapshot、每用户/每 index generation、发布检查、应用层写 gate、部分异步状态；落实已确认决策 | additive schema；查询/API/UI/恢复差额尚未关闭。回滚按 SQL restore-forward，不切回 E4 冻结源或旧向量 | Codex | 历史 L01–L08、E5 专项与后端/前端记录 |
+| 2026-09-14 | E5 target / 隔离 Chroma / ops/e5/restore_rehearsal.py | 从 6 份原文/7 条笔记全量投影，3 个知识/笔记 job 成功、4 active、2 旧空 generation 回收；完成独立 SQL 恢复 | 有效 dump 是 post-schema/pre-consumer；早期 dump 无效，preflight 与失败资源删除存在偏差，保留追溯。完整恢复库重建待补 | Codex | execution-record.md；artifacts/restore-rehearsal.json |
+| 2026-09-14 | 当前工作树；ops/e5/verify_closure.py、ops README、三份主文档及本目录 | 新增限定目标的 SQL 只读核验；发现旧中文 query 为问号，重跑真实 UTF-8 6 分支；归档脱敏证据，撤回过强完成声明 | SQL 清单及 new-api 元数据前后相同；业务实现未改。文档状态统一待验证，C1–C6 保留 E5，E6 未启动。回退文档不能改变实际验收结果 | Codex | E5-R01–R04；closure-review.md；artifacts/evidence-index.json |
+
+本次只读 SQL 拦截属于核验脚本自身连接，不是 MySQL 全局只读。未停主机服务或修改 new-api 的连接/权限；未执行新迁移、consumer、运行期回收、旧输入清理或发布。模型使用已有完整缓存，未下载或变更 sidecar 配置。

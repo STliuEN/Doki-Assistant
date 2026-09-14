@@ -1,6 +1,7 @@
 """SQL snapshot -> isolated Chroma generations -> atomic fenced publication."""
 
 import asyncio
+import logging
 from uuid import uuid4
 
 from sqlalchemy import func, or_, select
@@ -10,6 +11,7 @@ from app.e2.rag import SyntheticRagRepository
 from app.jobs.repository import JobRepository, payload_digest
 from app.models.identity_domain import User
 from app.models.job_domain import Job
+from app.models.knowledge_document import KnowledgeSourceDocument
 from app.models.projection_domain import RagGeneration, RagGenerationHead
 from app.models.rag_runtime import RagArtifact, RagUserState
 from app.rag.projection.chroma_adapter import ChromaProjectionAdapter
@@ -19,6 +21,7 @@ from app.rag.projection.sources import digest, read_sources, source_manifest, sp
 from app.services.embedding_config_service import get_embedding_config_service
 
 INDEX_KINDS = ("knowledge", "notes")
+logger = logging.getLogger(__name__)
 
 
 async def lock_owner(db, owner):
@@ -137,6 +140,15 @@ class E5ProjectionService:
                 state.status = "ready"
                 state.job_id = None
                 state.error_code = None
+                # SQL list/status reflects the same committed publication as both active heads.
+                counts = {}
+                for chunk in chunks["knowledge"]:
+                    counts[chunk.source_id] = counts.get(chunk.source_id, 0) + 1
+                for document in await db.scalars(select(KnowledgeSourceDocument).where(
+                        KnowledgeSourceDocument.canonical_user_id == owner, KnowledgeSourceDocument.status != "excluded")):
+                    document.status = "indexed"
+                    document.chunk_count = counts.get(document.canonical_id, 0)
+                    document.error_message = None
                 result = {"schema_version": 1, "status": "ready", "owner_id": owner, "source_count": len(sources),
                           "chunk_count": sum(len(value) for value in chunks.values()), "cleanup_requested": retired}
                 JobRepository(db).append_audit(action="rag.published", target_type="rag_user_state", target_id=owner,
@@ -150,10 +162,10 @@ class E5ProjectionService:
                     raise ProjectionUnavailable("stale_fencing_token")
                 await uow.commit()
                 context.mark_sql_completed()
-        except Exception as error:
+        except (Exception, asyncio.CancelledError) as error:
             code = error.code if isinstance(error, ProjectionUnavailable) else "projection_build_failed"
             await self._fail(owner, context, revision, rows, code)
-            if isinstance(error, ProjectionUnavailable):
+            if isinstance(error, (ProjectionUnavailable, asyncio.CancelledError)):
                 raise
             raise ProjectionUnavailable(code) from error
         # Cleanup cannot change the committed result or turn publication into failure.
@@ -192,7 +204,7 @@ class E5ProjectionService:
         async with self.factory() as db:
             ids = list(await db.scalars(select(RagArtifact.generation_id).join(RagGeneration).where(
                 RagGeneration.owner_scope_type == "user", RagGeneration.owner_scope_id == owner,
-                RagArtifact.cleanup_status != "retained")))
+                RagArtifact.cleanup_status.not_in(("retained", "deleted")))))
         for generation in ids:
             try:
                 async with SqlUnitOfWork(self.factory) as uow:
@@ -217,4 +229,33 @@ class E5ProjectionService:
                     await uow.commit()
             except Exception:
                 # The durable locator remains eligible for the next reconciliation.
+                logger.warning("E5 cleanup deferred for generation %s", generation)
                 continue
+
+    async def reconcile(self):
+        """Run at startup and periodically, including after terminal jobs and failed cleanup."""
+        async with self.factory() as db:
+            owners = list(await db.scalars(select(RagUserState.user_id).order_by(RagUserState.user_id)))
+        for owner in owners:
+            async with SqlUnitOfWork(self.factory) as uow:
+                db = uow.require_session()
+                await lock_owner(db, owner)
+                state = await db.get(RagUserState, owner, with_for_update=True)
+                if state.status == "building" and state.job_id:
+                    job = await db.get(Job, state.job_id)
+                    if job is None or job.status in {"cancelled", "dead_letter", "succeeded"}:
+                        state.status = "failed"
+                        state.error_code = "rag_job_incomplete"
+                        await uow.commit()
+            await self.cleanup(owner)
+
+    async def reconcile_until_stopped(self, stop: asyncio.Event, *, interval: float = 5):
+        while not stop.is_set():
+            try:
+                await self.reconcile()
+            except Exception:
+                logger.warning("E5 reconciliation deferred; will retry", exc_info=False)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except TimeoutError:
+                pass

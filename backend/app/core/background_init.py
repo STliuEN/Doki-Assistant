@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 
 from app.core.logger_handler import logger
@@ -116,6 +117,10 @@ class _BackgroundInitManager:
 
     async def _init_reranker(self):
         """检查并初始化重排序模型（触发 torch 等重型框架加载）"""
+        if os.getenv("E5_RAG_ENABLED", "false").lower() in {"1", "true", "yes", "on"}:
+            # E5 selects immutable local models per owner in SQL, lazily.
+            self.reranker_ready.set()
+            return
         from app.rag.reorder_service import ReorderService
 
         self.reorder_service = ReorderService()

@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "review_date": "2026-09-14",
+  "status": "passed",
+  "backend_passed": 529,
+  "frontend_passed": 29,
+  "checks": [
+    {
+      "name": "Full backend pytest suite",
+      "exit_code": 0,
+      "passed": 529,
+      "warnings": 1,
+      "seconds": 53.65,
+      "observed_tool_session": 3356,
+      "evidence": "Successful tool result observed earlier in this same task; no subsequent semantic application change",
+      "warning": "SQLite datetime adapter deprecation on Python 3.12"
+    },
+    {
+      "name": "Frontend Vitest suite",
+      "exit_code": 0,
+      "passed": 29,
+      "files": 6,
+      "observed_tool_session": 53693,
+      "evidence": "Successful tool result observed earlier in this same task"
+    },
+    {
+      "name": "Frontend TypeScript/Vite production build",
+      "exit_code": 0,
+      "result": "passed",
+      "observed_tool_session": 53693,
+      "evidence": "Successful production build observed earlier in this same task"
+    },
+    {
+      "command": "./scripts/check-docs.ps1",
+      "exit_code": 0,
+      "output": "Markdown checks passed: 203 files, 247 local links.",
+      "evidence": "Executed during final archive validation"
+    },
+    {
+      "command": "git -c core.autocrlf=false diff --check",
+      "exit_code": 0,
+      "output": "",
+      "evidence": "Executed during final archive validation"
+    },
+    {
+      "command": "backend/.venv/Scripts/ruff.exe check backend/app backend/tests backend/scripts backend/ops/e5",
+      "exit_code": 0,
+      "output": "All checks passed!",
+      "evidence": "Executed during final archive validation"
+    },
+    {
+      "name": "Live and archival evidence invariants / credential exclusion",
+      "command": "backend/.venv/Scripts/python.exe -X utf8 backend/ops/e5/archive_closure.py",
+      "exit_code": 0,
+      "result": "passed",
+      "evidence": "Validates passed results, original frozen plan hash, exact executed projection code, final inventory, browser outcomes, known secret-value/JWT exclusion"
+    }
+  ],
+  "post_test_changes": "Documentation/ops archive changes and CRLF-to-LF-only conversions of four files (line-endings.json). Application behavior unchanged.",
+  "history": "Earlier failing OpenAPI full-suite run corrected before final 529 passed; superseded checks retained under history."
+}

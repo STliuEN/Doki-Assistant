@@ -1,6 +1,6 @@
 import client from './client'
 import { endpoints } from './endpoints'
-import type { ApiResponse, EmbeddingConfig, EmbeddingSwitchResult, KnowledgeDocument, KnowledgeDocumentDetail, LocalRerankerModel, OllamaModelsResponse, RerankerConfig } from '../types/api'
+import type { ApiResponse, EmbeddingConfig, EmbeddingSwitchResult, KnowledgeDocument, KnowledgeDocumentDetail, LocalRerankerModel, OllamaModelsResponse, RagIndexConfig, RagQueryConfig, RagStatus, RerankerConfig } from '../types/api'
 
 interface KnowledgeListData {
   documents: KnowledgeDocument[]
@@ -8,6 +8,14 @@ interface KnowledgeListData {
 }
 
 export const knowledgeApi = {
+  ragStatus: async () => (await client.get<ApiResponse<RagStatus>>('/knowledge/rag/status')).data,
+  saveRagQuery: async (config: RagQueryConfig, expectedRevision: number) => (
+    await client.put<ApiResponse<RagStatus>>('/knowledge/rag/query-config', { config, expected_revision: expectedRevision })
+  ).data,
+  saveRagIndex: async (config: RagIndexConfig, expectedRevision: number) => (
+    await client.put<ApiResponse<RagStatus>>('/knowledge/rag/index-config', { config, expected_revision: expectedRevision })
+  ).data,
+  rebuildRag: async () => (await client.post<ApiResponse<RagStatus>>('/knowledge/rag/rebuild')).data,
   list: async () => {
     const res = await client.get<ApiResponse<KnowledgeListData>>(endpoints.knowledgeList)
     return res.data
@@ -19,7 +27,9 @@ export const knowledgeApi = {
   },
 
   chunks: async (filename: string) => {
-    const res = await client.get<ApiResponse<unknown[]>>(endpoints.knowledgeChunks, { params: { filename } })
+    const res = await client.get<ApiResponse<{ total_chunks: number; chunks: {
+      chunk_id: string; index: number; content: string; metadata: { page?: number }; images?: string[]
+    }[] }>>(endpoints.knowledgeChunks, { params: { filename } })
     return res.data
   },
 

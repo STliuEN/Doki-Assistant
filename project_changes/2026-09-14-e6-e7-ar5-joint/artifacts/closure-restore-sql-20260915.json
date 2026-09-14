@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "sql_only": true,
+  "legacy_package_path": "absent",
+  "chroma_validation": false,
+  "package_raw_canonical_resource_verified": true,
+  "source_image_download_batch_verified": true,
+  "revoked_run_denied": true,
+  "authorization_audit_verified": true,
+  "table_counts": {
+    "skill_packages": 14,
+    "skill_package_uploads": 16,
+    "skill_imports": 8,
+    "source_media": 2,
+    "media_assets": 2,
+    "authorization_grants": 9,
+    "audit_events": 2284
+  },
+  "foreign_keys": 9
+}

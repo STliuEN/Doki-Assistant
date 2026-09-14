@@ -1,0 +1,54 @@
+{
+  "stage": "E6E7",
+  "transport": "httpx-ASGI-real-routers-real-SQL",
+  "model": "local-Ollama-qwen3:0.6b",
+  "checks": [
+    {
+      "case": "HTTP register and password login for two isolated users",
+      "passed": true
+    },
+    {
+      "case": "HTTP upload SSE accepted then SQL image and batch access; cross-user 404",
+      "passed": true,
+      "image_md5": "a949d81807c3d8439785afb8919712c9"
+    },
+    {
+      "case": "HTTP note creation and owner-scoped list",
+      "passed": true,
+      "note_id": "363094a8-b52b-44ad-86ba-86c3f6fb9e46"
+    },
+    {
+      "case": "local-model chat SSE persists owner session messages and authorized RunBinding",
+      "passed": true,
+      "session_id": "c65db1a8-7ae9-4d02-8462-fcf643055849",
+      "event_count": 29
+    },
+    {
+      "case": "first-turn session transaction rejects cross-owner reuse",
+      "passed": true,
+      "denied_status": 403
+    },
+    {
+      "case": "replica SQL unavailable fails closed without image fallback; process route survives",
+      "passed": true,
+      "protected_image_status": 500
+    },
+    {
+      "case": "replica restart restores authenticated image access; new-api unchanged",
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "new_api_before": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  },
+  "new_api_after": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  }
+}

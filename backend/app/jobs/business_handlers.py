@@ -161,5 +161,6 @@ def business_handlers(factory, *, projector=None, tagger=None) -> JobHandlerRegi
         registry.register('e4.note.project', project)
         registry.register('e4.knowledge.project', project)
         registry.register('e4.embedding.rebuild', project)
+        registry.register('e5.rag.rebuild', project)
     registry.register('e4.note.enrich', enrich)
     return registry

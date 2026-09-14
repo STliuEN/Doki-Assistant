@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { endpoints } from './endpoints'
+import type { ApiResponse, UserInfo } from '../types/api'
 import {
   clearAuthState,
   getAccessToken,
@@ -43,6 +44,23 @@ const refreshAccessToken = async () => {
       })
   }
   return refreshRequest
+}
+
+let restoreRequest: Promise<void> | null = null
+export const restoreSession = () => {
+  if (!restoreRequest) {
+    restoreRequest = (async () => {
+      try {
+        const token = await refreshAccessToken()
+        const response = await client.get<ApiResponse<UserInfo>>('/user/detail/')
+        if (!response.data.data) throw new Error('Session profile unavailable')
+        useUserStore.getState().login(token, response.data.data)
+      } catch {
+        clearAuthState()
+      }
+    })().finally(() => { restoreRequest = null })
+  }
+  return restoreRequest
 }
 
 const isPublicAuthEndpoint = (url?: string) =>

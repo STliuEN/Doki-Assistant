@@ -1,0 +1,41 @@
+{
+  "scope": "E5 acceptance resources only",
+  "time_utc": "2026-09-14T07:42:01.6062659Z",
+  "processes": [
+    {
+      "created": "/Date(1789371587228)/",
+      "name": "python.exe",
+      "id": 41872,
+      "action": "stopped"
+    },
+    {
+      "created": "/Date(1789369239928)/",
+      "name": "node.exe",
+      "id": 43812,
+      "action": "stopped"
+    }
+  ],
+  "containers": [
+    {
+      "volumes_networks": "retained",
+      "name": "doki-e5-accept-8e33af9a",
+      "id": "bd76f4da49c34046009b852524930e1022607f8dc960a287141b8b9ca1c4ca52",
+      "state": "exited"
+    },
+    {
+      "volumes_networks": "retained",
+      "name": "doki-e5-accept-d48133c1",
+      "id": "fcace33543248c20232c9ab87c4ce5e935e66d8ac8120f631663bf8ce280112d",
+      "state": "exited"
+    }
+  ],
+  "new_api": {
+    "restart_count": 0,
+    "status": "running",
+    "unchanged": true,
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z"
+  },
+  "temporary_listeners_absent": true,
+  "passed": true
+}

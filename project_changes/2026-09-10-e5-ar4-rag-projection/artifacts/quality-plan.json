@@ -1,0 +1,92 @@
+{
+  "frozen_at": "2026-09-14T06:59:58.942125+00:00",
+  "labeler": "Codex; source-grounded, not independent human labels",
+  "scope": "Small local regression set; no general retrieval-quality claim",
+  "source_manifest_digest": "e9532e5ebdd4b376a62790abea895b619fcc19f08df47ac9f861e7a25a7f5e25",
+  "top_k": 5,
+  "minimum_source_hit_at_5": 0.75,
+  "maximum_unauthorized_hits": 0,
+  "cold_max_seconds": 180,
+  "warm_sample_p95_seconds": {
+    "vector": 10,
+    "bm25": 10,
+    "hyde": 30,
+    "reranker": 60,
+    "combined": 60
+  },
+  "bm25_only_minimum_source_hit_at_5": 0.75,
+  "cases": [
+    {
+      "id": "Q1",
+      "query": "人工智能方向专业学位有哪些研究方向，例如大语言模型和多模态信息融合？",
+      "notes": false,
+      "expected_source_ids": [
+        "152f42fb-875e-4af3-a3bf-4e3908344630"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-2025版电子信息（人工智能方向）专业研究生培养方案.docx"
+    },
+    {
+      "id": "Q2",
+      "query": "电子信息计算机技术专业硕士点始建于哪一年？",
+      "notes": false,
+      "expected_source_ids": [
+        "488b62a4-fa82-4e3e-8ca6-ab73e888fe68"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-2025版电子信息（计算机技术方向）专业研究生培养方案.docx"
+    },
+    {
+      "id": "Q3",
+      "query": "计算机科学与技术学术硕士的学科代码、学制和最低学分是多少？",
+      "notes": false,
+      "expected_source_ids": [
+        "4f382f78-3a5e-455f-b5a9-8362ceece726"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-2025版计算机科学与技术专业研究生培养方案.docx"
+    },
+    {
+      "id": "Q4",
+      "query": "软件工程学科是哪一年获批硕士学位授权点和开始招收研究生的？",
+      "notes": false,
+      "expected_source_ids": [
+        "76cd0de4-b151-422d-bd06-c765b184e209"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-2025版软件工程专业研究生培养方案.docx"
+    },
+    {
+      "id": "Q5",
+      "query": "新一代电子信息技术专业的类别领域代码、学位类型和学分要求是什么？",
+      "notes": false,
+      "expected_source_ids": [
+        "8a7aff48-f322-4e9c-bd94-78d4887cecf8"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-2025版电子信息（新一代现代信息技术方向）专业研究生培养方案.docx"
+    },
+    {
+      "id": "Q6",
+      "query": "申请博士学位的研究生创新成果中，SCI期刊和报纸理论版文章的认定要求是什么？",
+      "notes": false,
+      "expected_source_ids": [
+        "91ae73f9-c0a2-481a-8a88-5aa371d8ca4d"
+      ],
+      "label_basis": "explicit passage in SQL original: 定稿-信息工程学院-研究生创新成果认定办法（2025）.docx"
+    },
+    {
+      "id": "Q7",
+      "query": "哪条笔记用于后端日志检查并验证 create_note_tool 是否正常工作？",
+      "notes": true,
+      "expected_source_ids": [
+        "829f1ddb-7459-426d-a2c3-811cddd15134"
+      ],
+      "label_basis": "explicit passage in SQL original: 全工具链测试笔记"
+    },
+    {
+      "id": "Q8",
+      "query": "哪条笔记写有 GPA 不低于 2.0、论文查重率低于 15% 和答辩通过的通用要求？",
+      "notes": true,
+      "expected_source_ids": [
+        "03137c1f-054f-4323-bfc4-51d6bdccaea5"
+      ],
+      "label_basis": "explicit passage in SQL original: [全功能测试] 毕业要求速查表 - 2026-06-17"
+    }
+  ]
+}

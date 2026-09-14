@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "recorded_at": "2026-09-14T16:30:55.110400+00:00",
+  "ready": {
+    "status": "ok",
+    "dependencies": {
+      "mysql": "ready",
+      "redis": "ready",
+      "skill_storage": "ready",
+      "chroma_projection": {
+        "status": "owner_scoped",
+        "authority": "sql_generation",
+        "status_endpoint": "/rag/status"
+      }
+    }
+  },
+  "runner": {
+    "status": "running",
+    "enabled": true,
+    "concurrency": 1,
+    "lease_owner": "runner-7a7ad79a-db00-4954-8ed5-a381a66ea220",
+    "active_job_id": null,
+    "active_job_type": null,
+    "active_attempt": null,
+    "active_fencing_token": null,
+    "claimed_count": 0,
+    "succeeded_count": 0,
+    "failed_count": 0,
+    "rejected_count": 0,
+    "last_poll_at": "2026-09-14T16:30:54.484971+00:00",
+    "last_completed_at": null,
+    "last_error": null
+  },
+  "security_admin": "STliuEN-security-admin",
+  "login_verified": true,
+  "can_decide": true,
+  "can_request": false,
+  "verification_session_logged_out": true
+}

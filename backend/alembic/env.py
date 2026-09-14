@@ -16,6 +16,7 @@ else:
 from app.models import (
     chat_history,
     e4_migration,
+    e6_e7_domain,
     embedding_config,
     identity_domain,
     job_domain,
@@ -44,6 +45,7 @@ _MODELS = (
     rag_runtime,
     skill_domain,
     e4_migration,
+    e6_e7_domain,
 )
 
 config = context.config

@@ -1,0 +1,193 @@
+{
+  "stage": "E6+E7",
+  "phase": "preparation",
+  "recorded_at": "2026-09-14T09:01:14.991937+00:00",
+  "e5_baseline": {
+    "path": ".runtime/e6-e7-preparation-20260914-recheck/e5-sealed-inputs.zip",
+    "sha256": "8febb924ee34ed43e92b1d03d3562fad528618f2d3e7cfb22d2feac2cb0fa7c3",
+    "files": 112,
+    "e5_index_sha256": "ede07b98e8fd2becb7392376afc09de1a19f53b615b09847c999e88f995c3dfc",
+    "verified_before_preparation": true,
+    "verification_source": "explicit immutable baseline archive; current working tree may have later changes"
+  },
+  "table_counts": {
+    "skills": 10,
+    "skill_versions": 10,
+    "skill_installations": 10,
+    "skill_aliases": 10,
+    "skill_packages": 0,
+    "skill_package_uploads": 0,
+    "skill_imports": 0,
+    "skill_capability_grants": 10,
+    "skill_run_bindings": 0,
+    "authorization_grants": 0,
+    "media_assets": 0,
+    "knowledge_source_documents": 6,
+    "notes": 7,
+    "chat_sessions": 27,
+    "chat_messages": 150,
+    "migration_maps": 314,
+    "audit_events": 1953
+  },
+  "installation_status": [
+    {
+      "status": "enabled",
+      "n": 10
+    }
+  ],
+  "role_counts": [
+    {
+      "name": "user",
+      "status": "active",
+      "n": 2
+    }
+  ],
+  "input_inventory": {
+    "skill_objects": {
+      "root": "backend/data/skill_packages/objects",
+      "files": 10,
+      "bytes": 5627,
+      "manifest_sha256": "37ef7d7dba3e86d4436ae9792ae6f6094f28e4ac0013ad362e99c1cdd62e1a41",
+      "disposition": "retain; migrate only after reconciliation"
+    },
+    "knowledge_images": {
+      "root": "backend/data/extracted_images",
+      "files": 0,
+      "bytes": 0,
+      "manifest_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "disposition": "retain; migrate only after reconciliation"
+    },
+    "md5_sidecars": {
+      "root": "backend/data/md5_hex_store",
+      "files": 1,
+      "bytes": 2133,
+      "manifest_sha256": "f56d26892781bf6fa171430cd90b13c0046b23eae38a0035556d00173b3a9d6d",
+      "disposition": "retain; migrate only after reconciliation"
+    },
+    "seed_inputs": {
+      "root": "backend/app/skills/seed_packages",
+      "files": 10,
+      "bytes": 6455,
+      "manifest_sha256": "94b20a80370bc5836c6be90cc88cd02773a11e147eabe691103e26f794e0a3f9",
+      "disposition": "retain; migrate only after reconciliation"
+    }
+  },
+  "legacy_package_receipts": [
+    {
+      "version_id": "101fe52c-8256-46d0-83a8-a6c6091b1f5b",
+      "skill_id": "88b36b89-8f39-4a74-ae6e-820df0111658",
+      "package_digest": "078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001",
+      "status": "verified",
+      "archive_sha256": "2388e4249fc42750f5d086636e3b45584bcf3590b4bec3bbe02ea20001d8f7dc",
+      "resource_count": 1
+    },
+    {
+      "version_id": "1544aaf7-5a31-4bbe-929e-96609a983cd4",
+      "skill_id": "a4829879-adf3-4ad8-9ea8-e7a4e0ea6e04",
+      "package_digest": "1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f",
+      "status": "verified",
+      "archive_sha256": "55687c8d6efb555ade0e51c7adceceadeec39b60ad4036899859127bd35bed95",
+      "resource_count": 1
+    },
+    {
+      "version_id": "512a6fe8-9e89-4bea-8940-0d67283536a8",
+      "skill_id": "465c5eff-d89f-432c-970f-938734ab925d",
+      "package_digest": "68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912",
+      "status": "verified",
+      "archive_sha256": "fd89f0b8724665e3b00f80d86b0924b5764138ef19b6ff8988f490214ce91f7a",
+      "resource_count": 1
+    },
+    {
+      "version_id": "83730af5-4939-41d7-aef9-a64aa4fbd995",
+      "skill_id": "352e97b5-5993-4410-81c6-50439dbbac94",
+      "package_digest": "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896",
+      "status": "verified",
+      "archive_sha256": "7382bbd0dcb53e1e40c9a9912cc26fa62e7d67b1bfa08d1ce5950d49fe6b6fdc",
+      "resource_count": 1
+    },
+    {
+      "version_id": "9c1041b5-6c1e-49a6-a563-cbd044e5383d",
+      "skill_id": "88f26935-da8a-4326-bc2c-3c3d63d55d9e",
+      "package_digest": "92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1",
+      "status": "verified",
+      "archive_sha256": "e70e1272dad823d6cd53165333c01552b25454063214002acebaa05dd52332d1",
+      "resource_count": 1
+    },
+    {
+      "version_id": "a65a25af-bf53-4e63-a5cb-549c97a9e683",
+      "skill_id": "752888e1-7154-4164-8b78-88c7ecc71559",
+      "package_digest": "76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78",
+      "status": "verified",
+      "archive_sha256": "92843fffc4a5e7f5f2e6ee4ee01b9107443c1d9fd76f7115354d732b0e78dfcc",
+      "resource_count": 1
+    },
+    {
+      "version_id": "c38f2903-69f5-4e32-92c2-2f25f2305b43",
+      "skill_id": "9ccd3cfb-92f0-4dbe-bc48-92f433c75dae",
+      "package_digest": "80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2",
+      "status": "verified",
+      "archive_sha256": "44438f9aa7e2cff848bc6bca70aa10b62e6899fecadf7125d6a81aa168cc52d1",
+      "resource_count": 1
+    },
+    {
+      "version_id": "d871ce8f-35eb-4cae-9efb-62155786ee39",
+      "skill_id": "576014e9-8c69-4836-bc96-b00766db5475",
+      "package_digest": "dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561",
+      "status": "verified",
+      "archive_sha256": "609fc659834847a287e1f352c6dedb065783a30fd1ab2556cb56cbb199cc13b8",
+      "resource_count": 1
+    },
+    {
+      "version_id": "eed65768-e605-47c3-8b44-e222bee36b2d",
+      "skill_id": "4753f96b-31ba-4e55-ae79-f1cf4c5b7e68",
+      "package_digest": "88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f",
+      "status": "verified",
+      "archive_sha256": "c14326c2778ac361e045e7aea00ad9577ea2862b0e633b931c861d091b09102c",
+      "resource_count": 1
+    },
+    {
+      "version_id": "f30d4945-ffcc-47b5-b73f-612c517bc04f",
+      "skill_id": "f5c5dd65-1621-4ceb-9a98-7f6da53d6efe",
+      "package_digest": "a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b",
+      "status": "verified",
+      "archive_sha256": "99818020a3f23be3f271445e9dc39af598f585aded67446a8017ed9536823981",
+      "resource_count": 1
+    }
+  ],
+  "sql_inventory_unchanged": true,
+  "new_api": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  },
+  "new_api_unchanged": true,
+  "global_read_only_flags_observed": [
+    0,
+    0
+  ],
+  "rag_states": [
+    {
+      "user_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "status": "ready",
+      "revision": 4,
+      "query_revision": 2
+    },
+    {
+      "user_id": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "status": "ready",
+      "revision": 5,
+      "query_revision": 2
+    }
+  ],
+  "schema": [
+    {
+      "version_num": "20260914_0009_e5_rag_runtime"
+    }
+  ],
+  "source_inventory_unchanged": true,
+  "preparation_passed": true,
+  "migration_executed": false,
+  "authorization_changed": false,
+  "stage_closed": false
+}

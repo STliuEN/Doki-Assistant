@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "owners": [
+    {
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "revision": 4,
+      "status": "ready"
+    },
+    {
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "revision": 5,
+      "status": "ready"
+    }
+  ],
+  "runner": {
+    "status": "running",
+    "enabled": true,
+    "concurrency": 1,
+    "lease_owner": "runner-f887363d-7fa6-45f5-bff8-87be613c4e90",
+    "active_job_id": null,
+    "active_job_type": null,
+    "active_attempt": null,
+    "active_fencing_token": null,
+    "claimed_count": 2,
+    "succeeded_count": 2,
+    "failed_count": 0,
+    "rejected_count": 0,
+    "last_poll_at": "2026-09-14T06:57:31.871240+00:00",
+    "last_completed_at": "2026-09-14T06:57:35.409622+00:00",
+    "last_error": null
+  }
+}

@@ -15,7 +15,7 @@ import json
 import os
 import subprocess
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, TypeAlias
@@ -101,6 +101,7 @@ class E4Target:
     network: str | None = None
     image_id: str | None = None
     database_username: str | None = None
+    execution_stage: str = "E4"
 
     @property
     def id(self) -> str:
@@ -290,6 +291,7 @@ def _target_record_from_mapping(item: Mapping[str, Any], index: int) -> E4Target
         network=network,
         image_id=image_id,
         database_username=database_username,
+        execution_stage=str(item.get("execution_stage", "E4")),
     )
 
 
@@ -312,6 +314,7 @@ def _target_record_from_object(item: E4Target, index: int) -> E4Target:
             "network": item.network,
             "image_id": item.image_id,
             "database_username": item.database_username,
+            "execution_stage": item.execution_stage,
         },
         index,
     )
@@ -333,13 +336,18 @@ def e4_target_record(target: E4Target) -> dict[str, object]:
         value = getattr(target, field)
         if value is not None:
             record[field] = value
+    if target.execution_stage == "E6E7":
+        record["execution_stage"] = "E6E7"
     return record
 
 
 def _allowlist_record(targets: Iterable[E4Target]) -> dict[str, object]:
     records = [e4_target_record(target) for target in targets]
     records.sort(key=lambda item: str(item["id"]))
-    return {"schema_version": 1, "targets": records}
+    result = {"schema_version": 1, "targets": records}
+    if len(records) == 1 and records[0]["role"] == "target" and records[0].get("container_id"):
+        result["stage"] = records[0].get("execution_stage", "E5")
+    return result
 
 
 def allowlist_fingerprint(allowlist: AllowlistSource) -> str:
@@ -359,9 +367,13 @@ def parse_e4_allowlist(allowlist: AllowlistSource) -> tuple[E4Target, ...]:
     identity is established by the full allowlist tuple and server UUID.
     """
 
+    # E5 projection work uses one existing business database, not E4's
+    # cross-server migration topology. Preserve the full E4 role requirement.
+    projection_only = False
     # Internal callers may pass an already parsed tuple to avoid reparsing and
     # to ensure the fingerprint is calculated from exactly the same identities.
     if isinstance(allowlist, (list, tuple)) and allowlist and all(isinstance(item, E4Target) for item in allowlist):
+        projection_only = len(allowlist) == 1 and allowlist[0].role == "target" and allowlist[0].container_id is not None
         targets = tuple(
             _target_record_from_object(item, index)
             for index, item in enumerate(allowlist)
@@ -370,6 +382,7 @@ def parse_e4_allowlist(allowlist: AllowlistSource) -> tuple[E4Target, ...]:
         document = _json_document(allowlist)
         _reject_secret_fields(document, path="allowlist")
         if isinstance(document, Mapping):
+            projection_only = document.get("stage") in {"E5", "E6E7"}
             schema_version = document.get("schema_version", 1)
             if schema_version != 1:
                 raise E4GuardError("unsupported E4 allowlist schema version")
@@ -398,6 +411,8 @@ def parse_e4_allowlist(allowlist: AllowlistSource) -> tuple[E4Target, ...]:
             else _target_record_from_mapping(item, index)
             for index, item in enumerate(raw_targets)
         )
+        if isinstance(document, Mapping) and document.get("stage") == "E6E7":
+            targets = tuple(replace(target, execution_stage="E6E7") for target in targets)
     ids: set[str] = set()
     endpoints: set[tuple[str, int, str]] = set()
     container_ids: set[str] = set()
@@ -425,6 +440,10 @@ def parse_e4_allowlist(allowlist: AllowlistSource) -> tuple[E4Target, ...]:
     sources = [target for target in targets if target.role == "source"]
     finals = [target for target in targets if target.role == "target"]
     restores = [target for target in targets if target.role == "restore"]
+    if projection_only:
+        if len(targets) != 1 or len(finals) != 1 or finals[0].container_id is None:
+            raise E4GuardError("E5 projection allowlist requires one exact container-backed target")
+        return targets
     if not sources:
         raise E4GuardError("E4 allowlist requires at least one read-only source")
     if len(finals) != 1:

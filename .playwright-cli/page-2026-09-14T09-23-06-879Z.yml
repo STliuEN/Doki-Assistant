@@ -1,0 +1,146 @@
+- generic [ref=e2]:
+  - generic [ref=e42]:
+    - complementary [ref=e43]:
+      - generic [ref=e44]:
+        - heading "Doki Assistant" [level=1] [ref=e45]
+        - button "收起侧栏" [ref=e46] [cursor=pointer]
+      - navigation [ref=e49]:
+        - link "笔记" [ref=e50] [cursor=pointer]:
+          - /url: /notes
+        - link "AI 对话" [ref=e54] [cursor=pointer]:
+          - /url: /chat
+        - link "实时翻译" [ref=e57] [cursor=pointer]:
+          - /url: /translate
+        - link "会话管理" [ref=e62] [cursor=pointer]:
+          - /url: /sessions
+        - link "记忆中心" [ref=e67] [cursor=pointer]:
+          - /url: /memory
+        - link "知识库" [ref=e70] [cursor=pointer]:
+          - /url: /knowledge
+        - link "Skill" [active] [ref=e73] [cursor=pointer]:
+          - /url: /skills
+        - link "工具库" [ref=e76] [cursor=pointer]:
+          - /url: /tools
+      - generic [ref=e78]:
+        - link "个人信息" [ref=e79] [cursor=pointer]:
+          - /url: /profile
+        - link "模型选择" [ref=e83] [cursor=pointer]:
+          - /url: /model-settings
+        - link "系统设置" [ref=e85] [cursor=pointer]:
+          - /url: /settings
+        - link "关于我们" [ref=e89] [cursor=pointer]:
+          - /url: /about
+        - button "退出登录" [ref=e92] [cursor=pointer]
+    - main [ref=e96]:
+      - generic [ref=e259]:
+        - complementary [ref=e260]:
+          - generic [ref=e261]:
+            - generic [ref=e262]:
+              - heading "Skill" [level=1] [ref=e263]
+              - paragraph [ref=e264]: 标准 package 与本地能力
+            - generic [ref=e265]:
+              - button "导入本地 ZIP" [ref=e266] [cursor=pointer]
+              - button "新增 Skill" [ref=e270] [cursor=pointer]
+          - generic [ref=e272]:
+            - button "系统上下文 legacy_migration v1" [ref=e273] [cursor=pointer]:
+              - generic [ref=e274]: 系统上下文
+              - generic [ref=e277]:
+                - generic [ref=e278]: legacy_migration
+                - generic [ref=e279]: v1
+            - button "知识库问答 legacy_migration v1" [ref=e280] [cursor=pointer]:
+              - generic [ref=e281]: 知识库问答
+              - generic [ref=e284]:
+                - generic [ref=e285]: legacy_migration
+                - generic [ref=e286]: v1
+            - button "笔记检索 legacy_migration v1" [ref=e287] [cursor=pointer]:
+              - generic [ref=e288]: 笔记检索
+              - generic [ref=e291]:
+                - generic [ref=e292]: legacy_migration
+                - generic [ref=e293]: v1
+            - button "笔记写入 legacy_migration v1" [ref=e294] [cursor=pointer]:
+              - generic [ref=e295]: 笔记写入
+              - generic [ref=e298]:
+                - generic [ref=e299]: legacy_migration
+                - generic [ref=e300]: v1
+            - button "记忆事项·记录与变更 legacy_migration v1" [ref=e301] [cursor=pointer]:
+              - generic [ref=e302]: 记忆事项·记录与变更
+              - generic [ref=e305]:
+                - generic [ref=e306]: legacy_migration
+                - generic [ref=e307]: v1
+            - button "记忆事项·查询 legacy_migration v1" [ref=e308] [cursor=pointer]:
+              - generic [ref=e309]: 记忆事项·查询
+              - generic [ref=e312]:
+                - generic [ref=e313]: legacy_migration
+                - generic [ref=e314]: v1
+            - button "记忆事项·清理（归档/删除） legacy_migration v1" [ref=e315] [cursor=pointer]:
+              - generic [ref=e316]: 记忆事项·清理（归档/删除）
+              - generic [ref=e319]:
+                - generic [ref=e320]: legacy_migration
+                - generic [ref=e321]: v1
+            - button "复习计划 legacy_migration v1" [ref=e322] [cursor=pointer]:
+              - generic [ref=e323]: 复习计划
+              - generic [ref=e326]:
+                - generic [ref=e327]: legacy_migration
+                - generic [ref=e328]: v1
+            - button "MCP 连通性测试 legacy_migration v1" [ref=e329] [cursor=pointer]:
+              - generic [ref=e330]: MCP 连通性测试
+              - generic [ref=e333]:
+                - generic [ref=e334]: legacy_migration
+                - generic [ref=e335]: v1
+            - button "外部信息查询 legacy_migration v1" [ref=e336] [cursor=pointer]:
+              - generic [ref=e337]: 外部信息查询
+              - generic [ref=e340]:
+                - generic [ref=e341]: legacy_migration
+                - generic [ref=e342]: v1
+        - main [ref=e343]:
+          - generic [ref=e344]:
+            - generic [ref=e345]:
+              - generic [ref=e346]:
+                - generic [ref=e347]:
+                  - heading "系统上下文" [level=2] [ref=e348]
+                  - generic [ref=e349]: ready
+                  - generic [ref=e350]: A
+                - generic [ref=e351]:
+                  - generic [ref=e352]: 来源：legacy_migration
+                  - generic [ref=e353]: 版本：1
+                  - generic "system_context" [ref=e354]: 内部 ID：system_conte
+                  - generic "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896" [ref=e355]: 摘要：fee357f6cbda
+              - generic [ref=e356]:
+                - button "导出" [ref=e357] [cursor=pointer]
+                - button "归档" [ref=e361] [cursor=pointer]
+                - button "保存" [disabled] [ref=e365]
+            - navigation "Skill 详情" [ref=e370]:
+              - button "内容" [ref=e371] [cursor=pointer]
+              - button "管理设置" [ref=e375] [cursor=pointer]
+              - button "版本" [ref=e379] [cursor=pointer]
+            - generic [ref=e384]:
+              - generic [ref=e385]:
+                - generic [ref=e386]:
+                  - text: 标准名称
+                  - textbox "标准名称" [disabled] [ref=e387]: system-context
+                - generic [ref=e388]:
+                  - text: 名称
+                  - textbox "名称" [ref=e389]: 系统上下文
+                - generic [ref=e390]:
+                  - text: 描述
+                  - textbox "描述" [ref=e391]: 获取当前时间日期与基础用户身份信息。
+              - generic [ref=e392]:
+                - generic [ref=e393]:
+                  - generic [ref=e394]: SKILL.md 执行指令
+                  - generic [ref=e395]: 保存后生成新版本
+                - textbox [ref=e396]: "# 系统上下文 处理与当前时间、日期、用户身份相关的请求。 - 需要把“今天/明天/下周”等相对时间换算成具体日期时，先用 what_time_is_now。 - 用户明确询问自己的用户 ID 或用户名时，用 get_user_info_tools 解析其 JWT；未提供 token 时直接说明无法解析，不主动索要。 - 时间与身份类回答以工具结果为准，不猜测。"
+              - generic [ref=e397]:
+                - generic [ref=e398]:
+                  - text: 扩展 frontmatter（JSON）
+                  - textbox "扩展 frontmatter（JSON）" [ref=e399]: "{ \"name\": \"system-context\", \"description\": \"获取当前时间日期与基础用户身份信息。\" }"
+                - generic [ref=e400]:
+                  - generic [ref=e401]:
+                    - generic [ref=e402]: Package 资源
+                    - generic [ref=e403]: 0 / 255
+                  - generic [ref=e404]:
+                    - textbox "资源路径" [ref=e405]:
+                      - /placeholder: 资源路径（留空使用文件名）
+                    - button "上传" [ref=e406] [cursor=pointer]
+                  - generic [ref=e410]: 此版本没有附加资源。
+                  - generic [ref=e411]: 单文件最多 8 MiB；scripts/ 下文件只会作为禁用的 C 级资源保存。
+  - region "Notifications alt+T"

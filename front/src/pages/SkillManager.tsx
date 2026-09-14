@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import SkillAuthorization from '../components/SkillAuthorization'
 import {
   Archive,
   CheckCircle2,
@@ -1300,6 +1301,9 @@ export default function SkillManager() {
               </div>
             ) : activeTab === 'settings' ? (
               <div className="space-y-6">
+                {!creating && selectedId && <SkillAuthorization identifier={selectedId}
+                  revision={typeof form.revision === 'number' ? form.revision : Number(form.revision) || undefined}
+                  onChanged={async () => { await loadCatalog(selectedId); await loadDetail(selectedId) }} />}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <label className="flex min-h-10 items-center gap-3 text-sm text-[var(--color-text)]">
                     <input

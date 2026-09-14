@@ -33,6 +33,9 @@ class E2RunnerRuntime:
         await self.verify_target()
         await self.runner.start()
 
+    async def stop(self) -> None:
+        await self.runner.stop()
+
 
 def process_e2_environment() -> dict[str, str]:
     """Capture only explicit E2 process variables before any dotenv loading."""

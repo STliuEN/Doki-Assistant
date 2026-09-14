@@ -1,0 +1,67 @@
+{
+  "owner": "4ecc33d8-d0f0-42fb-9dc4-6ca6e49f6896",
+  "cases": [
+    {
+      "fault": "owner",
+      "http": 503,
+      "reason": "chroma_scope_mismatch",
+      "repair_job": "cd7892e2-5c9d-48d5-98fb-96de9b69eded",
+      "core_auth_sessions_original": 200,
+      "passed": true
+    },
+    {
+      "fault": "format",
+      "http": 503,
+      "reason": "chroma_scope_mismatch",
+      "repair_job": "8464ec54-dda0-4a1e-9331-2f1296913bcb",
+      "core_auth_sessions_original": 200,
+      "passed": true
+    },
+    {
+      "fault": "content",
+      "http": 503,
+      "reason": "chroma_chunk_receipt_mismatch",
+      "repair_job": "a661436a-0d74-4bb4-8505-b9bc33558de3",
+      "core_auth_sessions_original": 200,
+      "passed": true
+    },
+    {
+      "fault": "missing_notes",
+      "http": 503,
+      "reason": "chroma_validation_failed",
+      "repair_job": "05ee72fe-83fc-40d9-bd10-1f0be851a0b2",
+      "core_auth_sessions_original": 200,
+      "passed": true
+    },
+    {
+      "fault": "hyde_digest",
+      "http": 503,
+      "reason": "hyde_model_changed",
+      "spurious_rebuild": false,
+      "passed": true
+    },
+    {
+      "fault": "hyde_missing",
+      "http": 503,
+      "reason": "hyde_model_unavailable",
+      "spurious_rebuild": false,
+      "passed": true
+    },
+    {
+      "fault": "reranker_digest",
+      "http": 503,
+      "reason": "rerank_model_changed",
+      "spurious_rebuild": false,
+      "passed": true
+    },
+    {
+      "fault": "agent owner context",
+      "passed": true
+    },
+    {
+      "fault": "foreign source filter",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

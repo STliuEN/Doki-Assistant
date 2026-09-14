@@ -200,6 +200,13 @@ class GuardedTool(BaseTool):
         return await inner.ainvoke(kwargs)
 
     async def _arun(self, *args, **kwargs) -> str:
+        from app.skills.authorization import execution_authority, live_checks_enabled
+        if live_checks_enabled():
+            async with execution_authority(tool_id=None if self.source == "skill_resource" else self.tool_id):
+                return await self._arun_authorized(*args, **kwargs)
+        return await self._arun_authorized(*args, **kwargs)
+
+    async def _arun_authorized(self, *args, **kwargs) -> str:
         # 去掉 LangChain 注入、内层工具不认识的参数。
         for key in _INJECTED_KEYS:
             kwargs.pop(key, None)

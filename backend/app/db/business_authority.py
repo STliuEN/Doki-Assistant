@@ -184,6 +184,10 @@ def clear_e5_transaction_state(session, transaction):
 
 def enqueue_business_job(session, row, owner, job_type, correlation, event_id):
     payload = {"schema_version": 1, "entity_type": row.__tablename__, "entity_id": str(row.id), "owner_id": owner, "event_id": event_id}
+    from app.agent.tool_context import get_current_run_binding_from_context, get_current_session_id_from_context
+    origin = get_current_run_binding_from_context()
+    if origin:
+        payload["skill_origin"] = {"run_id": origin["run_id"], "session_id": get_current_session_id_from_context()}
     if isinstance(row, KnowledgeSourceDocument):
         payload["md5"] = row.md5
     job = Job(

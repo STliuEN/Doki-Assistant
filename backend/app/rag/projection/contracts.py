@@ -39,6 +39,10 @@ class QueryConfig(BaseModel):
     bm25: bool = True
     notes: bool = True
     rerank: bool = True
+    hyde_model: str = Field(default="qwen3:0.6b", min_length=1, max_length=128)
+    hyde_model_digest: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
+    reranker_model: str = Field(default="qwen3-reranker-4b", pattern="^(qwen3-reranker-(4b|0\\.6b)|bge-reranker-v2-m3)$")
+    reranker_model_digest: str | None = Field(default=None, pattern="^[a-f0-9]{64}$")
     source_ids: list[str] = Field(default_factory=list, max_length=200)
 
 

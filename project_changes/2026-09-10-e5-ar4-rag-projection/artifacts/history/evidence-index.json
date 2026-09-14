@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-14T06:02:20.814314+00:00",
+  "code_commit": "aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5",
+  "stage_status": "待验证",
+  "private_inputs": [
+    {
+      "path": ".runtime/e5-20260914/closure-utf8-branches.json",
+      "sha256": "1b3ddbfdb24387d4c3926554b3d1073e46fa85b012605a2cb639bf814936e455",
+      "bytes": 41694,
+      "status": "verified-live",
+      "scope": "Correct UTF-8 branch smoke only"
+    },
+    {
+      "path": ".runtime/e5-20260914/closure-inventory.json",
+      "sha256": "69b21a63c5f7a67e80f28d7b6291e2aca724cd6132fced18aa43c3f534642e2b",
+      "bytes": 26750,
+      "status": "verified-live",
+      "scope": "Initial SQL inventory, no model calls"
+    },
+    {
+      "path": ".runtime/e5-20260914/closure-inventory-final.json",
+      "sha256": "d37e4105aad4197db1f41181b092ae27158e39c961d7821580a98a31622bd014",
+      "bytes": 26782,
+      "status": "verified-live",
+      "scope": "Final script revision inventory and aggregate verdict"
+    },
+    {
+      "path": ".runtime/e5-20260914/verify-closure-executed.py",
+      "sha256": "e239fa504557555bb4763d92458bf58810c7e5c0c4a37599484e54fa7800c536",
+      "bytes": 10823,
+      "status": "retained",
+      "scope": "Exact source used for the live branch run"
+    },
+    {
+      "path": ".runtime/e5-20260914/restore-rehearsal.json",
+      "sha256": "ff95ca848c0e9b93f427e59dac00b7fed87301232628a5cfef6428a551a473d5",
+      "bytes": 1791,
+      "status": "historical-verified-live",
+      "scope": "Post-schema SQL restore report"
+    },
+    {
+      "path": ".runtime/e5-20260914/target-e5-schema-before-consumer.sql",
+      "sha256": "30aa9eada7a60285859bb4191792bb4acf199211bd38ecade401fd7d4fa20d18",
+      "bytes": 2512967,
+      "status": "valid-post-schema-backup",
+      "scope": "Binary backup before consumer; not before migration"
+    },
+    {
+      "path": ".runtime/e5-20260914/target-before-e5.sql",
+      "sha256": "2b8d386b248fc0f3d536b340d4f4d1b668f85669e58b5974bf3d07b00e56f01b",
+      "bytes": 2510505,
+      "status": "invalid-backup",
+      "scope": "PowerShell text pipeline destroyed line structure; do not restore"
+    },
+    {
+      "path": ".runtime/e5-20260914/preflight-target-e5.json",
+      "sha256": "659f8f2d9259049592f782d5037ceaba1ff9252da53e6e81efa6f6ac3279e8f8",
+      "bytes": 1783,
+      "status": "not-valid-for-e5-write-launch",
+      "scope": "Reused expired E4 preflight context"
+    },
+    {
+      "path": ".runtime/e5-20260914/e5-vector-bm25-hyde.json",
+      "sha256": "dd3d28f551d2bd55021389f848ece39d59d975458e58460c178a329765e3be90",
+      "bytes": 4196,
+      "status": "superseded-invalid-input",
+      "scope": "Recorded query is question marks; not Chinese retrieval acceptance"
+    },
+    {
+      "path": ".runtime/e5-20260914/e5-reranker.json",
+      "sha256": "8300bdc55b3fbb485bbfa4fdffe3f6e56ebe0a6dd253a1be96cdc0b75dd8ff4c",
+      "bytes": 2914,
+      "status": "superseded-invalid-input",
+      "scope": "Recorded query is question marks; not Chinese retrieval acceptance"
+    }
+  ],
+  "public_artifacts": [
+    {
+      "path": "branch-smoke-20260914.json",
+      "sha256": "07b2688b9f791acd81d8d4f4f50e32d62b3092354334fddfd95adf2f60522ef4",
+      "bytes": 15555
+    },
+    {
+      "path": "checks.json",
+      "sha256": "4a1f0007c487e6ce01a0cdd73301890a8bb6e824107b9619902a1b0ae9877e78",
+      "bytes": 1146
+    },
+    {
+      "path": "closure-review.json",
+      "sha256": "67530436e1ea72c80531e73de9ddd2369bbdf3da9170597798b3a4a3afb7b4ce",
+      "bytes": 1660
+    },
+    {
+      "path": "restore-rehearsal.json",
+      "sha256": "c67263906f12b3171a7ba565eced328e8da2f4f8a3320c6e97a0bff5d118f831",
+      "bytes": 1949
+    },
+    {
+      "path": "runtime-inventory-20260914.json",
+      "sha256": "f7793104cbf181f65d6c31d79fa66b264682b1d22137384e051d4355b3dbad5f",
+      "bytes": 9512
+    }
+  ],
+  "reviewed_code": [
+    {
+      "path": "backend/ops/e5/verify_closure.py",
+      "sha256": "6ab6c6685bbc33ab85984a955c9c638fa2008975cf606de7c84a77955a7aaf83"
+    },
+    {
+      "path": "backend/app/rag/projection/query.py",
+      "sha256": "5de8392586ccfd31d9c3e6cdce266366947ba99d1fd4318db74dede730360abe"
+    },
+    {
+      "path": "backend/app/rag/projection/query_branches.py",
+      "sha256": "a73365830a9f7cc1dea34f30f6c32835a42344ed05e99416463a23d90a52e38c"
+    },
+    {
+      "path": "backend/app/rag/projection/service.py",
+      "sha256": "dc538ccbf31a043a667ba543d8bea815469eb9da3193d9e182d672dc7472451f"
+    },
+    {
+      "path": "backend/app/core/failed_response_register.py",
+      "sha256": "69cf6d08747e7298d21cb22aa36dee0ea96b3ba2e3fb1281ac603539402bb020"
+    },
+    {
+      "path": "backend/app/agent/tools/rag_summary/tool.py",
+      "sha256": "b291fed81ac7d071463d66c0ea284c8fa744a178a5e8a1fad9e12c4e43b12eaa"
+    },
+    {
+      "path": "backend/app/router/knowledge_router.py",
+      "sha256": "27afe8b180dbe111de4a15f0822581fbd859dad39758e02a2163e2a12f3f86ed"
+    },
+    {
+      "path": "front/src/pages/KnowledgeBase.tsx",
+      "sha256": "c0ae2b4008359e0543ab7bcde84203ef5dfa9649fd913bd6754f05ba7805a05f"
+    }
+  ],
+  "redaction": "Explicit allowlist export; no credentials, source bodies, source titles, token records, or SQL dumps copied.",
+  "historical_regression": {
+    "backend_passed": 514,
+    "frontend_passed": 28,
+    "frontend_build": "passed",
+    "rerun_in_this_document_review": false,
+    "raw_logs_in_public_archive": false,
+    "caveat": "Historical execution reports only; one runner failure preceded isolated/full retry; frontend precedes final backend branch changes."
+  }
+}

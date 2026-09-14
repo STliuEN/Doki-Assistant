@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "scope": "E6/E7 preparation only",
+  "date": "2026-09-14",
+  "checks": [
+    {
+      "command": "./scripts/check-docs.ps1",
+      "exit_code": 0,
+      "output": "Markdown checks passed: 208 files, 262 local links."
+    },
+    {
+      "command": "backend/.venv/Scripts/ruff.exe check backend/ops/e6_e7",
+      "exit_code": 0,
+      "output": "All checks passed!"
+    },
+    {
+      "command": "git -c core.autocrlf=false diff --check",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "command": "pytest (10 named preparation baseline files)",
+      "exit_code": 0,
+      "passed": 105,
+      "seconds": 20.23,
+      "evidence": "baseline-tests.json"
+    },
+    {
+      "command": "prepare.py (original and explicit archived-baseline replay)",
+      "exit_code": 0,
+      "evidence": [
+        "preparation.json",
+        "preparation-recheck.json"
+      ]
+    }
+  ],
+  "limits": "Existing tests and read-only observations; no new business schema/migration/grant/media live acceptance."
+}

@@ -1,16 +1,18 @@
 # E5/AR-4/S4 SQL 原文与 Chroma RAG projection
 
 - 日期：2026-09-10
-- 状态：执行批次完成，关闭验收待补充
+- 状态：已关闭（2026-09-14）
 - 负责人：Codex
 - 审阅/批准人：用户
 - 用户确认：Q1-Q7 已全部确认；Q1/Q2 按建议，Q3 选择全量迁移且不考虑旧访问性，Q4-Q7 全部按建议执行。2026-09-14 开始实施。
 
 ## 1. 当前结论与范围
 
-E4 已于 2026-09-10 经用户批准关闭，关闭证据为 [e4-closure-20260910.json](../2026-09-02-e4-ar3-business-migration/artifacts/e4-closure-20260910.json)。本轮发现主计划、蓝图和交接手册仍停留在 E4 实施中，已依据该记录同步为 E4 已关闭、E5 待你确认。
+2026-09-14 最终判定：`已关闭`。按用户“执行剩下所有的缺口直到最终的e5执行判定”的持续授权，C1–C6 与 V01–V09 全部补齐。后端 529、前端 29 项通过，真实模型质量/时延、SQL 恢复→全新 Chroma、schema/故障/进程生命周期和浏览器验收通过。8 条来源由用户在测试后确认；冻结标签及阈值未改变。没有豁免技术门槛。
 
-E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-26.md)的阶段概要。本文件补充实施顺序、依赖、故障合同、验收证据和未决设计。Q1-Q3 已确认，按用户隔离 generation、区分索引/查询配置，并从 canonical SQL 执行首次全量重建，迁移期间不维持旧 RAG 访问。尚未回答的执行分支保留待决，设计确认不作为已实现事实。
+原目标再次通过先备份、即时 preflight、进程锁进行两用户全量重建；57/11 与 0/0 chunks，4 active/0 staging，52 FK 无孤儿。new-api 未重启、连接/权限未变，无 MySQL 全局只读或全库锁。历史 Ollama 拒连、备份/preflight 等偏差原样保留，当前结论见 [closure-review.md](./closure-review.md)。E6 未启动。
+
+本文件是 E5 已确认的实施与验收合同。Q1–Q7 均已确认：按用户隔离 generation、区分索引/查询配置，从 canonical SQL 全量重建；首次及日常重建期间不维持旧 RAG 访问。设计确认不作为已实现事实。下述准备期观察保留历史时间边界，当前结果以执行记录、测试矩阵和收口复核为准。
 
 - 目标：SQL 保存原文、业务 metadata、声明式配置、generation 指针和任务状态；Chroma 承载可从 SQL 重建的知识与笔记检索投影。
 - 复用：E2 SQL UoW/job/单并发 runner、E3 canonical 身份与审计、E4 canonical 业务写入与投影任务。
@@ -19,7 +21,7 @@ E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-
 - 单机、低并发、一个 MySQL 业务库、runner 并发 1；不增加第二套向量后端或 SQL 向量 BLOB。
 - 用户已要求全部 E 阶段结束验收后统一清理中间材料。本阶段保存旧输入、恢复材料和历史证据；运行期新建投影的回收合同见下文，不能把它扩大解释为旧目录删除许可。
 
-## 2. 入口与事实基线
+## 2. 入口与事实基线（2026-09-10 准备期历史）
 
 | 项目 | 事实或要求 | 本轮判定 |
 |---|---|---|
@@ -33,7 +35,7 @@ E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-
 
 历史证据来源：[E4 计划](../2026-09-02-e4-ar3-business-migration/plan.md)、[E4 运行说明](../../backend/ops/e4/README.md)。E4 的许可、短时 preflight 和进程状态不能自动成为 E5 实施参数。
 
-## 3. 审查发现
+## 3. 准备期审查发现（当前差额见收口复核）
 
 | ID | 严重性 | 发现与影响 | 处理 |
 |---|---|---|---|
@@ -60,7 +62,7 @@ E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-
 | [KnowledgeBase.tsx](../../front/src/pages/KnowledgeBase.tsx) 第 228 行；[api.ts](../../front/src/types/api.ts) 第 273 行 | embedding switch 仍读取同步重建统计并提示成功 | 对齐异步 job 和 active/desired 配置状态 |
 | [test_e2_primitives.py](../../backend/tests/test_e2_primitives.py) 第 156 行；[test_job_runner.py](../../backend/tests/test_job_runner.py) 第 218 行 | generation 与 coroutine lease-loss 的合成测试 | 补真实在途 Chroma 写入、构建中源变更及重启清理测试 |
 
-准备状态：执行批次已完成；Q1-Q7 已确认。实际结果、偏差和未完成验收项见 [execution-record.md](./execution-record.md)。
+当前状态：全量投影、补充实现与全部验收已完成，E5 已关闭；Q1–Q7 与来源核定已确认。实际结果和历史偏差见 [execution-record.md](./execution-record.md) 及 [closure-review.md](./closure-review.md)。
 
 ## 4. Grilling 决策树
 
@@ -74,7 +76,7 @@ E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-
 | Q2 配置变更的重建条件 | 解析/切片/embedding 触发重建；top-k/查询 filter/HyDE/rerank 更新 SQL 查询配置版本 | 已确认：按建议 | 索引/查询配置版本分离；查询缓存依新版本失效 |
 | Q3 首次迁移的查询行为 | 从 SQL 全量重建，迁移期间停用旧 RAG；相关查询返回结构化 degraded/503，校验完成后开放新索引 | 已确认：用户选择全量迁移、不考虑旧访问性 | 无旧 RAG 连续服务或自动回退要求；失败保持不可用并修复/重试 |
 
-第二轮前沿：
+第二轮已确认：
 
 | 问题 | 建议 | 状态 | 依赖与影响 |
 |---|---|---|---|
@@ -83,11 +85,11 @@ E5 原先只有[交接手册](../../docs/architecture-execution-handoff-2026-08-
 | Q6 文档失败处置 | 任一纳入范围的文档解析/embedding 失败则阻断该用户激活；已批准 excluded 项继续排除 | 已确认：按建议 | 失败记录、重试；禁止部分索引伪装为完整成功 |
 | Q7 日常索引重建可用性 | 后续切片/embedding 重建也采用期间 503、成功后恢复；仅查询配置即时生效 | 已确认：按建议 | 统一停用/恢复合同；查询配置变化不触发重建 |
 
-模型缓存与 E4 模型证据继续只读核验；核验结果将用于提出真实 embedding/reranker 验收参数，不要求用户提供可自行查得的事实。后续分支只围绕实际未决项展开，不重复 Q1-Q3。分支收束后提交具体执行清单，实施结束提交一次关闭验收；批次检查点不新增人工确认。
+2026-09-14 已核验实际 embedding/HyDE 模型 digest 及完整 reranker 权重摘要，见测试记录。用户已要求执行收口，无需重复 Q1–Q7 或执行授权；目前阻止关闭的是技术与证据缺口。
 
-## 5. 拟定实施合同
+## 5. 已确认实施合同
 
-Q1-Q7 对应规则已确认；首次全量迁移覆盖各 canonical 用户当前 SQL 中全部未排除的知识原文和笔记，旧 Chroma 的完整性或可用性不作为输入前提。E5 consumer 仅在 E5-01 的资源、备份、停写和恢复 gate 通过后启用。
+Q1-Q7 对应规则已确认；首次全量迁移覆盖各 canonical 用户当前 SQL 中全部未排除的知识原文和笔记，旧 Chroma 的完整性或可用性不作为输入前提。约定 E5 consumer 仅在 E5-01 的资源、备份、停写和恢复 gate 通过后启用；本次实际存在备份先后顺序和 preflight 偏差，已登记于收口复核，不追认为该 gate 通过。
 
 1. **配置和向量空间**：SQL 分开保存索引与查询配置的 revision/digest。每用户/index_kind 独立 generation 和 collection，user_id 校验不可省略。解析、切片、embedding 变化触发重建；top-k、查询过滤、HyDE、rerank 变化只更新查询版本与相关缓存，不触发重新 embedding。影响入库内容或切片集合的过滤属于索引配置。embedding fingerprint 至少覆盖实际 provider/model revision、dimension、归一化及相关预处理；模型别名、可变目录名或 base URL 不能单独充当内容指纹。凭据不写入公开 manifest。
 2. **可重建输入**：以 canonical SQL owner/source ID、原始 bytes/text、metadata、revision/content digest 和配置快照形成 manifest。chunk ID 可确定性重算；解析/切片版本和计数可对账。损坏/缺失原文不能以旧 Chroma 的内容补齐并伪装成功。
@@ -118,7 +120,7 @@ Q1-Q7 对应规则已确认；首次全量迁移覆盖各 canonical 用户当前
 
 每批开始前关联代码文件、预期 schema/配置变更、证据 ID、影响和回滚点。未准备的脚本或命令必须先实现并在隔离环境验证，不能把拟定命令当成可执行交付。
 
-## 7. 执行环境与恢复准备
+## 7. 执行环境与恢复合同
 
 实施前按顺序完成：
 
@@ -133,7 +135,7 @@ Q1-Q7 对应规则已确认；首次全量迁移覆盖各 canonical 用户当前
 
 不得直接切回 E4 已冻结的 source，它没有 target 切流后新增事实。E4 部分运行入口位于 Git 忽略的 `.runtime/e4/`；E5 必须把所需的可复现入口和参数规范放到受版本控制的位置，秘密与实际备份仍留私有目录。
 
-### 7.1 已核实工具与启动前检查
+### 7.1 准备期已核实工具与启动前检查（历史，非当前运行状态）
 
 | 项目 | 本轮只读观察 | 使用约束 |
 |---|---|---|
@@ -170,24 +172,27 @@ git diff --check
 
 ## 8. 验收门槛
 
-- [ ] canonical 原文、配置、job、generation 和 audit 全部可由 SQL 追溯；不写向量 BLOB。
-- [ ] source/chunk manifest、数量、digest、embedding dimension/fingerprint 对账通过；无未解释差异。
-- [ ] 跨用户、已删除/不可授权 source、过期 attempt 的激活或清理成功次数为零。
-- [ ] 重复/乱序、取消、租约过期、kill/restart、长任务 heartbeat、SQL/Chroma 分裂提交全部通过。
-- [ ] 正常向量、HyDE、BM25、笔记与 rerank、用户声明式配置和当前生效版本通过真实 E2E。
-- [ ] 首次全量迁移覆盖所有纳入范围的 SQL 原文/笔记；迁移与失败重试期间 RAG 503，无旧 Chroma 或 retriever cache 访问旁路；新索引验收通过才重新开放。
-- [ ] 每用户/index_kind 独立 generation；仅查询参数变化不提交索引重建任务；索引配置变化能生成新的 staging 和可追溯 manifest。
-- [ ] 损坏/权限/版本不兼容/collection 缺失/进程重启故障均有真实证据；RAG 503，核心认证/会话可用。
-- [ ] 从 SQL 原文和配置在全新 Chroma 工作区恢复成功；不依赖旧向量或 sidecar。
-- [ ] 成功切换后的运行期旧 generation 已回收，清理失败可重试且不损坏新 active；受保护输入摘要不变。
-- [ ] 前端不把 accepted/queued 当作 indexed；刷新后状态可恢复，错误和进度与 SQL 一致。
-- [ ] 检索质量样本及阈值在实际测试前冻结；报告命中、漏检、隔离负例、延迟和重建时间，不用 offline 路由分数代替检索质量。
-- [ ] 后端相关测试/完整回归、Ruff、前端测试/build、文档和 diff 门禁通过；单平台、真实模型和替身边界写清。
-- [ ] 用户审阅证据并明确批准关闭 E5。
+以下复合条件已依据完整证据勾选；分项及真实依赖/替身边界见 [test-record.md](./test-record.md) V01–V09，C1–C6 关闭依据见收口复核。原未通过版本保留在 artifacts/history。
 
-## 9. 当前未完成
+- [x] canonical 原文、配置、job、generation 和 audit 全部可由 SQL 追溯；不写向量 BLOB。
+- [x] source/chunk manifest、数量、digest、embedding dimension/fingerprint 对账通过；无未解释差异。
+- [x] 跨用户、已删除/不可授权 source、过期 attempt 的激活或清理成功次数为零。
+- [x] 重复/乱序、取消、租约过期、kill/restart、长任务 heartbeat、SQL/Chroma 分裂提交全部通过。
+- [x] 正常向量、HyDE、BM25、笔记与 rerank、用户声明式配置和当前生效版本通过真实 E2E。
+- [x] 首次全量迁移覆盖所有纳入范围的 SQL 原文/笔记；迁移与失败重试期间 RAG 503，无旧 Chroma 或 retriever cache 访问旁路；新索引验收通过才重新开放。
+- [x] 每用户/index_kind 独立 generation；仅查询参数变化不提交索引重建任务；索引配置变化能生成新的 staging 和可追溯 manifest。
+- [x] 损坏/权限/版本不兼容/collection 缺失/进程重启故障均有真实证据；RAG 503，核心认证/会话可用。
+- [x] 从 SQL 原文和配置在全新 Chroma 工作区恢复成功；不依赖旧向量或 sidecar。
+- [x] 成功切换后的运行期旧 generation 已回收，清理失败可重试且不损坏新 active；受保护输入摘要不变。
+- [x] 前端不把 accepted/queued 当作 indexed；刷新后状态可恢复，错误和进度与 SQL 一致。
+- [x] 检索质量样本及阈值在实际测试前冻结；报告命中、漏检、隔离负例、延迟和重建时间，不用 offline 路由分数代替检索质量。
+- [x] 后端相关测试/完整回归、Ruff、前端测试/build、文档和 diff 门禁通过；单平台、真实模型和替身边界写清。
+- [x] 用户已明确要求执行 E5 收口；技术判定单独记录，不能推定用户已豁免本节未通过项。
 
-- Q1-Q7 已全部按建议确认；Q4 按主机边界修正为 E5 应用层范围 gate，不使用全局 SQL 只读。Q5 要求知识和笔记全部成功后一起开放，Q6 要求任一纳入范围文档失败即阻断，Q7 要求日常索引重建期间同样返回 503。
-- 本轮已完成 SQL additive migration、独立恢复演练、真实 Ollama embedding、隔离 Chroma consumer、运行期回收和必要 API/UI 修正。
-- 真实 reranker、HyDE 和 BM25 分支已补充 live 证据；关闭前保留用户审阅门槛。
-- 准备阶段检查和历史证据见 [test-record.md](./test-record.md)，文档变更见 [change-log.md](./change-log.md)。
+## 9. 最终结论与保留限制
+
+E5 阻塞清单为空，E5-01–09 已完成，阶段已关闭。Q1–Q7、全量迁移不保旧访问、应用层用户范围写 gate、知识/笔记成组开放和重建 503 合同保持。
+
+HyDE 为 7/8，Q4 漏检保留，仍达冻结阈值；其余分支和独立 BM25 为 8/8。来源人工确认在测试后，不称盲测；样本 p95 不代表总体性能。原目标 6 个历史 enrichment dead-letter 留存。完整 main/Redis/MCP、生产部署和后续删除属于各自后续阶段，本次未启动 E6。
+
+历史坏备份、过期 preflight、前序失败资源删除和乱码查询保留追溯；新证据不追认历史顺序。见 [closure-review.md](./closure-review.md)、[test-record.md](./test-record.md) 和 [change-log.md](./change-log.md)。

@@ -1,0 +1,43 @@
+{
+  "checks": [
+    {
+      "case": "long build heartbeat",
+      "passed": true,
+      "before": {
+        "status": "building",
+        "job_id": "f250c5f2-375f-4b92-8c74-4c3088ad37b3",
+        "lease": "2026-09-14 07:11:12",
+        "fence": 1
+      },
+      "after": {
+        "status": "building",
+        "job_id": "f250c5f2-375f-4b92-8c74-4c3088ad37b3",
+        "lease": "2026-09-14 07:11:23",
+        "fence": 1
+      }
+    },
+    {
+      "case": "second process rejected by SQL lock",
+      "passed": true
+    },
+    {
+      "case": "kill restart and fenced reclaim",
+      "passed": true,
+      "job": "f250c5f2-375f-4b92-8c74-4c3088ad37b3",
+      "before_fence": 1,
+      "after_fence": 2,
+      "cleanup": "deleted",
+      "seconds": 22.25
+    },
+    {
+      "case": "cancelled queued job reconciles to failed",
+      "passed": true
+    }
+  ],
+  "paused": {
+    "pid": 48428,
+    "generation": "ab347ce5-2d2e-4c67-aede-eae9b731252b",
+    "collection": "e5_knowledge_ab347ce52d2e4c67aedeeae9b731252b"
+  },
+  "passed": true
+}

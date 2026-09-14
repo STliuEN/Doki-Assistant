@@ -1,0 +1,38 @@
+# E5 执行记录
+
+- 执行/复核日期：2026-09-14；代码基线：`aa3adf4`。
+- 阶段状态：`阻塞`。首批全量投影完成；修复后的最终 live 复验因 Ollama connection refused 中止，关闭复核未通过。用户已要求执行收口，剩余项是技术要求/外部依赖，不是缺少执行授权。
+- 结果与差额：[收口复核](./closure-review.md)、[测试记录](./test-record.md)、[证据索引](./artifacts/evidence-index.json)。
+
+## 实际落地
+
+| 项目 | 结果 |
+|---|---|
+| SQL 目标 | `doki-e4-20260903-mysql`，`127.0.0.1:33427/doki_e4`，专用应用账号；schema `20260914_0009_e5_rag_runtime`，41 表 |
+| SQL 身份 | server UUID `0c0d3e33-a743-11f1-af41-ea47e0ceb469`；精确容器身份见归档证据 |
+| Chroma | `.runtime/e5-20260914/chroma-live`；与旧 Chroma 分离，4 个 active collection |
+| 内容用户 | `2e2c05f2-d031-527e-b463-93c9f0cccbfa`，6 份知识原文/7 条笔记，57/11 chunks；SQL ready |
+| 空用户 | `f4aff4a5-2f5a-535a-825f-b6a906d9cd12`，0/0 chunks；SQL ready，查询正常空结果 |
+| 任务/回收 | 3 个知识/笔记投影 job succeeded，queued 0；6 个历史 enrichment dead-letter 留存。2 个旧空 generation 已标记 retired/deleted；重启清理闭环尚未验收 |
+| Embedding | 本机 Ollama `qwen3-embedding:0.6b`，1024 维；digest `ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d` |
+| HyDE / reranker | Ollama `qwen3:0.6b` / 完整缓存 `Qwen/Qwen3-Reranker-4B`，实际 CUDA 推理；模型及权重摘要见归档 |
+
+## 恢复与执行偏差
+
+有效二进制备份为私有文件 `.runtime/e5-20260914/target-e5-schema-before-consumer.sql`，2,512,967 bytes，1675 个换行，SHA-256 `30aa9eada7a60285859bb4191792bb4acf199211bd38ecade401fd7d4fa20d18`。在独立、无网络/无映射端口的 `doki-e5-restore-6b23c620` 恢复，41 张表数量和数据摘要相同：`99fe8b6a601c065fc4f8a6c56a4f03884dc7ba6182103827f6b81ce6bcb84c00`。公开摘要见 [restore-rehearsal.json](./artifacts/restore-rehearsal.json)。
+
+该备份在 additive schema 升级后才生成。更早的 `target-before-e5.sql` 因 PowerShell 文本管道破坏格式而无效，保留但禁止使用。恢复测试没有继续从恢复库向全新 Chroma 重建，不能当作整个恢复合同通过。
+
+先前复用的 E4 preflight 已过期；真实消费虽使用 E5 target 和隔离 Chroma，但没有形成新的 E5 preflight/进程锁证据。当前只读核验不能追认过去的启动 gate。早期失败恢复容器/卷已有删除偏差，详见收口复核；本次未继续清理。
+
+## 本次验收复核
+
+修复后的专项回归 41 项通过，Ruff 和前端生产构建通过。修复后的真实 target 复验在访问 `127.0.0.1:11434/api/tags` 时收到 connection refused，退出码 1；没有消费任务、写入数据库或重启 Ollama。该失败阻止当前代码的真实分支、C5 和后续 C6 live 判定。
+
+上一轮以 UTF-8 文件中的 `计算机技术专业的课程有哪些？` 固定输入补跑真实分支，vector/BM25/HyDE/rerank/combined 均 ready、5 hits；空用户 ready、0 hits。6/6 smoke 通过；单次耗时分别 8.938、2.406、4.562、29.954、102.640、0.687 秒。该计时对应修复前脚本，且包括当次依赖/加载开销，不是当前代码的最终 live 证据或稳态性能基线。
+
+旧两份分支 JSON 实际输入为 `?? ?? ??`，撤回其中文检索验收效力。新证据验证调用与基本返回合同，未冻结相关性标签或质量/性能阈值，不能宣称质量验收通过。局部 API/UI 修正也没有完成刷新恢复、配置版本生效和浏览器 E2E。
+
+历史本地回归为后端 514 passed、前端 28 passed/build passed；本轮修复后的 E5 专项回归为 41 passed，前端生产 build passed。它们不覆盖当前真实依赖不可用时的 C5/C6 live 门槛；测试的真实依赖/替身边界及本次检查见测试记录。
+
+本次核验前后 SQL 清单相同，目标 `read_only=0`、`super_read_only=0`。`new-api` 始终 running，容器身份、启动时间及 restart count=0 未变；没有停服务、锁库或改变其连接/权限。保留旧输入、E1–E4 材料与备份，E6 未启动。

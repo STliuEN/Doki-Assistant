@@ -1,0 +1,71 @@
+{
+  "owner": "4ecc33d8-d0f0-42fb-9dc4-6ca6e49f6896",
+  "checks": [
+    {
+      "case": "unauthenticated status",
+      "http": 401,
+      "passed": true
+    },
+    {
+      "case": "initial status",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "save query without rebuilding",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "upload accepted",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "queued status",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "chat building 503",
+      "http": 503,
+      "passed": true
+    },
+    {
+      "case": "note search building 503",
+      "http": 503,
+      "passed": true
+    },
+    {
+      "case": "chunks building 503",
+      "http": 503,
+      "passed": true
+    },
+    {
+      "case": "core API available /user/detail/",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "core API available /knowledge/list",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "core API available /note/list",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "original available while building",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "case": "index mutation rejected while building",
+      "http": 409,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

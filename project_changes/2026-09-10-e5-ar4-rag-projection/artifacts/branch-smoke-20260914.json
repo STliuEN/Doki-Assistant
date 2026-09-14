@@ -1,0 +1,428 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-14T05:44:36.520798+00:00",
+  "completed_at": "2026-09-14T05:47:29.091127+00:00",
+  "code_commit": "aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5",
+  "script_sha256": "e239fa504557555bb4763d92458bf58810c7e5c0c4a37599484e54fa7800c536",
+  "frozen_query": "计算机技术专业的课程有哪些？",
+  "query_sha256": "e5c3bd7aaf4362a352593357a91b21ae8b73f89719f44709890ac1b06bdf95c6",
+  "frozen_cases": [
+    {
+      "name": "vector",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": false,
+        "rerank": false
+      }
+    },
+    {
+      "name": "bm25",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": false,
+        "rerank": false
+      }
+    },
+    {
+      "name": "hyde",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": true,
+        "rerank": false
+      }
+    },
+    {
+      "name": "rerank",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": false,
+        "rerank": true
+      }
+    },
+    {
+      "name": "combined",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": true,
+        "rerank": true
+      }
+    },
+    {
+      "name": "empty_owner",
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": false,
+        "rerank": false
+      }
+    }
+  ],
+  "criteria": "Branch smoke only: finite scores, <=5 hits, correct source owner/generation. No relevance or latency threshold.",
+  "cases": [
+    {
+      "name": "vector",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": false,
+        "rerank": false
+      },
+      "status": "ready",
+      "hit_count": 5,
+      "generations": {
+        "knowledge": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "notes": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52"
+      },
+      "hits": [
+        {
+          "chunk_id": "d48e0b7ecad3560faaf6c22e24162aefd3fb4130fcd8529a7d84dbe54ac5360b",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 0.5293510442314321,
+          "text_sha256": "014b14436a00bc9b4c89638eb52828878827c28f8f5ac5511606b6ac807b42e5"
+        },
+        {
+          "chunk_id": "20ff1266c1af92fef38e1828752abfe5811b1936fbf07809ad062606f1333820",
+          "source_id": "dadb6bbb-00b6-4f7e-838b-98d83b888319",
+          "kind": "notes",
+          "score": 0.5224252763513793,
+          "text_sha256": "e9759d419846c83f771db529b994ee9ab6cad0cd3cd8a83036b7c4d57724c393"
+        },
+        {
+          "chunk_id": "0822c4470f59bd10f014c318518fd920082c6bbfdc47dd3680c84c623e7e75b4",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 0.5209748927306105,
+          "text_sha256": "6c713d8abeb1783bfbf6db715b69225c451948ff769a2df450e7cdf64686fdd4"
+        },
+        {
+          "chunk_id": "205b7743f17694cf133ff63a68a07858a261170ea91b4abff81453e7a5be838a",
+          "source_id": "c9173af4-3984-48f4-b66e-6e5376c3d9c1",
+          "kind": "notes",
+          "score": 0.5188615031833786,
+          "text_sha256": "21c7d31616dcbedc46ee7b52dfcb808151c788b52a10e8c3c64bab20bf549d94"
+        },
+        {
+          "chunk_id": "6841fdd2e10cc17da4bea014454f6933c4c36a03f285591a201a0ec48b2ac1ad",
+          "source_id": "4f382f78-3a5e-455f-b5a9-8362ceece726",
+          "kind": "knowledge",
+          "score": 0.5099844346863255,
+          "text_sha256": "ae0049628fd511a106028b3f149b5d65d54ab5248f8b1a61c9494120a6e300e5"
+        }
+      ],
+      "smoke_passed": true,
+      "elapsed_seconds": 8.938
+    },
+    {
+      "name": "bm25",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": false,
+        "rerank": false
+      },
+      "status": "ready",
+      "hit_count": 5,
+      "generations": {
+        "knowledge": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "notes": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52"
+      },
+      "hits": [
+        {
+          "chunk_id": "20ff1266c1af92fef38e1828752abfe5811b1936fbf07809ad062606f1333820",
+          "source_id": "dadb6bbb-00b6-4f7e-838b-98d83b888319",
+          "kind": "notes",
+          "score": 0.6656976934459655,
+          "text_sha256": "e9759d419846c83f771db529b994ee9ab6cad0cd3cd8a83036b7c4d57724c393"
+        },
+        {
+          "chunk_id": "0822c4470f59bd10f014c318518fd920082c6bbfdc47dd3680c84c623e7e75b4",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 0.6576932797896099,
+          "text_sha256": "6c713d8abeb1783bfbf6db715b69225c451948ff769a2df450e7cdf64686fdd4"
+        },
+        {
+          "chunk_id": "6841fdd2e10cc17da4bea014454f6933c4c36a03f285591a201a0ec48b2ac1ad",
+          "source_id": "4f382f78-3a5e-455f-b5a9-8362ceece726",
+          "kind": "knowledge",
+          "score": 0.650567832926362,
+          "text_sha256": "ae0049628fd511a106028b3f149b5d65d54ab5248f8b1a61c9494120a6e300e5"
+        },
+        {
+          "chunk_id": "25c44127bed6a9116d289fd56c3f4779cba256580fa04c099927c7becf5f87f0",
+          "source_id": "dadb6bbb-00b6-4f7e-838b-98d83b888319",
+          "kind": "notes",
+          "score": 0.6357652106632281,
+          "text_sha256": "e2d138b75c7f235c415d0e8a334733cfac79b739c56c211738570686f25fcf4e"
+        },
+        {
+          "chunk_id": "205b7743f17694cf133ff63a68a07858a261170ea91b4abff81453e7a5be838a",
+          "source_id": "c9173af4-3984-48f4-b66e-6e5376c3d9c1",
+          "kind": "notes",
+          "score": 0.6111649315603946,
+          "text_sha256": "21c7d31616dcbedc46ee7b52dfcb808151c788b52a10e8c3c64bab20bf549d94"
+        }
+      ],
+      "smoke_passed": true,
+      "elapsed_seconds": 2.406
+    },
+    {
+      "name": "hyde",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": true,
+        "rerank": false
+      },
+      "status": "ready",
+      "hit_count": 5,
+      "generations": {
+        "knowledge": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "notes": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52"
+      },
+      "hits": [
+        {
+          "chunk_id": "d48e0b7ecad3560faaf6c22e24162aefd3fb4130fcd8529a7d84dbe54ac5360b",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 0.5338936816467682,
+          "text_sha256": "014b14436a00bc9b4c89638eb52828878827c28f8f5ac5511606b6ac807b42e5"
+        },
+        {
+          "chunk_id": "20ff1266c1af92fef38e1828752abfe5811b1936fbf07809ad062606f1333820",
+          "source_id": "dadb6bbb-00b6-4f7e-838b-98d83b888319",
+          "kind": "notes",
+          "score": 0.52837671108455,
+          "text_sha256": "e9759d419846c83f771db529b994ee9ab6cad0cd3cd8a83036b7c4d57724c393"
+        },
+        {
+          "chunk_id": "0822c4470f59bd10f014c318518fd920082c6bbfdc47dd3680c84c623e7e75b4",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 0.5280989933795364,
+          "text_sha256": "6c713d8abeb1783bfbf6db715b69225c451948ff769a2df450e7cdf64686fdd4"
+        },
+        {
+          "chunk_id": "205b7743f17694cf133ff63a68a07858a261170ea91b4abff81453e7a5be838a",
+          "source_id": "c9173af4-3984-48f4-b66e-6e5376c3d9c1",
+          "kind": "notes",
+          "score": 0.5221399163839963,
+          "text_sha256": "21c7d31616dcbedc46ee7b52dfcb808151c788b52a10e8c3c64bab20bf549d94"
+        },
+        {
+          "chunk_id": "6841fdd2e10cc17da4bea014454f6933c4c36a03f285591a201a0ec48b2ac1ad",
+          "source_id": "4f382f78-3a5e-455f-b5a9-8362ceece726",
+          "kind": "knowledge",
+          "score": 0.5169821695370307,
+          "text_sha256": "ae0049628fd511a106028b3f149b5d65d54ab5248f8b1a61c9494120a6e300e5"
+        }
+      ],
+      "smoke_passed": true,
+      "elapsed_seconds": 4.562
+    },
+    {
+      "name": "rerank",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": false,
+        "hyde": false,
+        "rerank": true
+      },
+      "status": "ready",
+      "hit_count": 5,
+      "generations": {
+        "knowledge": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "notes": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52"
+      },
+      "hits": [
+        {
+          "chunk_id": "0b33a9454a993fe12b4b350868cd9736364ed1a64fd7b6301c6136140e2b5a7f",
+          "source_id": "4f382f78-3a5e-455f-b5a9-8362ceece726",
+          "kind": "knowledge",
+          "score": 2.4375,
+          "text_sha256": "2a070ec6ff17c07c8d006621424eab7f204dfea81cb6cf819d40ebc1e5cadebc"
+        },
+        {
+          "chunk_id": "58fee3cb00a2c0c4830eb54156933e6beae9d0946a530e8d3b97c73b42f5a23e",
+          "source_id": "152f42fb-875e-4af3-a3bf-4e3908344630",
+          "kind": "knowledge",
+          "score": 2.375,
+          "text_sha256": "8987f38a54df34e92914049700fc28b91f9e86635fccbc555cbb515825af3d1c"
+        },
+        {
+          "chunk_id": "0822c4470f59bd10f014c318518fd920082c6bbfdc47dd3680c84c623e7e75b4",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 2.1875,
+          "text_sha256": "6c713d8abeb1783bfbf6db715b69225c451948ff769a2df450e7cdf64686fdd4"
+        },
+        {
+          "chunk_id": "79023bbb969948a234b9534eb250f25f9ab1405a01c836603a68c789e04119f3",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 1.8125,
+          "text_sha256": "20c4447496d9bc85544f9c8f8bb4fb0c0a27b5877a4ab6bb295e214ed42b87a8"
+        },
+        {
+          "chunk_id": "d48e0b7ecad3560faaf6c22e24162aefd3fb4130fcd8529a7d84dbe54ac5360b",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 1.75,
+          "text_sha256": "014b14436a00bc9b4c89638eb52828878827c28f8f5ac5511606b6ac807b42e5"
+        }
+      ],
+      "smoke_passed": true,
+      "elapsed_seconds": 29.954
+    },
+    {
+      "name": "combined",
+      "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": true,
+        "rerank": true
+      },
+      "status": "ready",
+      "hit_count": 5,
+      "generations": {
+        "knowledge": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "notes": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52"
+      },
+      "hits": [
+        {
+          "chunk_id": "2b4a8971e4778ff906781f7ce4bb95c0c5e9f04898b24e00203425678fb9fe94",
+          "source_id": "c1a5cd2f-4fa7-4bac-b422-c2a28b494970",
+          "kind": "notes",
+          "score": 3.625,
+          "text_sha256": "8048db6679529b75067b4b63df76f7b305569b95f8d027f52c9bcce0733bdafb"
+        },
+        {
+          "chunk_id": "205b7743f17694cf133ff63a68a07858a261170ea91b4abff81453e7a5be838a",
+          "source_id": "c9173af4-3984-48f4-b66e-6e5376c3d9c1",
+          "kind": "notes",
+          "score": 3.625,
+          "text_sha256": "21c7d31616dcbedc46ee7b52dfcb808151c788b52a10e8c3c64bab20bf549d94"
+        },
+        {
+          "chunk_id": "58fee3cb00a2c0c4830eb54156933e6beae9d0946a530e8d3b97c73b42f5a23e",
+          "source_id": "152f42fb-875e-4af3-a3bf-4e3908344630",
+          "kind": "knowledge",
+          "score": 2.375,
+          "text_sha256": "8987f38a54df34e92914049700fc28b91f9e86635fccbc555cbb515825af3d1c"
+        },
+        {
+          "chunk_id": "20ff1266c1af92fef38e1828752abfe5811b1936fbf07809ad062606f1333820",
+          "source_id": "dadb6bbb-00b6-4f7e-838b-98d83b888319",
+          "kind": "notes",
+          "score": 2.0625,
+          "text_sha256": "e9759d419846c83f771db529b994ee9ab6cad0cd3cd8a83036b7c4d57724c393"
+        },
+        {
+          "chunk_id": "79023bbb969948a234b9534eb250f25f9ab1405a01c836603a68c789e04119f3",
+          "source_id": "488b62a4-fa82-4e3e-8ca6-ab73e888fe68",
+          "kind": "knowledge",
+          "score": 1.8125,
+          "text_sha256": "20c4447496d9bc85544f9c8f8bb4fb0c0a27b5877a4ab6bb295e214ed42b87a8"
+        }
+      ],
+      "smoke_passed": true,
+      "elapsed_seconds": 102.64
+    },
+    {
+      "name": "empty_owner",
+      "owner": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+      "config": {
+        "top_k": 5,
+        "bm25": true,
+        "hyde": false,
+        "rerank": false
+      },
+      "status": "ready",
+      "hit_count": 0,
+      "generations": {
+        "knowledge": "4fc2132f-60bd-4976-9f6e-fabe5a789a8e",
+        "notes": "a07f810e-21b5-43ef-8116-b2e39b9f620f"
+      },
+      "hits": [],
+      "smoke_passed": true,
+      "elapsed_seconds": 0.687
+    }
+  ],
+  "reranker": {
+    "model": "Qwen/Qwen3-Reranker-4B",
+    "configured_device": "auto",
+    "files": [
+      {
+        "name": "model-00001-of-00002.safetensors",
+        "bytes": 4058781760,
+        "sha256": "cf2e87cbf71fa628961532232e04dd6c19702a0a057f5e2aff95ea1aca4fd488"
+      },
+      {
+        "name": "model-00002-of-00002.safetensors",
+        "bytes": 3984833200,
+        "sha256": "78946d22b7f6456ea7a5358dbdf3982de36c5bac1f166a5fd58e18e31db8048a"
+      },
+      {
+        "name": "config.json",
+        "bytes": 727,
+        "sha256": "38bff5eac700032a185745e4076eccad7aa453473cafc2a27de412cdb7b79e19"
+      },
+      {
+        "name": "tokenizer.json",
+        "bytes": 11422654,
+        "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+      },
+      {
+        "name": "tokenizer_config.json",
+        "bytes": 9706,
+        "sha256": "253153d0738ceb4c668d2eff957714dd2bea0b56de772a9fdccd96cbf517e6a0"
+      },
+      {
+        "name": "modules.json",
+        "bytes": 280,
+        "sha256": "6f13b6b4a89e577b591b2077bca40c67c26541a6740a8809267cb474f90806a9"
+      },
+      {
+        "name": "1_LogitScore/config.json",
+        "bytes": 57,
+        "sha256": "73e3156450564d8a98b7e47bcf5aace0f29600828b51937da545571e84db3ff3"
+      }
+    ]
+  },
+  "sql_inventory_unchanged": true,
+  "new_api_unchanged": true,
+  "ollama_models": [
+    {
+      "name": "qwen3:0.6b",
+      "digest": "7df6b6e09427a769808717c0a93cadc4ae99ed4eb8bf5ca557c90846becea435"
+    },
+    {
+      "name": "qwen3-embedding:0.6b",
+      "digest": "ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d"
+    }
+  ],
+  "evidence_type": "verified-live-branch-smoke",
+  "limits": [
+    "One UTF-8 query; no relevance labels or quality/latency thresholds.",
+    "Direct query_user call with in-memory overrides; no HTTP authentication, persistent config, browser, or fault test.",
+    "No source document text exported. Reranker scores are logits, not probabilities.",
+    "The executed script was later formatted and given an aggregate verdict/nonzero failure exit; final revision verified with inventory-only."
+  ]
+}

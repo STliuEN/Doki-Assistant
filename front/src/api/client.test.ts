@@ -1,7 +1,7 @@
 import axios, { type AxiosAdapter } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import client from './client'
+import client, { restoreSession } from './client'
 import { useUserStore } from '../stores/useUserStore'
 
 const originalAdapter = client.defaults.adapter
@@ -68,5 +68,18 @@ describe('authentication response handling', () => {
       isLogin: false,
       userBio: '',
     })
+  })
+
+  it('restores a refreshed page from the cookie and authoritative profile once', async () => {
+    useUserStore.getState().logout()
+    const refresh = vi.spyOn(axios, 'post').mockResolvedValue({ data: { data: { token: 'restored' } } })
+    client.defaults.adapter = (async (config) => {
+      expect(config.headers.Authorization).toBe('Bearer restored')
+      return { data: { data: { id: 'owner', username: 'local' } }, status: 200, statusText: 'OK', headers: {}, config }
+    }) as AxiosAdapter
+    await Promise.all([restoreSession(), restoreSession()])
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(useUserStore.getState()).toMatchObject({ isLogin: true, token: 'restored', userInfo: { id: 'owner' } })
+    expect(localStorage.length).toBe(0)
   })
 })

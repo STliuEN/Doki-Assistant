@@ -1,0 +1,14 @@
+{
+  "tests": 105,
+  "failures_and_errors": 0,
+  "passed": true,
+  "duration_seconds_observed": 20.23,
+  "source": ".runtime/e6-e7-preparation-20260914/baseline-tests.xml",
+  "source_sha256": "7d0b91b456ba2fb225dd44b25a528eca28dfe90bad39a2c2165a07b78e377e50",
+  "scope": "Existing test suite characterization only; no E6/E7 live migration/authorization/media acceptance",
+  "environment": {
+    "ENV": "test",
+    "E5_RAG_ENABLED": "true",
+    "platform": "Windows"
+  }
+}

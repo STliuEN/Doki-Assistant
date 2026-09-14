@@ -1,7 +1,8 @@
 """Guarded application runner for E4 and the explicitly enabled E5 projection."""
 
+import asyncio
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
@@ -20,6 +21,9 @@ class E4RunnerRuntime:
     runner: SqlJobRunner
     engine: AsyncEngine
     guard: E4MigrationGuard
+    projection: object | None = None
+    _reconcile_stop: asyncio.Event = field(default_factory=asyncio.Event)
+    _reconcile_task: asyncio.Task | None = None
 
     async def start(self):
         async with self.engine.connect() as connection:
@@ -28,6 +32,19 @@ class E4RunnerRuntime:
             if tuple((await connection.execute(text("SELECT version_num FROM alembic_version"))).scalars()) != (expected,):
                 raise RuntimeError("runtime runner schema revision mismatch")
         await self.runner.start()
+        if self.projection is not None:
+            await asyncio.wait_for(self.runner.started.wait(), timeout=10)
+            if self.runner.snapshot.status != "running":
+                raise RuntimeError("E5 runner failed to acquire its SQL process lock")
+            self._reconcile_stop.clear()
+            self._reconcile_task = asyncio.create_task(self.projection.reconcile_until_stopped(self._reconcile_stop), name="e5-reconciler")
+
+    async def stop(self):
+        await self.runner.stop()
+        self._reconcile_stop.set()
+        if self._reconcile_task is not None:
+            await self._reconcile_task
+            self._reconcile_task = None
 
 
 def build_e4_runner(*, environ=None):
@@ -40,6 +57,7 @@ def build_e4_runner(*, environ=None):
     engine = create_async_engine(guard.database_url, pool_size=3, max_overflow=0, hide_parameters=True)
     factory = async_sessionmaker(engine, expire_on_commit=False, sync_session_class=BusinessSession)
     projector = None
+    e5_service = None
     if os.getenv("E5_RAG_ENABLED", "false").lower() in {"1", "true", "yes", "on"}:
         from app.rag.projection.service import E5ProjectionService
         e5_service = E5ProjectionService(factory)
@@ -56,4 +74,5 @@ def build_e4_runner(*, environ=None):
         ),
         engine,
         guard,
+        projection=e5_service,
     )

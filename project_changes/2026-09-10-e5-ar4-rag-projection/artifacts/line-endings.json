@@ -1,0 +1,26 @@
+[
+  {
+    "path": "backend/app/core/background_init.py",
+    "before_sha256": "044436c2bb479e171c6b6f28ea53e35a921215ca76399a0360cecf631571a9ab",
+    "after_sha256": "aa8d8a20cb8f12a49a88cb5665868073ccaecf8de5e8cb9ff75de751a524903c",
+    "change": "CRLF to LF only; no content change"
+  },
+  {
+    "path": "front/src/api/client.ts",
+    "before_sha256": "b522b9bd2ada019bb27ff5c73dc1eb3982f69613cafbf742e149ae75db1b2a40",
+    "after_sha256": "550eb2b6e392a088353e9d7eef4c179b679b65de125cc8c499f0ce6258c4825b",
+    "change": "CRLF to LF only; no content change"
+  },
+  {
+    "path": "front/src/components/knowledge/DocumentDetailDrawer.tsx",
+    "before_sha256": "b4885abc0fada873030a02a276cb3ff64a41b5b7250141cb2cde09bc8e67f77e",
+    "after_sha256": "99a3f8b4c55029f4cd0bd3ee5b1184c086079577e123e349d26709a7e95384b9",
+    "change": "CRLF to LF only; no content change"
+  },
+  {
+    "path": "front/src/layouts/MainLayout.tsx",
+    "before_sha256": "52c0bbfeae690710360fa4af976f2da777d3c60010b154d8dd65f32a5d351c33",
+    "after_sha256": "c4a0f71d9bcd247c91a0f285fa46a9dfd6ec1db527fcf0f998af9c176b04267f",
+    "change": "CRLF to LF only; no content change"
+  }
+]

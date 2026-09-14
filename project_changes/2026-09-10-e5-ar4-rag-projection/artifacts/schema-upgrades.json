@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "database": "e5_empty",
+      "populated": false,
+      "revision": "20260914_0009_e5_rag_runtime",
+      "table_count": 41,
+      "existing_data_before": null,
+      "existing_data_after": null,
+      "passed": true
+    },
+    {
+      "database": "e5_populated",
+      "populated": true,
+      "revision": "20260914_0009_e5_rag_runtime",
+      "table_count": 41,
+      "existing_data_before": "f98a85085bc49c66cd00f06ec9e7417762fc82c77020420aac8cb4b5da0361fe",
+      "existing_data_after": "f98a85085bc49c66cd00f06ec9e7417762fc82c77020420aac8cb4b5da0361fe",
+      "passed": true
+    }
+  ],
+  "pre_e5_dump_sha256": "bbcf14de7d4024aadc523d5e923fd73de917ad25c5396cf77c31b6c0d66a1b75"
+}

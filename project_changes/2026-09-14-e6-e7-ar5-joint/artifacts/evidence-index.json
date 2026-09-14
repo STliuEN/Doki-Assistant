@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "stage": "E6+E7",
+  "scope": "preparation",
+  "status": "passed",
+  "recorded_at": "2026-09-14T09:04:55.235299+00:00",
+  "git_head": "aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5",
+  "working_tree": "Prior E5 uncommitted changes retained; this batch adds preparation tools/docs only",
+  "files": [
+    {
+      "path": "backend/ops/e6_e7/prepare.py",
+      "sha256": "866a82b1da63451a5f666cb1e75022bb33e2a33062f991fd98715f311e1bee11",
+      "bytes": 10484
+    },
+    {
+      "path": "backend/ops/e6_e7/README.md",
+      "sha256": "c3ff076299521ea3f51774dc57b1dab7df6f7acd61a3704a9aca53f8366f5813",
+      "bytes": 2390
+    },
+    {
+      "path": "docs/architecture-execution-handoff-2026-08-26.md",
+      "sha256": "66642e8cbf23797a5aa09d804b859f6b406f71a2b114579da1dc16d1f475b6c7",
+      "bytes": 22979
+    },
+    {
+      "path": "docs/architecture-target-blueprint-2026-08-26.md",
+      "sha256": "39a2db3a9a69700d2898f795d87d6de5f2b06a56a3ee809a3ed3c9f55809b3f6",
+      "bytes": 21630
+    },
+    {
+      "path": "docs/architecture_rewrite_plan.md",
+      "sha256": "13b59ccc9933d7d409a3da03d3ca689a82951e30f5c5d391ea243c2c765b757f",
+      "bytes": 13116
+    },
+    {
+      "path": "project_changes/2026-09-10-e5-ar4-rag-projection/artifacts/user-closure-confirmation-20260914.json",
+      "sha256": "2f99bcf97cc95b5ab02bee01347f755fece46a9442f8df2276c50066923ee824",
+      "bytes": 571
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/baseline-tests.json",
+      "sha256": "bcdb13a5d22b794633ad986e34b19902eff80121f667e203b46867724853c778",
+      "bytes": 485
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/checks.json",
+      "sha256": "484e046e20984e7f5bbecaaf1cd96b7df0343be4c9293995e89e8f7dbbe691e3",
+      "bytes": 1026
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/preparation-recheck.json",
+      "sha256": "bed8ace726342837f4aee667a969f6348f4d857c81d61dde91dca6f0bd340050",
+      "bytes": 6929
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/preparation.json",
+      "sha256": "58d902aa9d7716ee1dfb906851c826d7340cedc7a2741aabc5cf87f3f052cbde",
+      "bytes": 6810
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/readiness.json",
+      "sha256": "5072bab0a5ebca778ceabfb775b8821ec313a098c84de886328abd61a2725bd7",
+      "bytes": 976
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/stage-transition.json",
+      "sha256": "e8f93675eed5cf125a3848dda7afe0c7726c3bae0e8af0b003c4cfe2e19f768b",
+      "bytes": 1041
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/change-log.md",
+      "sha256": "2ceebbd99a665273d49a64080c37eb4593b672b0439cc7e650a578b461d3c6f6",
+      "bytes": 1363
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/contracts.md",
+      "sha256": "a9c4535be1811e70d31f4e71ba37f3c2c74b601993049d0c42201af47a6c8cb2",
+      "bytes": 6546
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/plan.md",
+      "sha256": "62d71466cb88c2bfc841b3987a41505ae3e043876dfcd2d6d2eb1206c89918d7",
+      "bytes": 9971
+    },
+    {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/test-record.md",
+      "sha256": "35e459307540ddc3f05f6e0cf380d2876516c5ff2c4a77b9d67a03889f95fda5",
+      "bytes": 2303
+    }
+  ],
+  "reviewed_source_files": [
+    {
+      "path": "backend/app/skills/storage.py",
+      "sha256": "4cac677cc50fb4ca94b568d79f73fac74b95a8573e3fd4e29c5829c89d3ae1d5",
+      "bytes": 16973
+    },
+    {
+      "path": "backend/app/skills/package.py",
+      "sha256": "fba78bf1c560d0857496502cdc469fedf90bafbaaba751855b3acc45fd86fb35",
+      "bytes": 30535
+    },
+    {
+      "path": "backend/app/skills/service.py",
+      "sha256": "20aebb668f00e9edd8387e8336146e69220b6f9422a7d2fc8f29803a7fc71b63",
+      "bytes": 68949
+    },
+    {
+      "path": "backend/app/skills/seed.py",
+      "sha256": "f5dc7c9a7a9ce0e2299d6a9100de9ff48b3996c0a73268c1efaa561eb3b4ff8d",
+      "bytes": 9184
+    },
+    {
+      "path": "backend/app/skills/resource_tools.py",
+      "sha256": "16d73c2df8d6a9d85a4335e931caf025bc3caa01ac8df4195e11550bd94e935f",
+      "bytes": 3611
+    },
+    {
+      "path": "backend/app/models/skill_domain.py",
+      "sha256": "e1c064088a6007429bae52ad4515cc1088623513475b6904cf7939cd049d243d",
+      "bytes": 17731
+    },
+    {
+      "path": "backend/app/models/projection_domain.py",
+      "sha256": "eb8b1ed09f32a2e94d090f219bd70c9685d03383cf493593a1e23540c82be5c0",
+      "bytes": 6702
+    },
+    {
+      "path": "backend/app/models/e4_migration.py",
+      "sha256": "56851c86571e8e24852580e7d5980bbb10c56b5bb9c4986e0e8c9bbc22059984",
+      "bytes": 8955
+    },
+    {
+      "path": "backend/app/auth/authorization.py",
+      "sha256": "194b553873a569bbe39f8af4d41d17e5796ee7599e6a6e37e63b6ec90e4b01e6",
+      "bytes": 11673
+    },
+    {
+      "path": "backend/app/services/agent_run_service.py",
+      "sha256": "518cf601d59d66bb766c926724f3a6047d23bffe0ea2978c3bb9286a428de9b1",
+      "bytes": 10174
+    },
+    {
+      "path": "backend/app/services/confirmation_service.py",
+      "sha256": "d030a69dad26c4901d5560ef021381124db1cbb96bd52d8a9a65c5b7e105c6af",
+      "bytes": 5976
+    },
+    {
+      "path": "backend/app/agent/tool_guard.py",
+      "sha256": "3437e5e9b6ca7c626e2fdc3d915c29675393ed22d67b7b2a061890c92a1e1a77",
+      "bytes": 12875
+    },
+    {
+      "path": "backend/app/router/skill_router.py",
+      "sha256": "763723e67cf3dde3d77b602aca05fa0d1b05e465c311fe97d612a3071e99603c",
+      "bytes": 14694
+    },
+    {
+      "path": "backend/app/router/knowledge_router.py",
+      "sha256": "31185392d0f1de969df473a5b2eb9d7ed1b275cf4bb930a0f916a7c57f911b4a",
+      "bytes": 22504
+    },
+    {
+      "path": "backend/app/router/knowledge_service.py",
+      "sha256": "ac3079e13a9cd2dcd3f4b1227ed8db11dc77f5eade0c75d6ff8a9ab94ca2dcd8",
+      "bytes": 33001
+    },
+    {
+      "path": "backend/app/router/note_router.py",
+      "sha256": "d74f15b30204f0b4128290dd79b7bcfbad16ba37b4cb01562d3a6820a35930ae",
+      "bytes": 15756
+    },
+    {
+      "path": "backend/app/router/chat.py",
+      "sha256": "ffae94c42d86302c9338ab0e6745b2b625e99850c1356b1fd1b2c044fa205240",
+      "bytes": 12283
+    },
+    {
+      "path": "backend/app/db/business_authority.py",
+      "sha256": "8cdc06887c7dc0e70cca743437d72c0c2f1c3775230d263abcfdf4435c6df3ad",
+      "bytes": 17075
+    },
+    {
+      "path": "backend/app/e2/skill.py",
+      "sha256": "bcb642d3e1aa594b62480ac03bc835fd055835fe138c817587f116e0743351ba",
+      "bytes": 5711
+    },
+    {
+      "path": "backend/tests/test_skill_package.py",
+      "sha256": "9f7dce048eb070574eaa0b327cf672ef4e72642da0b5b2e3d9338a1141d8afbe",
+      "bytes": 9783
+    },
+    {
+      "path": "backend/tests/test_skill_storage.py",
+      "sha256": "9f909a00c6dd029b521019feb8c75e24dc76be6f9bfb9b18fefd7415544f3aaf",
+      "bytes": 5275
+    },
+    {
+      "path": "backend/tests/test_skill_service_transactions.py",
+      "sha256": "3a0a82ced1137af27996e22c5482eff3655fafd4fb80b390fbe9f9437967fc87",
+      "bytes": 29659
+    },
+    {
+      "path": "backend/tests/test_skill_tool_authorization.py",
+      "sha256": "d703440f3e86cfe9ba130ea46f7fed512340aaddf04916239170a30778c32359",
+      "bytes": 2511
+    },
+    {
+      "path": "backend/tests/test_skill_router_containment.py",
+      "sha256": "5f9e7d919882a4a946b1d32361b4823a26122622a8a21cc0f1e3c479dad8f16d",
+      "bytes": 3197
+    },
+    {
+      "path": "backend/tests/test_no_legacy_skill_runtime.py",
+      "sha256": "f39f1b721fd489633e7f889c186a68d9f7c2444790975b0f7e5569effd45e2ee",
+      "bytes": 927
+    },
+    {
+      "path": "backend/tests/test_seed_manifest.py",
+      "sha256": "ec865064f60e948f44cd3fe4ebc501833ce18a5c09404b93de8a8de661fee814",
+      "bytes": 3649
+    },
+    {
+      "path": "backend/tests/test_confirmation_service.py",
+      "sha256": "0abf551d15c8eb4d91720dff5028cec80cec1ddc7d2e2e488066642156453459",
+      "bytes": 9709
+    },
+    {
+      "path": "backend/tests/test_agent_run_service.py",
+      "sha256": "c86f0ff7e0318abf01ad31dceb33e2e2c9094de93cb9ed30ae4c2e39028c9057",
+      "bytes": 11759
+    },
+    {
+      "path": "backend/tests/test_knowledge_image_paths.py",
+      "sha256": "204c9355b2ce0ba0acde2980214a238d04a22f1d0d54d0c04697c95a6de6d3d7",
+      "bytes": 4458
+    }
+  ],
+  "private_baseline_receipts": [
+    {
+      "path": ".runtime/e6-e7-preparation-20260914/e5-sealed-inputs.zip",
+      "sha256": "8febb924ee34ed43e92b1d03d3562fad528618f2d3e7cfb22d2feac2cb0fa7c3",
+      "bytes": 2507289
+    },
+    {
+      "path": ".runtime/e6-e7-preparation-20260914/baseline-tests.xml",
+      "sha256": "7d0b91b456ba2fb225dd44b25a528eca28dfe90bad39a2c2165a07b78e377e50",
+      "bytes": 14827
+    }
+  ],
+  "stage_closure_claim": false
+}

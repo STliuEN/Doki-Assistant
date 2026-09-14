@@ -119,7 +119,8 @@ class SkillPackageUpload(Base):
     )
 
     id = Column(UUID_TYPE, primary_key=True, default=_uuid)
-    package_id = Column(UUID_TYPE, ForeignKey("skill_packages.id", ondelete="RESTRICT"), nullable=False)
+    package_id = Column(UUID_TYPE, ForeignKey("skill_packages.id", ondelete="RESTRICT"), nullable=True)
+    source_kind = Column(ascii_string(32), nullable=False, default="upload", server_default="upload")
     request_archive_digest = Column(DIGEST_TYPE, nullable=False)
     original_size_bytes = Column(BigInteger, nullable=False)
     media_type = Column(ascii_string(128), nullable=False, default="application/zip", server_default="application/zip")

@@ -19,6 +19,8 @@ export default function DocumentDetailDrawer({ filename, onClose }: DocumentDeta
   const [detail, setDetail] = useState<KnowledgeDocumentDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [chunksLoading, setChunksLoading] = useState(false)
+  const [chunksError, setChunksError] = useState(false)
 
   useEffect(() => {
     if (!filename) {
@@ -28,11 +30,26 @@ export default function DocumentDetailDrawer({ filename, onClose }: DocumentDeta
     setLoading(true)
     setError(false)
     setTab('content')
+    let active = true
     knowledgeApi.detail(filename)
-      .then((res) => setDetail(res.data))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+      .then((res) => { if (active) setDetail(res.data) })
+      .catch(() => { if (active) setError(true) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [filename])
+
+  useEffect(() => {
+    if (!filename || tab !== 'chunks') return
+    let active = true
+    setChunksLoading(true)
+    setChunksError(false)
+    void knowledgeApi.chunks(filename).then(response => {
+      if (active && response.data) setDetail(previous => previous && ({ ...previous, chunk_count: response.data.total_chunks,
+        chunks: response.data.chunks.map(chunk => ({ ...chunk, page: chunk.metadata.page ?? 0, images: chunk.images ?? [] })) }))
+    }).catch(() => { if (active) setChunksError(true) })
+      .finally(() => { if (active) setChunksLoading(false) })
+    return () => { active = false }
+  }, [filename, tab])
 
   return (
     <Dialog.Root open={!!filename} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -73,14 +90,14 @@ export default function DocumentDetailDrawer({ filename, onClose }: DocumentDeta
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
-            {loading ? (
+            {loading || (tab === 'chunks' && chunksLoading) ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 size={24} className="animate-spin text-[var(--color-text-tertiary)]" />
               </div>
-            ) : error ? (
+            ) : error || (tab === 'chunks' && chunksError) ? (
               <div className="flex flex-col items-center justify-center py-20 text-[var(--color-text-tertiary)] gap-2">
                 <AlertCircle size={20} />
-                <span className="text-sm">{t('common.error')}</span>
+                <span className="text-sm">{chunksError && tab === 'chunks' ? '索引构建中或暂不可用，请稍后重试' : t('common.error')}</span>
               </div>
             ) : !detail ? null : tab === 'content' ? (
               <div className="space-y-6">

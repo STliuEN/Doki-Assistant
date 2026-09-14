@@ -1,0 +1,97 @@
+# E5 测试与迁移证据
+
+状态：阻塞；2026-09-14 修复后收口复核因 Ollama connection refused 未通过。技术差额见 [closure-review.md](./closure-review.md)，执行授权已收到。
+
+## 环境与证据边界
+
+- 准备前基线：`a2d7381`；本次收口代码基线：`aa3adf4` (`e5执行收口`)。准备期 P01–P06 及早期 L01–L08 保留为历史观察，不表示当前运行状态。
+- 当前真实依赖：Windows、venv Python 3.12、target MySQL `127.0.0.1:33427/doki_e4`、Chroma 1.5.9 独立目录、本机 Ollama、缓存 Qwen3-Reranker-4B/CUDA。
+- 本次新增只读 SQL 清单与 UTF-8 真实分支 smoke、文档复核；没有运行 consumer、迁移或故障注入，也没有启动浏览器验收。历史迁移确已执行，不能再写成“E5 尚未开始”。
+- 公开归档仅保留标识符、分数、摘要、数量与模型指纹；凭据、源正文和实际备份保留私有目录。见[证据索引](./artifacts/evidence-index.json)。
+
+## 准备证据（历史）
+
+| ID | 环境/版本 | 拓扑 | 证据类型 | 命令 | 阈值 | 实际结果 | 结果/处置 | 日志/文件 | owner | approver | 状态 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| E5-P01 | Git HEAD a2d7381 | 本地仓库 | 静态/历史对照 | git status --short; git log -5; 读取 E4 closure 与主文档（分别执行） | 关闭记录可追溯、基线明确 | 工作树准备前干净；E4 closure 明确 closed/follow_on_stages not_activated；主文档仍写实施中 | passed；本轮同步状态 | ../2026-09-02-e4-ar3-business-migration/artifacts/e4-closure-20260910.json；本轮 diff | Codex | 用户待审阅 | verified-local |
+| E5-P02 | 仓库文件 | 无运行依赖 | 静态审查 | rg / Get-Content | 目标、实现、测试、环境和未决设计分开记录 | plan.md 记录审查与任务；首次审查时 Q1-Q3 待答复，后续确认见 E5-P05 | passed；不代表实现完成 | plan.md | Codex | 用户待审阅 | verified-local |
+| E5-P03 | Markdown / Git | 本地仓库 | 文档检查 | ./scripts/check-docs.ps1；git -c core.autocrlf=false diff --check；rg 检查新增文档行尾空格（分别执行） | 本地链接和代码围栏有效、diff 无错误 | 199 Markdown 文件 / 205 本地链接通过；diff 检查 exit 0；新增文档无行尾空格 | passed；首次发现交接手册新增行的 Markdown 行尾双空格，已修正并复跑通过 | scripts/check-docs.ps1 输出；本轮 diff | Codex | 用户待审阅 | verified-local |
+| E5-P04 | Python 3.12.3 / uv 0.8.17 / Chroma 1.5.9 | 本地工具与 Docker/端口元数据 | 只读环境观察 | venv python -I -S --version、uv --version、importlib.metadata、Get-Command、Docker 元数据与监听端口检查 | 明确运行工具来源和当前依赖状态 | venv 和锁定包元数据可用；E4 target/restore/Redis Exited (255)，应用与 Ollama 无监听 | passed；runtime/模型推理仍未验证 | plan.md 第 7.1 节 | Codex（独立只读核验） | 用户待审阅 | verified-local |
+| E5-P05 | 2026-09-10 会话答复/文档 | 无运行依赖 | 决策与文档对照 | 对照用户 Q1-Q3 答复及主文档；运行 ./scripts/check-docs.ps1、git -c core.autocrlf=false diff --check 及新增文档行尾空格检查 | 已回答项不再标待答复；日常可用性/停写等未回答项不推定 | Q1/Q2 按建议，Q3 首次全量迁移不保旧访问；Q4-Q7 待答复；199 文件/205 链接通过，diff exit 0，无新增行尾空格 | passed；只验证文档和已收到的决策，不代表迁移完成 | plan.md 第 4 节与本轮 diff | Codex | 用户已确认 Q1-Q3 | verified-local |
+| E5-P06 | 2026-09-14 会话答复/文档 | 无运行依赖 | 决策与文档对照 | 对照用户 Q1-Q7 答复及本计划；运行文档/diff 检查 | Q1-Q7 已明确，计划进入实施中，未把设计决策当作代码证据 | Q1-Q7 全部按建议确认；Q4 停写，Q5 成组开放，Q6 失败阻断，Q7 重建 503 | passed；实施授权已收到，代码和真实依赖尚未验证 | plan.md 第 4 节与本轮 diff | Codex | 用户已确认 Q1-Q7 | verified-local |
+
+## 实施证据矩阵
+
+| ID | 对应任务 | 环境 | 必须证明 | 阈值 | 当前状态 |
+|---|---|---|---|---|---|
+| E5-V01 | E5-01/02 | 真实 MySQL 独立恢复目标 | 身份、备份、空库与 populated migration、FK/唯一 active/revision | 差异/孤儿 FK 为零 | blocked：post-schema 41 表恢复对账通过；升级前备份/preflight、完整 schema/FK 演练不足，C6 |
+| E5-V02 | E5-03 | 合同测试 + 真实 Chroma | envelope、分数、用户隔离、SQL source 追溯 | 所有必需字段和隔离负例通过 | blocked：基本 ready/空结果 smoke 通过；全部候选 SQL 校验和全局 503 缺口，C1/C3 |
+| E5-V03 | E5-04/05 | SQL runner + 独立 Chroma | 乱序、source/config 漂移、删除、cancel、lease/fencing、kill/restart | 错误激活/越权/清理为零 | blocked：9 项局部测试包含部分负例；SQLite + 真 Chroma + 合成 embedding 不等于完整 MySQL 故障矩阵，C1/C2 |
+| E5-V04 | E5-04/05 | 真实故障注入 | 分裂提交、清理失败、在途查询/写入、heartbeat | 新 active 完整可恢复，过期任务不能污染 | not-run：缺真实进程 kill/restart/在途线程证据，C2 |
+| E5-V05 | E5-05/08 | 真实 Chroma 测试副本 | 损坏、权限、版本、缺 collection、重启、模型失败 | RAG 503；登录/会话正常 | blocked：adapter 局部缺 collection 测试已有；统一 E5 HTTP 合同与真实故障/核心业务矩阵未完成，C3 |
+| E5-V06 | E5-06/08 | 真实 embedding/reranker | 各分支质量、来源、隔离、时间 | 测试前冻结样本/阈值，负例零泄露 | blocked：UTF-8 分支 smoke 6/6，非质量验收；固定标签/阈值及确定性/性能缺口，C5 |
+| E5-V07 | E5-07 | API/SSE + 浏览器 | queued/active/failed、配置版本、刷新恢复、查询配置不重建 | UI/SQL 一致 | blocked：已修正 queued 提示；持久配置/状态闭环及浏览器 E2E 未完成，C4 |
+| E5-V08 | E5-08 | SQL 恢复库 + 全新 Chroma | 从恢复 SQL 全量重建、manifest 对账及幂等回收 | 无遗漏、无摘要差异、无旧 fallback | blocked：原 target 全量投影、SQL 恢复及两项回收分别已有证据；尚未串成恢复库重建和重启清理闭环，C2/C6 |
+| E5-V09 | E5-08/09 | 后端/前端回归 | 相关/全量测试、Ruff、前端 build、文档/diff | 检查全通过、限制明确 | verified-local：本次修复后专项 41 passed、Ruff、前端 build 和文档/diff 通过；不代表 V01–V08 通过 |
+
+矩阵状态针对整项门槛，部分真实子项通过仍保持 blocked/not-run。每条已执行子项的来源和限制在下文登记；fixture 成功不升级为 verified-live。负责人 Codex，收口授权为用户本轮指令；不存在对 C1–C6 的豁免记录。
+
+## 不能证明的内容
+
+- E4 的 502 项后端测试、28 项前端测试和本地 Ollama 矩阵不是 E5 的 Chroma/embedding/重建证据。
+- 既有 offline benchmark 的 smoke/regression 主要验证 scripted stream、路由和合同，不证明真实 RAG 质量。
+- 静态检查不能单独证明 runtime 可用；本次 live smoke 也不证明可再次无 guard 消费任务。
+- generation 表或 staging fixture 存在不证明业务路径已接入生命周期，也不证明旧 generation 已安全回收。
+- 当前 Redis 不可用会通过既有限流使部分 HTTP 请求返回 503；E5 的 Chroma 故障隔离测试需固定 Redis 健康基线，不能把这类 503 混记为 Chroma 造成的核心业务回归。移除 Redis 依赖仍属 E8。
+
+## 2026-09-14 早期本地实现检查（历史，不是本次重跑）
+
+| ID | Command / scope | Result | Status |
+|---|---|---|---|
+| E5-L01 | `backend/.venv` Ruff + compileall | All app/tests checks passed; Python modules compiled | verified-local |
+| E5-L02 | `ENV=test E5_RAG_ENABLED=true` import smoke | Required schema revision resolved to `20260914_0009_e5_rag_runtime`; E5 modules imported | verified-local |
+| E5-L03 | E5 contract tests | 5 passed: user scope gate, building block, manifest drift, global read-only SQL rejection | verified-local |
+| E5-L04 | E2/E4 regression with E5 disabled | 40 passed, including the E5 contract suite | verified-local |
+| E5-L05 | Live MySQL/Chroma/embedding/runner/UI E2E | Not connected, migrated, started, or consumed in this round | not-run |
+| E5-L06 | Frontend Vitest | 28 passed in 6 files | verified-local |
+| E5-L07 | Frontend TypeScript/Vite build | Production build passed | verified-local |
+| E5-L08 | Chroma HTTP containment regression | 15 passed; stable 503 contract preserved | verified-local |
+
+L05 的 not-run 只描述早期代码检查时点；后续实际迁移及模型调用见执行记录。L08 主要覆盖既有 Chroma 异常类，不能代替新 E5 异常在全部 HTTP 路径上的覆盖。
+
+后续历史记录补充：E5 projection 9 项 + query branches 3 项 + 既有 HTTP containment 15 项，合计 27 项（不能再与其中 9/3 项相加）。projection 使用临时 SQLite、真实 Chroma 和合成三维 embedding；HyDE/reranker 分支单测分别使用 HTTP/服务替身，BM25 使用真实库。历史后端全套最终 514 passed/1 warning；此前 `test_unknown_job_type_is_dead_lettered_and_counted` 失败过一次，隔离与全套重试通过。前端 28 项/build 发生在最后的后端分支增补前；compileall 没有全部最终变更后的单独留档。本次文档修改不重跑无关全套。
+
+## 本次真实核验与归档
+
+| ID | 操作/阈值 | 实际结果 | 状态/限制 |
+|---|---|---|---|
+| E5-R01 | 只读 inventory：精确 target ID/端口/UUID/database；前后 SQL 清单与 new-api 元数据一致 | 2 ready 用户、4 active/无 staging、57/11 及 0/0 chunks，queued 0；SQL/global flags 与 new-api 未变 | verified-live；非故障注入或整机性能测试 |
+| E5-R02 | UTF-8 query 固定；vector/BM25/HyDE/rerank/combined/empty_owner；ready、有限分数、top-k≤5、source owner/generation 正确 | 修复前脚本 6/6 通过；修复后脚本在 Ollama `/api/tags` connection refused，未进入 case | blocked-live；旧证据不能追认当前代码，输入 SHA-256 `e5c3bd7aaf4362a352593357a91b21ae8b73f89719f44709890ac1b06bdf95c6` |
+| E5-R03 | 复核历史有效 dump/restore 报告的 SHA-256、数量与摘要 | 41 表 counts 相等，target/restored digest 相同；dump 2,512,967 bytes/1675 换行 | verified-local（本次证据复核）；底层恢复是同日历史 live，未重跑、不代表恢复库重建 |
+| E5-R04 | 新只读脚本 Ruff、py_compile、最终 inventory-only 退出码；文档链接/围栏与 diff | 脚本检查和只读复验 exit 0；专项回归 41 passed、前端 build passed；文档/diff 结果见归档 checks.json | verified-local；修复代码已改，未修改 live SQL 状态 |
+
+| E5-R05 | 修复后的真实 live closure command | `closure-final-live.json` 在 Ollama `127.0.0.1:11434` connection refused 处退出 1；无 case、无 SQL/Chroma 写操作 | blocked-live；外部依赖不可用；不重启现有 Ollama |
+
+| 真实查询 case | hits | 单次耗时（秒） | 解释 |
+|---|---|---|---|
+| vector | 5 | 8.938 | Ollama embedding + 两类 active Chroma |
+| bm25 | 5 | 2.406 | 同一真实 corpus，0.7 vector + 0.3 归一化 BM25 |
+| hyde | 5 | 4.562 | 本机 `/api/generate` 生成后实际 embedding/检索 |
+| rerank | 5 | 29.954 | 实际 Qwen3-Reranker-4B/CUDA；分数为模型 logit，不是概率 |
+| combined | 5 | 102.640 | HyDE + BM25 + reranker；候选确定性/阻塞问题见 C5 |
+| empty_owner | 0 | 0.687 | 空库正常 ready，不伪装依赖失败 |
+
+计时含冷加载和当时缓存状态，未测 p95 或稳定吞吐。source/chunk 标识、分数与正文哈希保存在 [branch-smoke-20260914.json](./artifacts/branch-smoke-20260914.json)。未导出正文。旧乱码输入文件保留且在索引中标为 `superseded-invalid-input`，不能继续引用为中文质量通过。
+
+可复现命令（仓库根目录；详见 [E5 ops README](../../backend/ops/e5/README.md)）：
+
+```powershell
+& backend/.venv/Scripts/python.exe -X utf8 backend/ops/e5/verify_closure.py --output .runtime/e5-20260914/closure-utf8-branches.json
+& backend/.venv/Scripts/python.exe -X utf8 backend/ops/e5/verify_closure.py --inventory-only --output .runtime/e5-20260914/closure-inventory-final.json
+& backend/.venv/Scripts/python.exe -m ruff check backend/ops/e5/verify_closure.py
+& backend/.venv/Scripts/python.exe -m py_compile backend/ops/e5/verify_closure.py
+& ./scripts/check-docs.ps1
+git -c core.autocrlf=false diff --check
+```
+
+重跑时使用新的 `--output` 文件名保留历史。旧真实 branch run 使用修复前脚本；修复后真实 closure 在依赖检查处停止，因此旧 6/6 不能覆盖当前代码。当前修复代码的本地专项回归已通过；恢复 Ollama 后必须重新执行 live command，再更新 V01–V08 和最终判定。

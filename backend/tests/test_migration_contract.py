@@ -175,6 +175,12 @@ def test_skill_domain_migration_matches_model_contract() -> None:
     )
     historical_only_columns = {
         "skill_run_bindings": {"canonical_session_id", "canonical_user_id"},
+        # Added by the E6/E7 SQL authority revision after the original Skill
+        # domain migration. Keep this historical contract test anchored to
+        # the revision it is checking.
+        "skill_versions": {"package_id"},
+        "skill_imports": {"package_id", "upload_id"},
+        "skill_installations": {"authorization_grant_id"},
     }
     assert set(recorder.tables) == {model.__tablename__ for model in models}
 
@@ -253,16 +259,27 @@ def test_e2_foundation_migrations_match_model_contract_without_altering_legacy_t
         upgrade()
 
         assert set(recorder.tables) == {model.__tablename__ for model in models}
+        historical_only_columns = {"skill_package_uploads": {"source_kind"}}
+        historical_nullable_overrides = {"skill_package_uploads": {"package_id": False}}
         for model in models:
             elements = recorder.tables[model.__tablename__]
             migration_columns = {element.name: element for element in elements if isinstance(element, Column)}
-            assert set(migration_columns) == set(model.__table__.columns.keys())
+            expected_columns = set(model.__table__.columns.keys()) - historical_only_columns.get(model.__tablename__, set())
+            assert set(migration_columns) == expected_columns
             for name, model_column in model.__table__.columns.items():
-                assert migration_columns[name].nullable == model_column.nullable
+                if name in historical_only_columns.get(model.__tablename__, set()):
+                    continue
+                expected_nullable = historical_nullable_overrides.get(model.__tablename__, {}).get(name, model_column.nullable)
+                assert migration_columns[name].nullable == expected_nullable
 
             for constraint_type in (UniqueConstraint, CheckConstraint):
                 migration_names = {element.name for element in elements if isinstance(element, constraint_type) and element.name}
-                model_names = {element.name for element in model.__table__.constraints if isinstance(element, constraint_type) and element.name}
+                model_names = {
+                    element.name for element in model.__table__.constraints
+                    if isinstance(element, constraint_type) and element.name
+                }
+                if model is SkillPackageUpload and constraint_type is UniqueConstraint:
+                    model_names.discard("uq_skill_package_uploads_source_kind")
                 if model is User and constraint_type is UniqueConstraint:
                     model_names.remove("uq_users_username")
                 assert migration_names == model_names
@@ -361,7 +378,12 @@ def test_e4_revision_matches_shadow_columns_and_new_table_contract() -> None:
         migration_columns = {element.name for element in elements if isinstance(element, Column)}
         assert migration_columns == set(model.__table__.columns.keys())
         migration_unique = {element.name for element in elements if isinstance(element, UniqueConstraint) and element.name}
-        model_unique = {element.name for element in model.__table__.constraints if isinstance(element, UniqueConstraint) and element.name}
+        model_unique = {
+            element.name for element in model.__table__.constraints
+            if isinstance(element, UniqueConstraint) and element.name
+        }
+        if model is MediaAsset:
+            model_unique.discard("uq_media_assets_id_owner")
         assert migration_unique == model_unique
         migration_foreign_keys = {
             (

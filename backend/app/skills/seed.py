@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +118,10 @@ def build_seed_runtime_snapshot(*, storage: SkillPackageStorage | None = None):
 
 async def install_standard_skill_seeds(db: AsyncSession) -> int:
     """Install only missing seeds; never overwrite an existing managed Skill."""
+
+    if os.getenv("ENV", "dev").casefold() not in {"test", "testing"}:
+        # Production seeds enter through the explicit SQL migration/importer.
+        return 0
 
     installed = 0
     for seed in SEED_SKILL_MANIFEST:

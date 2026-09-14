@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from uuid import UUID
 
+from app.rag.projection.attempt_lock import attempt_lock
 from app.rag.projection.contracts import Chunk, Hit, ProjectionPort, ProjectionUnavailable
 from app.rag.projection.sources import digest
 from app.utils.config import chroma_config
@@ -44,12 +45,13 @@ class ChromaProjectionAdapter(ProjectionPort):
         if collection != self.locator(kind, generation):
             raise ProjectionUnavailable("chroma_locator_invalid")
         client = self._client()
-        metadata = {"e5_owner": owner, "e5_generation": generation, "e5_kind": kind}
+        metadata = {"e5_owner": owner, "e5_generation": generation, "e5_kind": kind, "e5_format": 1}
         if create:
             result = client.create_collection(collection, metadata=metadata, embedding_function=None)
         else:
             result = client.get_collection(collection, embedding_function=None)
-        if result.metadata != metadata:
+        legacy_metadata = {key: metadata[key] for key in ("e5_owner", "e5_generation", "e5_kind")}
+        if result.metadata not in (metadata, legacy_metadata):
             raise ProjectionUnavailable("chroma_scope_mismatch")
         return result
 
@@ -60,7 +62,7 @@ class ChromaProjectionAdapter(ProjectionPort):
                 "title": chunk.title, "page": chunk.page}
 
     async def build(self, *, collection, owner, generation, chunks, embedding):
-        def run():
+        def write():
             store = self._collection(collection, owner, generation, create=True)
             model = self.embedding_factory(embedding)
             for offset in range(0, len(chunks), 32):
@@ -76,6 +78,12 @@ class ChromaProjectionAdapter(ProjectionPort):
             return {"chunk_count": len(chunks), "ids_digest": digest(sorted(chunk.id for chunk in chunks)),
                     "dimension": embedding["dimension"], "embedding_config": embedding, "owner_id": owner,
                     "generation": generation}
+
+        def run():
+            with attempt_lock(self.persist_directory, collection) as tombstone:
+                if tombstone.exists():
+                    raise ProjectionUnavailable("chroma_attempt_retired")
+                return write()
         try:
             return await asyncio.to_thread(run)
         except ProjectionUnavailable:
@@ -146,11 +154,15 @@ class ChromaProjectionAdapter(ProjectionPort):
     async def delete(self, *, collection, owner, generation):
         def run():
             import chromadb.errors
-            try:
-                self._collection(collection, owner, generation)
-            except chromadb.errors.NotFoundError:
-                return
-            self._client().delete_collection(collection)
+            with attempt_lock(self.persist_directory, collection) as tombstone:
+                try:
+                    self._collection(collection, owner, generation)
+                except chromadb.errors.NotFoundError:
+                    tombstone.touch(exist_ok=True)
+                    return
+                self._client().delete_collection(collection)
+                # A cancelled thread that has not entered build yet cannot resurrect this locator.
+                tombstone.touch(exist_ok=True)
         try:
             await asyncio.to_thread(run)
         except ProjectionUnavailable:

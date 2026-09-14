@@ -159,6 +159,7 @@ class MediaAsset(Base):
         CheckConstraint("byte_size >= 0 AND byte_size <= 268435456", name="ck_media_assets_size"),
         CheckConstraint("status IN ('active', 'quarantined')", name="ck_media_assets_status"),
         UniqueConstraint("source_system", "source_id", name="uq_media_assets_source"),
+        UniqueConstraint("id", "canonical_user_id", name="uq_media_assets_id_owner"),
         UniqueConstraint("content_digest", "scope_type", "scope_id", name="uq_media_assets_content_scope"),
         Index("ix_media_assets_owner_created", "canonical_user_id", "created_at"),
         Index("ix_media_assets_batch", "migration_batch_id"),

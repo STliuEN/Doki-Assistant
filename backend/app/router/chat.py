@@ -17,7 +17,6 @@ from app.core.logger_handler import logger
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.db.db_config import get_db
-from app.rag.projection.contracts import ProjectionUnavailable
 from app.rag.vector_store import CHROMA_PROJECTION_UNAVAILABLE_MESSAGE
 from app.schemas.api import ApiResponse
 from app.schemas.models import (
@@ -210,10 +209,7 @@ async def query_rag(
     _: None = Depends(rate_limit(limit=15, window=60)),
 ):
     """RAG 检索。"""
-    try:
-        response = await router_service.handle_rag_query(request.query, user_id, db)
-    except ProjectionUnavailable as error:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=error.as_dict()) from error
+    response = await router_service.handle_rag_query(request.query, user_id, db)
     return success_response(data=RAGResponse(response=response))
 
 

@@ -238,6 +238,7 @@ export interface SSEMessage {
 }
 
 export interface KnowledgeSSEMessage {
+  documents?: { id: string; filename: string; status: string }[]
   schema_version?: '1.0'
   event_type: 'accepted' | 'start' | 'queued' | 'processing' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish'
   filename?: string
@@ -280,6 +281,40 @@ export interface EmbeddingSwitchResult {
   status?: 'queued' | 'building' | 'ready' | 'failed' | string
   job_ids?: string[]
   embedding: EmbeddingConfig
+}
+
+export interface RagQueryConfig {
+  schema_version: number
+  top_k: number
+  hyde: boolean
+  bm25: boolean
+  notes: boolean
+  rerank: boolean
+  source_ids: string[]
+  hyde_model: string
+  hyde_model_digest?: string | null
+  reranker_model: string
+  reranker_model_digest?: string | null
+}
+
+export interface RagIndexConfig {
+  schema_version: number
+  splitter: string
+  parser_version: string
+  chunk_size: number
+  chunk_overlap: number
+}
+
+export interface RagStatus {
+  status: 'uninitialized' | 'queued' | 'building' | 'ready' | 'failed'
+  revision: number
+  query_revision: number
+  job_id: string | null
+  job_status: string | null
+  error_code: string | null
+  index_config: RagIndexConfig
+  query_config: RagQueryConfig
+  generations: Record<string, { active: string | null; staging: string | null; chunks: number }>
 }
 
 export interface RerankerConfig {

@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-14T05:53:40.181772+00:00",
+  "completed_at": "2026-09-14T05:53:40.347200+00:00",
+  "code_commit": "aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5",
+  "script_sha256": "6ab6c6685bbc33ab85984a955c9c638fa2008975cf606de7c84a77955a7aaf83",
+  "new_api_before": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  },
+  "new_api_after": {
+    "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+    "started_at": "2026-09-13T23:07:05.767008989Z",
+    "restart_count": 0,
+    "status": "running"
+  },
+  "sql_inventory_unchanged": true,
+  "new_api_unchanged": true,
+  "verification_passed": true,
+  "target": {
+    "container": "doki-e4-20260903-mysql",
+    "container_id": "35efc06e8a3b377ace2d9ac7e99f9d78ceb8c9a7a73464cc23701413f1d37182",
+    "endpoint": "127.0.0.1:33427",
+    "database": "doki_e4",
+    "server_uuid": "0c0d3e33-a743-11f1-af41-ea47e0ceb469",
+    "chroma_directory": ".runtime/e5-20260914/chroma-live"
+  },
+  "inventory": {
+    "schema": [
+      {
+        "version_num": "20260914_0009_e5_rag_runtime"
+      }
+    ],
+    "source_counts": [
+      {
+        "kind": "knowledge",
+        "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+        "status": "indexed",
+        "n": 6
+      },
+      {
+        "kind": "notes",
+        "owner": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+        "status": "included",
+        "n": 7
+      }
+    ],
+    "states": [
+      {
+        "user_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+        "status": "ready",
+        "revision": 2,
+        "query_revision": 1,
+        "source_digest": "e9532e5ebdd4b376a62790abea895b619fcc19f08df47ac9f861e7a25a7f5e25",
+        "query_config": "{\"bm25\": true, \"hyde\": false, \"notes\": true, \"top_k\": 10, \"rerank\": true, \"source_ids\": [], \"schema_version\": 1}",
+        "index_config": "{\"splitter\": \"recursive\", \"chunk_size\": 1000, \"chunk_overlap\": 150, \"parser_version\": \"e5-v1\", \"schema_version\": 1}",
+        "job_id": null,
+        "error_code": null
+      },
+      {
+        "user_id": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+        "status": "ready",
+        "revision": 3,
+        "query_revision": 1,
+        "source_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "query_config": "{\"bm25\": true, \"hyde\": false, \"notes\": true, \"top_k\": 10, \"rerank\": true, \"source_ids\": [], \"schema_version\": 1}",
+        "index_config": "{\"splitter\": \"recursive\", \"chunk_size\": 1000, \"chunk_overlap\": 150, \"parser_version\": \"e5-v1\", \"schema_version\": 1}",
+        "job_id": null,
+        "error_code": null
+      }
+    ],
+    "heads": [
+      {
+        "owner_scope_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+        "index_kind": "knowledge",
+        "active_generation_id": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "staging_generation_id": null,
+        "revision": 3
+      },
+      {
+        "owner_scope_id": "2e2c05f2-d031-527e-b463-93c9f0cccbfa",
+        "index_kind": "notes",
+        "active_generation_id": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52",
+        "staging_generation_id": null,
+        "revision": 3
+      },
+      {
+        "owner_scope_id": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+        "index_kind": "knowledge",
+        "active_generation_id": "4fc2132f-60bd-4976-9f6e-fabe5a789a8e",
+        "staging_generation_id": null,
+        "revision": 5
+      },
+      {
+        "owner_scope_id": "f4aff4a5-2f5a-535a-825f-b6a906d9cd12",
+        "index_kind": "notes",
+        "active_generation_id": "a07f810e-21b5-43ef-8116-b2e39b9f620f",
+        "staging_generation_id": null,
+        "revision": 5
+      }
+    ],
+    "artifacts": [
+      {
+        "generation_id": "37c39665-3150-4087-9253-7e4c46a8d5aa",
+        "collection_name": "e5_knowledge_37c396653150408792537e4c46a8d5aa",
+        "chunk_count": 57,
+        "cleanup_status": "retained",
+        "manifest_digest": "e9532e5ebdd4b376a62790abea895b619fcc19f08df47ac9f861e7a25a7f5e25",
+        "embedding_config": "{\"base_url\": \"http://localhost:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      },
+      {
+        "generation_id": "4fc2132f-60bd-4976-9f6e-fabe5a789a8e",
+        "collection_name": "e5_knowledge_4fc2132f60bd49769f6efabe5a789a8e",
+        "chunk_count": 0,
+        "cleanup_status": "retained",
+        "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "embedding_config": "{\"base_url\": \"http://127.0.0.1:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      },
+      {
+        "generation_id": "580e9000-2b84-4995-80f9-d0a315ebb536",
+        "collection_name": "e5_knowledge_580e90002b84499580f9d0a315ebb536",
+        "chunk_count": 0,
+        "cleanup_status": "deleted",
+        "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "embedding_config": "{\"base_url\": \"http://127.0.0.1:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      },
+      {
+        "generation_id": "a07f810e-21b5-43ef-8116-b2e39b9f620f",
+        "collection_name": "e5_notes_a07f810e21b543ef8116b2e39b9f620f",
+        "chunk_count": 0,
+        "cleanup_status": "retained",
+        "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "embedding_config": "{\"base_url\": \"http://127.0.0.1:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      },
+      {
+        "generation_id": "d1908d76-fa0c-40a9-8811-6a71c2e5ff52",
+        "collection_name": "e5_notes_d1908d76fa0c40a988116a71c2e5ff52",
+        "chunk_count": 11,
+        "cleanup_status": "retained",
+        "manifest_digest": "e9532e5ebdd4b376a62790abea895b619fcc19f08df47ac9f861e7a25a7f5e25",
+        "embedding_config": "{\"base_url\": \"http://localhost:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      },
+      {
+        "generation_id": "ed322b13-67b3-41c5-9dbb-5e6908e4a21c",
+        "collection_name": "e5_notes_ed322b1367b341c59dbb5e6908e4a21c",
+        "chunk_count": 0,
+        "cleanup_status": "deleted",
+        "manifest_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "embedding_config": "{\"base_url\": \"http://127.0.0.1:11434\", \"provider\": \"ollama\", \"dimension\": 1024, \"model_name\": \"qwen3-embedding:0.6b\", \"model_type\": \"ollama\", \"model_digest\": \"ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d\", \"normalization\": \"provider_default\", \"preprocessing\": \"e5-text-v1\"}"
+      }
+    ],
+    "jobs": [
+      {
+        "job_type": "e4.embedding.rebuild",
+        "status": "cancelled",
+        "n": 3
+      },
+      {
+        "job_type": "e4.embedding.rebuild",
+        "status": "succeeded",
+        "n": 1
+      },
+      {
+        "job_type": "e4.knowledge.project",
+        "status": "cancelled",
+        "n": 8
+      },
+      {
+        "job_type": "e4.live.crash",
+        "status": "succeeded",
+        "n": 1
+      },
+      {
+        "job_type": "e4.note.enrich",
+        "status": "cancelled",
+        "n": 3
+      },
+      {
+        "job_type": "e4.note.enrich",
+        "status": "dead_letter",
+        "n": 6
+      },
+      {
+        "job_type": "e4.note.enrich",
+        "status": "succeeded",
+        "n": 8
+      },
+      {
+        "job_type": "e4.note.project",
+        "status": "cancelled",
+        "n": 40
+      },
+      {
+        "job_type": "e4.note.project",
+        "status": "succeeded",
+        "n": 2
+      }
+    ],
+    "global_flags_observed": [
+      0,
+      0
+    ]
+  },
+  "source_identity_digest": "51d7eabbd26ce479b3e17035f2f1959010536df32103707d6c5484aec9e9d8cd",
+  "versions": {
+    "chromadb": "1.5.9",
+    "langchain-chroma": "1.1.0",
+    "rank-bm25": "0.2.2",
+    "torch": "2.12.0+cu132",
+    "transformers": "5.12.1",
+    "sentence-transformers": "5.5.1"
+  },
+  "limits": "Read-only inventory; global flags were observed, never set. Container metadata equality is not a host latency or load measurement."
+}

@@ -11,6 +11,7 @@ E4_PROCESS_ENVIRONMENT = {
     for name in (
         *E4_ENVIRONMENT_NAMES,
         "E4_RUNNER_ENABLED",
+        "E6E7_ENABLED",
         "JOB_LEASE_SECONDS",
         "JOB_HEARTBEAT_SECONDS",
         "JOB_POLL_SECONDS",

@@ -1,6 +1,6 @@
 # E5 变更日志
 
-状态：实施中
+状态：已关闭。2026-09-14 C1–C6/V01–V09 已补齐，用户已授权收口并核定 8 条来源。下表早期未通过状态保留为历史。
 
 | 时间 | commit/文件/schema | 变更 | 原因 | 影响 | 回滚点 | 负责人 | 证据 |
 |---|---|---|---|---|---|---|---|
@@ -11,11 +11,33 @@
 | 2026-09-10 | 三份主文档与本目录 plan.md/test-record.md | 写回 Q1/Q2 按建议、Q3 全量迁移且不考虑旧访问性；提出 Q4-Q7 | 用户已回答第一轮设计前沿 | 固定每用户隔离、索引/查询配置分类及首次迁移 RAG 503；移除健康旧 RAG 连续服务/自动回退建议 | 本轮文档 diff；第一轮问题保留确认记录 | Codex | E5-P05；plan.md 第 4 节 |
 | 2026-09-14 | 本目录 plan.md、change-log.md、test-record.md | 写回 Q4-Q7 全部按建议，并进入 E5 实施中 | 用户已确认全部执行建议 | 固定相关停写、知识/笔记成组开放、全量失败阻断、日常重建 503 | 本轮前 E5 计划版本 | Codex | E5-P06 |
 
-## 明确未做
+## 准备期未做（历史边界，后续已实施）
 
 - 未修改业务代码、SQL schema、任务状态、模型配置或 Chroma collection。
 - 未连接业务数据库、启动/停止应用、运行迁移或故障注入。
 - 未使用现有凭据、启动 E5 consumer、清空 E4 queued job 或删除旧输入/中间材料。
 - 未重跑 E4 全量测试；历史结果不记为本轮通过。
 
-| 2026-09-14 | backend/app/rag/projection, business_authority.py, knowledge/note paths, API/UI | Implemented E5 SQL snapshot to per-user/per-kind generation projection, source/config drift fail-closed checks, application-scoped write gate, and async UI status handling | Q1-Q7 decisions and host boundary correction | E5 implementation can be locally checked without touching live services; real migration/runtime remains gated | E5 code diff and isolated test records | Codex | E5-L01..E5-L08 |
+上列“未做”只对应 2026-09-10 准备期，不能用于描述 2026-09-14 实施后状态。
+
+## 实施与收口复核
+
+| 时间 | commit/文件/schema | 变更与原因 | 影响与回滚边界 | 负责人 | 证据 |
+|---|---|---|---|---|---|
+| 2026-09-14 | `aa3adf4`；backend/app/rag/projection、business_authority、knowledge/note、API/UI；schema `20260914_0009_e5_rag_runtime` | 实现 SQL snapshot、每用户/每 index generation、发布检查、应用层写 gate、部分异步状态；落实已确认决策 | additive schema；查询/API/UI/恢复差额尚未关闭。回滚按 SQL restore-forward，不切回 E4 冻结源或旧向量 | Codex | 历史 L01–L08、E5 专项与后端/前端记录 |
+| 2026-09-14 | E5 target / 隔离 Chroma / ops/e5/restore_rehearsal.py | 从 6 份原文/7 条笔记全量投影，3 个知识/笔记 job 成功、4 active、2 旧空 generation 回收；完成独立 SQL 恢复 | 有效 dump 是 post-schema/pre-consumer；早期 dump 无效，preflight 与失败资源删除存在偏差，保留追溯。完整恢复库重建待补 | Codex | execution-record.md；artifacts/restore-rehearsal.json |
+| 2026-09-14 | 当前工作树；ops/e5/verify_closure.py、ops README、三份主文档及本目录 | 新增限定目标的 SQL 只读核验；发现旧中文 query 为问号，重跑真实 UTF-8 6 分支；归档脱敏证据，撤回过强完成声明 | SQL 清单及 new-api 元数据前后相同；业务实现未改。文档状态统一待验证，C1–C6 保留 E5，E6 未启动。回退文档不能改变实际验收结果 | Codex | E5-R01–R04；closure-review.md；artifacts/evidence-index.json |
+
+本次只读 SQL 拦截属于核验脚本自身连接，不是 MySQL 全局只读。未停主机服务或修改 new-api 的连接/权限；未执行新迁移、consumer、运行期回收、旧输入清理或发布。模型使用已有完整缓存，未下载或变更 sidecar 配置。
+
+## 最终实施和关闭（2026-09-14）
+
+| 范围 | 最终变更 / 验证 | 证据 |
+|---|---|---|
+| C1–C3 | 独立 SQL snapshot、全候选授权、认证 tool、最终复核；attempt lock/tombstone/reconcile；统一 503、修复任务去重 | query authority/reconciliation 回归，真实 MySQL lifecycle、9 路由故障及 2 文件故障 |
+| C4 | 持久 query/index config、typed status API、乐观 revision；状态轮询/重试、queued→indexed、chunks；会话 refresh 恢复 | settings/OpenAPI/前端回归，13 HTTP、11 浏览器状态捕获 |
+| C5 | 模型指纹、缓存离线 reranker/CUDA 后台推理、确定性 BM25/HyDE；冻结质量计划，用户测试后核定来源 | 各分支达阈值，HyDE 7/8 其余 8/8；冷暖预算通过 |
+| C6 | E5 单目标 guard、可重放 ops、新副本恢复/升级/全量重建；原目标即时 preflight、先备份后受控重建 | 41 表恢复对账、schema 2/2、52 FK 无孤儿、最终 smoke 6/6 |
+| 最终交付 | 后端 529、前端 29/build、Ruff/docs/diff 通过；三份主文档与批次/机器判定统一已关闭；临时进程和新副本停止，材料保留 | closure-review.md、test-record.md、artifacts/evidence-index.json |
+
+无新 commit；基于 aa3adf4 的工作树变更可审阅。保留全部既有历史偏差及 6 个 enrichment 死信；无 new-api/全局 SQL 只读变更，无 E6 启动。

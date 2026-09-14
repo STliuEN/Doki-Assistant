@@ -1,0 +1,48 @@
+# E5 收口复核（2026-09-14）
+
+- 阶段状态：`阻塞`；本次收口复核未通过，不能标为 `已关闭`。
+- 代码基线：`aa3adf4b8d89a8e8f6bb62099cdb4b3e4fbbd5e5`（`e5执行收口`）。本轮修订查询快照、候选隔离、重排缓存、重启清理、E5 状态 API/UI 和专项测试；没有修改 live SQL 状态。
+- 用户指令：`修改更新相关文档 执行e5收口`。执行及收口授权已收到；技术门槛是否满足须由证据判定，不再把“等待用户授权”列作唯一未完成项。
+- 负责人：Codex；最终架构决策人：用户。Q1–Q7 保持已确认；本次没有放宽验收标准或把剩余 E5 任务转移给 E6/E7。
+
+## 1. 本次能确认什么
+
+已在独立 E5 target 完成 SQL 原文全量投影：6 份知识原文、7 条笔记，内容用户分别为 57/11 chunks；另一个空用户为 0/0。两位用户 SQL 状态均为 ready，4 个 active head 无 staging。3 个知识/笔记投影 job 已成功；queued 为零，但仍有 6 个历史 `e4.note.enrich` dead-letter，不能写成“所有任务无异常”。
+
+上一轮真实依赖使用本机 MySQL、隔离 Chroma、Ollama embedding/HyDE 及缓存中的 Qwen3-Reranker-4B，并完成过 UTF-8 单查询 branch smoke；该证据对应修复前脚本。修复后的最终 live 复验于 2026-09-14 因 Ollama `127.0.0.1:11434` connection refused 停止，未执行当前代码的真实分支判定。该测试只判定分支可执行、分数有限、top-k、source owner 和返回 generation 一致；不证明检索质量、浏览器合同、并发删除或故障恢复。结果、模型指纹和原始文件摘要见[证据索引](./artifacts/evidence-index.json)及[测试记录](./test-record.md)。
+
+已验证的 SQL 恢复是 **schema 升级后、consumer 前** 的快照恢复：41 张表逐表数量及整体数据摘要相同。它不是 schema 升级前恢复点，也没有在恢复出来的数据库上重新完成一轮 Chroma 重建。完整恢复链仍缺最后一段。
+
+## 2. 证据纠正和执行偏差
+
+| 项目 | 本次复核 | 证据效力与处置 |
+|---|---|---|
+| 旧 `e5-vector-bm25-hyde.json` / `e5-reranker.json` | 实际 query 均为 `?? ?? ??`，不能证明中文检索；BM25 无有效词项 | 原始文件保留并记录 SHA-256；撤回中文质量验收结论，由 UTF-8 分支 smoke 替代相应连通性证据 |
+| `target-before-e5.sql` | 早期 PowerShell 文本管道丢失换行并引入 BOM | 标记 invalid，不得用于恢复；不删除、不覆盖 |
+| 有效 dump | `target-e5-schema-before-consumer.sql`；SHA-256 `30aa9eada7a60285859bb4191792bb4acf199211bd38ecade401fd7d4fa20d18` | 只证明 post-schema/pre-consumer 状态可恢复；不得声称先备份后升级 |
+| E5 preflight 与启动 | 留存的 preflight 复用了旧 E4 短时记录；真实消费采用临时脚本，未形成新的 E5 preflight/进程锁闭环 | 当前只读核验检查精确 container ID、端口、database、server UUID；不能追认先前写操作通过了原定启动 gate |
+| 早期恢复尝试 | 前序执行删除了失败 restore-test-1/2 容器和卷；另有失败资源留存 | 记录为材料保留偏差；不得声称全部新增测试资源均保留 |
+| 既有全量回归 | 历史记录 514 后端通过，此前有一次 runner 用例失败后隔离及全量重试通过；前端 28 通过/build 通过 | 标明时间与历史性质，不把计数升级为本次所有验收门槛通过 |
+
+## 3. 仍阻止阶段关闭的要求
+
+以下是已确认计划中的原有要求。静态缺口表示代码不足以履行合同，不表示已在当前 live 数据上观察到泄露或损坏。补测及故障注入只在 E5 副本进行。
+
+| ID / 关联证据 | 当前依据 | 具体完成动作与退出条件 |
+|---|---|---|
+| C1 / V02、V03、V06：查询权威与隔离 | 已实现独立 SQL snapshot、返回前复核、全候选 source/chunk/digest 校验、notes 成组健康检查和认证上下文强制；41 项专项测试覆盖伪造候选、删除/重建/配置变化 | `implemented-local`; 仍需 Ollama 恢复后跑当前代码 live 负例 |
+| C2 / V03、V04、V08：恢复与清理 | 已实现启动/周期 reconciliation、attempt lock/tombstone、取消竞争保护和失败清理重试；专项测试覆盖取消线程和重试清理 | `implemented-local`; 仍缺真实 MySQL/进程 kill-restart 与恢复库重建 |
+| C3 / V02、V05：HTTP 故障合同 | 已注册 E5 `ProjectionUnavailable` 的统一 503 envelope，并保留 chat 局部合同；专项测试验证 envelope | `implemented-local`; 仍需各真实 E5 API/工具路径和 collection/model 故障注入 |
+| C4 / V07：声明式配置和既有调用方 | 已新增 SQL 持久 query/index config、status/rebuild API，前端轮询并支持刷新恢复；前端 build 通过 | `implemented-local`; 浏览器真实 queued/building/ready/failed 与重启恢复未执行 |
+| C5 / V06：真实检索与性能 | 已固定混合候选排序，重排在后台线程缓存模型，HyDE/reranker 纳入模型指纹配置；专项测试通过 | `blocked-live`; Ollama connection refused，质量标签/阈值、真实当前代码分支和 p95 尚未完成 |
+| C6 / V01、V08：可重放运维与完整恢复 | 保留只读核验入口和历史恢复报告；未新增可追认的 E5 写操作 preflight，也未从恢复 SQL 向全新 Chroma 重建 | `blocked/not-run`; 需 Ollama/隔离副本和 guarded 运维证据。历史顺序偏差不可改写 |
+
+处理顺序：恢复 Ollama 后复跑当前代码 live 分支和故障负例 → C6 恢复库全链路 → 浏览器 V07 → 冻结并执行质量/性能 V06 → 补全 V01–V09 → 再作关闭判定。当前授权可用于继续完成 E5；没有新增“重复确认 Q1–Q7”门槛。当前最终判定：`阻塞`。
+
+## 4. 主机边界与交接
+
+本次工具连接仅指向 `127.0.0.1:33427/doki_e4`，通过该脚本自己的 SQL 连接拦截非 SELECT/SHOW 语句；没有设置数据库全局只读。核对前后目标库清单一致，`read_only=0`、`super_read_only=0`。`new-api` 的容器 ID、StartedAt、restart count 和运行状态一致；该观察不等同于整机负载或服务延迟测量。
+
+保留旧 Chroma、原文、sidecar、E1–E4 材料、有效/无效备份及故障记录。没有启动 E6，没有解冻 `SKILL-GATE`、`ARCH-GATE`、产品工作包 7–10 或删除清单。
+
+机器可读判定见 [closure-review.json](./artifacts/closure-review.json)。本次交付完成了代码修复、专项回归和文档归档；E5 阶段验收因真实 Ollama 依赖不可用及 C4–C6 live 证据不足而阻塞。

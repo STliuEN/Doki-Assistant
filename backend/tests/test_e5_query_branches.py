@@ -1,6 +1,4 @@
 import asyncio
-import sys
-from types import ModuleType
 
 from app.rag.projection.contracts import Chunk, Hit
 from app.rag.projection.query_branches import bm25, hyde, rerank
@@ -46,14 +44,9 @@ def test_hyde_calls_ollama_generate(monkeypatch):
 
 
 def test_rerank_preserves_chunk_identity(monkeypatch):
-    module = ModuleType("app.rag.reorder_service")
-
-    class Service:
-        async def reorder_documents(self, _query, documents):
-            return {"success": True, "documents": [{"document": documents[1], "similarity": 0.9}, {"document": documents[0], "similarity": 0.1}]}
-
-    module.ReorderService = Service
-    monkeypatch.setitem(sys.modules, "app.rag.reorder_service", module)
+    async def score(_query, _documents, **kwargs):
+        return [0.1, 0.9]
+    monkeypatch.setattr("app.rag.projection.local_reranker.score", score)
     hits = [Hit(chunks()[0], 0.2, "generation"), Hit(chunks()[1], 0.3, "generation")]
     result = asyncio.run(rerank(hits, "query"))
     assert [hit.chunk.id for hit in result] == ["b", "a"]
