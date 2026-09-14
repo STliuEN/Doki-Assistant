@@ -25,6 +25,7 @@ from app.models import (
     note,
     note_template,
     projection_domain,
+    rag_runtime,
     skill_domain,
 )
 from app.models.chat_history import Base
@@ -40,6 +41,7 @@ _MODELS = (
     identity_domain,
     job_domain,
     projection_domain,
+    rag_runtime,
     skill_domain,
     e4_migration,
 )

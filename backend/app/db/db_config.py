@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.e3_process_environment import E3_PROCESS_ENVIRONMENT
 from app.core.e4_process_environment import E4_PROCESS_ENVIRONMENT
 from app.db import schema_revision
-from app.db.business_authority import BusinessSession
+from app.db.business_authority import BusinessSession, bind_e5_user_scope
 from app.db.transaction_context import (
     clear_post_commit_callbacks,
     mark_managed_transaction,
@@ -19,6 +19,8 @@ if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED"):
 else:
     from app.db.e3_guard import load_guard_from_environment, parse_e3_target, verify_database_fingerprint
 from app.models.chat_history import Base as Base
+
+E5_RAG_ENABLED = os.getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 E2_DATABASE_SCHEMA_REVISION = schema_revision.E2_DATABASE_SCHEMA_REVISION
 E3_DATABASE_SCHEMA_REVISION = schema_revision.E3_DATABASE_SCHEMA_REVISION
@@ -109,6 +111,8 @@ async def get_db(request: Request = None):
             actor = getattr(request.state, "e3_auth_user_id", None)
             if actor:
                 session.info["e4_actor_id"] = actor
+                if E5_RAG_ENABLED:
+                    await bind_e5_user_scope(session, actor)
         try:
             yield session
             await session.commit()

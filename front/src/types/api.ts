@@ -239,7 +239,7 @@ export interface SSEMessage {
 
 export interface KnowledgeSSEMessage {
   schema_version?: '1.0'
-  event_type: 'start' | 'queued' | 'processing' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish'
+  event_type: 'accepted' | 'start' | 'queued' | 'processing' | 'slicing_completed' | 'writing' | 'completed' | 'error' | 'finish'
   filename?: string
   progress?: number
   current?: number
@@ -256,6 +256,7 @@ export interface KnowledgeSSEMessage {
   chunk_count?: number
   success_count?: number
   failed_count?: number
+  job_ids?: string[]
 }
 
 export interface EmbeddingConfig {
@@ -271,11 +272,13 @@ export interface EmbeddingConfig {
 }
 
 export interface EmbeddingSwitchResult {
-  knowledge_total: number
-  knowledge_success: number
-  knowledge_failed: number
-  knowledge_chunks: number
-  note_count: number
+  knowledge_total?: number
+  knowledge_success?: number
+  knowledge_failed?: number
+  knowledge_chunks?: number
+  note_count?: number
+  status?: 'queued' | 'building' | 'ready' | 'failed' | string
+  job_ids?: string[]
   embedding: EmbeddingConfig
 }
 

@@ -1,5 +1,6 @@
-"""Guarded E4 application runner; inactive E5 projection jobs stay queued."""
+"""Guarded application runner for E4 and the explicitly enabled E5 projection."""
 
+import os
 from dataclasses import dataclass
 
 from sqlalchemy import text
@@ -23,8 +24,9 @@ class E4RunnerRuntime:
     async def start(self):
         async with self.engine.connect() as connection:
             await connection.run_sync(lambda sync: verify_database_fingerprint(sync, self.guard))
-            if tuple((await connection.execute(text("SELECT version_num FROM alembic_version"))).scalars()) != (DATABASE_SCHEMA_REVISION,):
-                raise RuntimeError("E4 runner schema revision mismatch")
+            expected = DATABASE_SCHEMA_REVISION
+            if tuple((await connection.execute(text("SELECT version_num FROM alembic_version"))).scalars()) != (expected,):
+                raise RuntimeError("runtime runner schema revision mismatch")
         await self.runner.start()
 
 
@@ -37,11 +39,18 @@ def build_e4_runner(*, environ=None):
         raise RuntimeError("E4 business runner requires the target role")
     engine = create_async_engine(guard.database_url, pool_size=3, max_overflow=0, hide_parameters=True)
     factory = async_sessionmaker(engine, expire_on_commit=False, sync_session_class=BusinessSession)
+    projector = None
+    if os.getenv("E5_RAG_ENABLED", "false").lower() in {"1", "true", "yes", "on"}:
+        from app.rag.projection.service import E5ProjectionService
+        e5_service = E5ProjectionService(factory)
+
+        async def projector(_session, _job_type, payload, context):
+            return await e5_service.rebuild(_session, str(payload["owner_id"]), context)
     return E4RunnerRuntime(
         SqlJobRunner(
             factory,
             config=JobRuntimeConfig.from_environment(values),
-            registry=business_handlers(factory),
+            registry=business_handlers(factory, projector=projector),
             lock_name="doki-e4-business-runner",
             claim_registered_only=True,
         ),

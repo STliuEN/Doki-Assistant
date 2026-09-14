@@ -173,6 +173,49 @@ class KnowledgeDocumentService:
         await persist_service_write(db)
         return doc
 
+    async def delete_by_md5(self, db: AsyncSession, user_id: str, md5: str) -> KnowledgeSourceDocument | None:
+        result = await db.execute(
+            select(KnowledgeSourceDocument).where(
+                business_owner_filter(KnowledgeSourceDocument, user_id),
+                KnowledgeSourceDocument.md5 == md5,
+            )
+        )
+        doc = result.scalar_one_or_none()
+        if doc is None:
+            return None
+        await db.delete(doc)
+        await persist_service_write(db)
+        return doc
+
+    async def list_md5_records(self, db: AsyncSession, user_id: str) -> list[dict]:
+        docs = await self.iter_sources(db, user_id)
+        return [
+            {
+                "md5": doc.md5,
+                "filename": doc.filename,
+                "original_filename": doc.original_filename,
+                "upload_time": str(doc.created_at) if doc.created_at else None,
+            }
+            for doc in docs
+        ]
+
+    async def get_md5_record(self, db: AsyncSession, user_id: str, md5: str) -> dict | None:
+        result = await db.execute(
+            select(KnowledgeSourceDocument).where(
+                business_owner_filter(KnowledgeSourceDocument, user_id),
+                KnowledgeSourceDocument.md5 == md5,
+            )
+        )
+        doc = result.scalar_one_or_none()
+        if doc is None:
+            return None
+        return {
+            "md5": doc.md5,
+            "filename": doc.filename,
+            "original_filename": doc.original_filename,
+            "upload_time": str(doc.created_at) if doc.created_at else None,
+        }
+
     async def delete_all(self, db: AsyncSession, user_id: str) -> int:
         docs = await self.iter_sources(db, user_id)
         count = len(docs)

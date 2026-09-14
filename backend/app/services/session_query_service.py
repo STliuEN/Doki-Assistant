@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from fastapi import HTTPException
@@ -14,8 +15,12 @@ class SessionQueryService:
     Agent 流式编排见 app.services.agent_run_service。
     """
 
-    async def handle_rag_query(self, query: str, user_id: str) -> str:
+    async def handle_rag_query(self, query: str, user_id: str, db=None) -> str:
         """处理 RAG 查询逻辑"""
+        if os.getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}:
+            from app.rag.projection.query import query_user
+            result = await query_user(db, user_id, query)
+            return "\n\n".join(result.documents) if result.documents else "抱歉，我没有找到相关的信息。"
         rag_service = RagService(user_id)
         response = await rag_service.rag_summary(query)
         return response

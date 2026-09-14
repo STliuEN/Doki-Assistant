@@ -24,7 +24,8 @@ class _UnavailableVectorStore:
 
 
 class _UnavailableRagQueryService:
-    async def handle_rag_query(self, query: str, user_id: str) -> str:
+    async def handle_rag_query(self, query: str, user_id: str, db=None) -> str:
+        del db
         raise ChromaProjectionUnavailable("internal quarantine details")
 
 

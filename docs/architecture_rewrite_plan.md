@@ -1,8 +1,8 @@
 # 架构重写计划
 
-状态：`AR-0 + SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；`E4/S3/AR-3` 当前为 `实施中`。
+状态：`AR-0 + SK-0`、`E2/S1/AR-1`、`E3/S2/AR-2` 与 `E4/S3/AR-3` 已关闭；`E5/S4/AR-4` 当前为 `待你确认`，正在审阅执行计划。
 
-最近复核：2026-09-02
+最近复核：2026-09-10
 适用分支：`ai_document_assistant`
 
 本文是 AR/SK 阶段、门禁、当前队列和关闭条件的唯一事实源。执行交接细则见[架构重构执行交接手册](./architecture-execution-handoff-2026-08-26.md)；最终架构和逐阶段任务见[最终重构蓝图](./architecture-target-blueprint-2026-08-26.md)；运行代码事实见[当前架构归档](./archive/2026-08-26/project_develop.md)；P0 证据见[0826 执行计划归档](./archive/2026-08-26/change-route-execution-plan-2026-08-26.md)和[P0 收口报告归档](./archive/2026-08-26/p0-completion-report-2026-08-26.md)。`project_changes/` 只保存批次证据，不覆盖本文的状态判断。
@@ -30,8 +30,8 @@
 | AR-0 + SK-0：P0 containment 与证据收口 | `已关闭` | Chroma 失败隔离、Skill 发布止血、MCP YAML 权威冻结、离线备份工具、当前环境 R7、E1 隔离 MySQL/Chroma 故障与恢复证据已记录；隔离完整 pytest `284 passed`，offline benchmark smoke `4/4`、regression `117/117`；用户于 2026-08-27 确认关闭 | E1 范围无剩余阻塞。真实模型质量和 AR-2 审计实现不属于 E1；原生 Linux/macOS 为 `out-of-scope/frozen`；本状态不表示后续门禁通过。 |
 | AR-1：统一 SQL 基础与运行时合同 | `已关闭` | E1/AR-0/SK-0 已关闭；E2 批次计划、schema map、隔离边界、真实 MySQL/runner/recovery 证据已完成；用户于 2026-08-28 批准关闭 | 统一 schema、备份/restore、UoW、SQL job、单并发 runner、lease/fencing/retry/cancel/DLQ/backpressure 已验证；真实业务迁移仍延后。 |
 | AR-2：FastAPI 身份、角色与审计 | `已关闭` | FastAPI SQL 认证、会话/撤销、角色分离、四眼授权审计、迁移对账和浏览器/API 验证已完成；用户于 2026-09-01 明确回复 `批准关闭 E3` | E3 退出条件已通过；关闭不代表生产发布，也不解冻未获确认的后续阶段。 |
-| AR-3：业务数据与迁移权威收敛 | `实施中` | E4 计划、Q1-Q43 决策和执行确认已写回；路由冲突已修复并回归；E3/AR-2 已关闭 | source/target/restore allowlist、分批 inventory/dry-run、shadow schema、真实导入、停写切换、对账和恢复仍在执行；未授权删除旧输入。 |
-| AR-4：RAG/Chroma projection | `草案` | Chroma 失败隔离、staging/rebuild fixture 已有 | RAG port、generation 表、用户声明式切片/检索、SQL 重建和真实 Chroma E2E 未完成。 |
+| AR-3：业务数据与迁移权威收敛 | `已关闭` | E4 本机迁移、唯一写权威、对账、恢复和故障矩阵已完成；用户于 2026-09-10 明确批准关闭，依据见 E4 批次关闭记录 | 关闭仅覆盖本机单实例；中间材料和旧输入继续保留，后续阶段未自动启动。 |
+| AR-4：RAG/Chroma projection | `待你确认` | E4 已关闭；Q1/Q2 已确认每用户隔离及索引/查询配置分类，Q3 已选择全量迁移、停用旧 RAG 访问；现有 SQL/fixture 基础可复用 | RAG port、generation 生命周期、SQL 全量重建和真实 Chroma E2E 待实施；Q4-Q7 继续收束停写、开放粒度、失败处置与日常重建行为。 |
 | AR-5 + SK-1..3：Skill 与核心业务回接 | `草案` | Codex 风格 A/有限 B 切片和 `installed_disabled` 已有 | SQL manifest/raw package、标准目录/ZIP、授权闭环、知识/笔记/聊天回接和旧结构清理未完成。 |
 | SK-4：C 级执行 | `阻塞`（本次不做） | 仅保留 `unsupported` 插口 | 只有用户改变范围并明确启用 C 级后才启动；不阻塞本地 A/B。 |
 | AR-6：删除过渡依赖与单机部署/恢复 | `草案` | 当前三进程开发拓扑有说明 | 删除 Django/Redis/旧 adapter、FastAPI 直接托管前端、单机升级/恢复和核心回归未完成。 |
@@ -49,7 +49,7 @@ AR-0/SK-0 文档确认、P0 证据和真实依赖基线
   -> SKILL-GATE -> ARCH-GATE
 ```
 
-每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先进入验收状态，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，E2/AR-1 已于 2026-08-28 获得实施确认、完成真实隔离验证并经用户批准关闭；E3/AR-2 已于 2026-09-01 完成第二次验收并经用户批准关闭；E4/AR-3 已于 2026-09-02 获得执行确认并进入实施中，业务删除和产品工作包 `7-10` 仍冻结。
+每一阶段必须先形成文档草案，由用户确认后才实施；实现完成先进入验收状态，测试和迁移证据齐全且用户确认后才标 `已关闭`。AR-0 已于 2026-08-27 关闭，E2/AR-1 已于 2026-08-28 获得实施确认、完成真实隔离验证并经用户批准关闭；E3/AR-2 已于 2026-09-01 完成第二次验收并经用户批准关闭；E4/AR-3 已于 2026-09-10 经用户批准关闭。E5 本轮授权范围是计划检查和执行准备，业务删除和产品工作包 `7-10` 仍冻结。
 
 交接批次 `E0-E8` 和蓝图批次 `S0-S8` 只是执行别名，不是第二套状态机；规范对照与每批责任边界见[执行交接手册的映射表](./architecture-execution-handoff-2026-08-26.md)。其中 `E2=S1=AR-1` 必须先完成 SQL schema/UoW/job/runner，`E3=S2=AR-2` 才能做认证审计，`E4=S3=AR-3` 才能迁移业务数据。
 
@@ -62,11 +62,11 @@ AR-0/SK-0 文档确认、P0 证据和真实依赖基线
 | 本地 debug/import/export/rollback | 显式操作文件 + SQL 审计 | 开发期默认开启，正式部署可关闭；不得自动 fallback 或成为第二写权威。 |
 | Redis、Django、旧目录、MD5 sidecar | 迁移期临时输入/适配层 | 完成切换、对账和恢复后删除；任何残留不得被描述为最终权威。 |
 
-RAG 的 collection 由 `index_kind + embedding_fingerprint + generation` 隔离；最多短暂 `active + staging`，新 generation 成功后删除旧 generation。SQL 不承担向量检索，也不保存向量 BLOB。
+RAG 每用户/index_kind 独立 generation 和 collection，由 `index_kind + embedding_fingerprint + generation` 隔离并强制 user_id 校验；最多短暂 `active + staging`，新 generation 成功后删除旧 generation。索引配置变化重建，top-k/查询过滤/HyDE/rerank 只更新查询配置版本。首次 E5 从 SQL 全量重建，期间相关 RAG 为 degraded/503，不维持旧访问。SQL 不承担向量检索，也不保存向量 BLOB。
 
 ## 5. 授权与审计合同（AR-0 冻结，AR-2/S2 已关闭）
 
-E3/AR-2 本批已完成实现、验证并经用户批准关闭，以下不可绕过的 fail-closed 合同仍是当前边界；本次关闭不解冻 E4 或其他后续工作：
+E3/AR-2 已完成实现、验证并经用户批准关闭，以下不可绕过的 fail-closed 合同仍是当前边界；E4 已另行实施并关闭，E5 及其他后续工作按各自阶段确认：
 
 - 内容/Skill 管理员与安全管理员角色分离；内容准备、`grant approve`、`grant revoke` 和紧急例外不能由同一审批动作自动完成。
 - 每次授权、撤销、策略变更、RunBinding、恢复和本地运维动作记录 actor/role、scope/owner、版本与 digest、before/after revision、grant diff、reason、effective/expiry、result/error、correlation ID 和关联 run/job/import ID。
@@ -107,9 +107,10 @@ E3/AR-2 本批已完成实现、验证并经用户批准关闭，以下不可绕
 
 1. E1 批次已关闭；保留[E1 证据目录](../project_changes/2026-08-27-e1-ar0-evidence/)、停止的容器、volume 和 network，未获单独确认不得清理。
 2. E2/S1/AR-1 已关闭；[E2 批次记录](../project_changes/2026-08-28-e2-ar1-sql-foundation/)已记录授权、代码切片、真实隔离 MySQL、恢复、runner、kill-restart 证据和关闭确认。
-3. E2 只使用批准的隔离拓扑和合成数据，未执行现有业务 migration，未连接/迁移/删除现有业务数据；E3 已完成本批本地认证接管与测试用户迁移，并于 2026-09-01 经用户批准关闭；后续仍严格按 E3 -> E4 -> E5 -> E6 -> E7 -> E8 推进，并须逐阶段另行授权。
+3. E3 已完成本地认证接管与测试用户迁移，并于 2026-09-01 经用户批准关闭；[E4 批次记录](../project_changes/2026-09-02-e4-ar3-business-migration/plan.md)和 [E4 关闭证据](../project_changes/2026-09-02-e4-ar3-business-migration/artifacts/e4-closure-20260910.json)记录用户于 2026-09-10 批准关闭。当前进入 E5 计划审阅和执行准备，后续严格按 E5 -> E6 -> E7 -> E8 推进，并须逐阶段另行授权。
 4. 0826 与 E1 批次继续作为 P0/AR-0 证据，不把 E1 关闭误报为 AR-1、`SKILL-GATE` 或 `ARCH-GATE` 完成。
 5. 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 在 `ARCH-GATE` 或其独立门禁前保持冻结。
+6. [E5 执行准备计划](../project_changes/2026-09-10-e5-ar4-rag-projection/plan.md)已建立，包含代码差异、资源/恢复前置、任务和验收矩阵；Q1-Q3 已确认并同步蓝图，第二轮 Q4-Q7 待答复，未启动 E5 consumer。
 
 ## 9. 重要限制
 

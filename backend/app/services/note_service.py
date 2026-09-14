@@ -25,6 +25,7 @@ from app.services.memory_service import memory_service
 from app.utils.prompt_loader import load_prompt
 
 NOTES_COLLECTION_NAME = "notes_collection"
+E5_RAG_ENABLED = __import__("os").getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 class NoteService:
     """
@@ -112,13 +113,15 @@ class NoteService:
         user_provided_meta = payload.tags is not None or payload.category is not None
 
         async def after_commit() -> None:
+            if E5_RAG_ENABLED:
+                return
             # Chroma and the LLM review are derived projections. They must not
             # run until the note transaction is durable.
             try:
                 await self._add_note_vector(db, user_id, note_id, payload.title, payload.content)
             except Exception as exc:
                 logger.error(f"笔记向量化失败 note_id={note_id}: {exc}")
-            if not user_provided_meta:
+            if not E5_RAG_ENABLED and not user_provided_meta:
                 asyncio.create_task(self._auto_tag_and_review(note_id, user_id, payload.content))
 
         await persist_service_write(db, callback=after_commit)
@@ -154,6 +157,8 @@ class NoteService:
         after_commit = None
         if content_changed:
             async def project_after_commit() -> None:
+                if E5_RAG_ENABLED:
+                    return
                 try:
                     # 先删除旧向量，再写入新向量。
                     await self._delete_note_vector(db, user_id, note_id)
@@ -184,6 +189,8 @@ class NoteService:
         await db.delete(note)
 
         async def delete_vector_after_commit() -> None:
+            if E5_RAG_ENABLED:
+                return
             try:
                 await self._delete_note_vector(db, user_id, note_id)
             except Exception as exc:
@@ -261,6 +268,26 @@ class NoteService:
         语义搜索笔记：ChromaDB 向量检索 → MySQL 回填完整数据。
         只搜索当前用户的笔记（通过 metadata filter）。
         """
+        if E5_RAG_ENABLED:
+            from app.rag.projection.query import query_user
+
+            result = await query_user(db, user_id, query)
+            note_ids = [
+                hit.chunk.source_id
+                for hit in result.hits
+                if hit.chunk.index_kind == "notes"
+            ][:top_k]
+            if not note_ids:
+                return []
+            notes = await db.scalars(
+                select(Note).where(
+                    Note.canonical_id.in_(note_ids),
+                    business_owner_filter(Note, user_id),
+                )
+            )
+            notes_map = {item.canonical_id: item for item in notes}
+            return [self._doc_to_response(notes_map[item]) for item in note_ids if item in notes_map]
+
         try:
             notes_store = await self._get_user_notes_store(db, user_id)
             docs = await asyncio.to_thread(
@@ -307,6 +334,24 @@ class NoteService:
         note = await self.get_note(db, note_id, user_id)
         if not note:
             return []
+
+        if E5_RAG_ENABLED:
+            from app.rag.projection.query import query_user
+
+            result = await query_user(db, user_id, note.content)
+            related = []
+            for hit in result.hits:
+                if hit.chunk.source_id == note.canonical_id:
+                    continue
+                related.append({
+                    "id": hit.chunk.source_id,
+                    "title": hit.chunk.title,
+                    "content_preview": hit.chunk.text[:150],
+                    "content": hit.chunk.text,
+                    "similarity": round(hit.score, 4),
+                    "source": "note" if hit.chunk.index_kind == "notes" else "knowledge_base",
+                })
+            return related[:top_k]
 
         related_items = []
 

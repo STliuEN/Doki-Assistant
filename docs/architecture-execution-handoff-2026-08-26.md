@@ -1,6 +1,6 @@
 # 2026-08-26 架构重构执行交接手册
 
-状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1` 与 `E3/S2/AR-2` 已关闭；E4/S3/AR-3 当前实施中
+状态：`E0/S0`、`E1/AR-0/SK-0`、`E2/S1/AR-1`、`E3/S2/AR-2` 与 `E4/S3/AR-3` 已关闭；E5/S4/AR-4 当前待你确认，正在审阅执行计划
 交接对象：下一位实施负责人、阶段审阅人和恢复操作人  
 最终批准人：用户
 
@@ -18,10 +18,10 @@
 
 - S0 文档和决策收束已完成，q85-q92 已固化。
 - P0-0 至 P0-6 和 E1 范围证据已完成；用户于 2026-08-27 明确确认关闭 E1/AR-0/SK-0，历史失败和隔离事故仍保留在证据包中。
-- E2/S1/AR-1 已是最近完成阶段；用户已于 2026-08-28 确认批次边界、实施授权并批准关闭，真实隔离验证已完成。该授权只覆盖批准的 E2 隔离拓扑、代码和合成数据，不把 E1/E2 证据当作现有数据 migration 授权。
+- E2/S1/AR-1 已关闭；用户已于 2026-08-28 确认批次边界、实施授权并批准关闭，真实隔离验证已完成。该授权只覆盖批准的 E2 隔离拓扑、代码和合成数据，不把 E1/E2 证据当作现有数据 migration 授权。
 - 新功能、工作包 `7-10`、C 级 Skill、公网和 HA 全部冻结。
 - E2 代码、本地合同和真实 MySQL/container/migration/dump/restore/kill-restart 已按 preflight 和证据矩阵完成并关闭；E1 证据及资源继续只读保护，E2 容器已停止但 volume、network 和证据保留。
-- E3/AR-2 已完成本地 FastAPI 认证接管、2 个测试用户迁移、隔离 MySQL restore-forward、角色/审计和浏览器验证；用户于 2026-09-01 明确回复 `批准关闭 E3`，批次已关闭。用户于 2026-09-02 完成 E4 Q1-Q43 grilling 并授权按计划实施；E4 进入实施中，删除旧输入仍未授权。
+- E3/AR-2 已完成本地 FastAPI 认证接管、2 个测试用户迁移、隔离 MySQL restore-forward、角色/审计和浏览器验证；用户于 2026-09-01 明确回复 `批准关闭 E3`，批次已关闭。E4 已完成本机业务迁移、切换和恢复验证，用户于 2026-09-10 明确批准关闭；[关闭证据](../project_changes/2026-09-02-e4-ar3-business-migration/artifacts/e4-closure-20260910.json)可追溯。本轮只检查 E5 计划并作执行准备，中间材料和旧输入继续保留。
 
 ## 3. 最终目标边界
 
@@ -54,8 +54,8 @@
 | E1 | AR-0/SK-0（S0 之后的前置证据） | AR-0 + SK-0 | 真实依赖、故障注入、备份恢复和 characterization；已关闭 |
 | E2 | S1 | AR-1 | 统一 MySQL schema、UoW、SQL durable job、单并发 runner、备份/恢复和迁移工具；已关闭，真实证据已收口，不迁移现有业务数据 |
 | E3 | S2 | AR-2 | FastAPI 认证、会话、撤销、角色分离和完整授权审计；已关闭 |
-| E4 | S3 | AR-3 | 业务源数据迁移、稳定 ID/FK、FastAPI 唯一写权威和旧输入对账；实施中 |
-| E5 | S4 | AR-4 | SQL 原文 + Chroma RAG projection、generation、重建和降级合同 |
+| E4 | S3 | AR-3 | 业务源数据迁移、稳定 ID/FK、FastAPI 唯一写权威和旧输入对账；已关闭 |
+| E5 | S4 | AR-4 | SQL 原文 + Chroma RAG projection、generation、重建和降级合同；待你确认，执行准备中 |
 | E6 | S5 | AR-5 / SK-1..3 | Codex Skill 目录/ZIP、规范化 manifest、授权发布和 Legacy 对账 |
 | E7 | S6 | AR-5 | 知识、笔记、聊天回接和文件/sidecar 权威清理 |
 | E8 | S7-S8 | AR-6 | 删除过渡依赖、单机部署、恢复验收和最终证据 |
@@ -67,8 +67,8 @@ E0 文档交接与冻结（已关闭）
   -> E1 AR-0/SK-0 真实依赖与恢复证据（已关闭）
   -> E2/AR-1/S1 单 MySQL schema + SQL job/UoW/runner（已关闭，真实证据已收口，并发 1）
   -> E3/AR-2/S2 FastAPI 认证、会话、撤销和角色审计（已关闭）
-  -> E4/AR-3/S3 业务数据迁移与唯一写权威（实施中）
-  -> E5/AR-4/S4 SQL 原文 + Chroma RAG projection 收敛
+  -> E4/AR-3/S3 业务数据迁移与唯一写权威（已关闭）
+  -> E5/AR-4/S4 SQL 原文 + Chroma RAG projection 收敛（待你确认）
   -> E6/AR-5/S5 Codex Skill 标准化、授权和发布
   -> E7/AR-5/S6 知识、笔记、聊天回接与文件权威清理
   -> E8/AR-6/S7-S8 删除过渡依赖、单机部署、恢复验收
@@ -134,7 +134,7 @@ E0 文档交接与冻结（已关闭）
 
 ### E4：AR-3/S3 业务数据迁移与唯一写权威
 
-入口：E2 schema/UoW/runner 和 E3 user/session context 均关闭；用户于 2026-09-02 完成 E4 计划审阅并授权实施。当前按独立 allowlist、preflight、backup 和分批 gate 推进；不授权删除旧输入。
+入口：E2 schema/UoW/runner 和 E3 user/session context 均关闭；用户于 2026-09-02 完成 E4 计划审阅并授权实施。E4 已按独立 allowlist、preflight、backup 和分批 gate 完成本机验证，用户于 2026-09-10 批准关闭；不授权删除旧输入。
 任务：
 
 1. 在同一 MySQL 实例/数据库内完成业务分表过渡：用户、会话、聊天、笔记、知识源、图片、Skill 和迁移映射使用稳定 UUID/FK/审计关联。
@@ -147,16 +147,20 @@ E0 文档交接与冻结（已关闭）
 
 ### E5：AR-4/S4 SQL 原文与 Chroma RAG projection 收敛
 
-入口：E2 schema/runner、E3 user/session context、E4 业务源数据和隔离 Chroma。  
+入口：E2 schema/runner、E3 user/session context 和 E4 业务源数据阶段均已关闭；E5 仍须核验自己的隔离 Chroma、执行资源和恢复条件。本轮处于计划审阅和执行准备，未启用 E5 投影消费。
+
 任务：
 
 1. SQL 保存原始知识/笔记、业务 metadata、切片配置、embedding fingerprint、当前 generation、job 和错误信息；不保存向量 BLOB。
 2. RAG core 只依赖抽象 port；Chroma adapter 统一返回 `documents`、`scores`、`source_ids`、`generation`、`status`、`degraded_reason`。
-3. collection 按 `index_kind + embedding_fingerprint + generation` 隔离；同配置可按 `user_id` metadata 过滤，不同向量空间不得混用。
-4. 参数或 embedding 变化创建 staging generation；校验通过后原子激活并立即删除旧 generation，不保留历史 generation。
+3. 每用户/index_kind 独立 generation 和 collection，按 `index_kind + embedding_fingerprint + generation` 隔离，generation UUID 绑定 SQL owner/index head；所有访问强制 `user_id` metadata 校验，不同向量空间不得混用。
+4. 解析/切片/embedding 等索引配置变化创建 staging generation；top-k/查询过滤/HyDE/rerank 只更新 SQL 查询配置版本。索引校验通过后原子激活并立即删除旧 generation，不保留历史 generation。
 5. Chroma 故障只触发 SQL job 重建；查询请求不做同步重建，期间返回结构化 `degraded/503`，登录和会话继续工作。
+6. 首次从 SQL 全量重建知识与笔记，迁移期间停用相关旧 RAG，返回结构化 `degraded/503`；按验收条件开放新索引。失败修复后重试，不自动回退旧访问路径。
 
 退出：正常向量查询、HyDE/BM25/笔记检索、重排、用户自定义切片/检索配置、故障重建、对账和旧 generation 清理通过。失败不得删除原目录或覆盖健康 generation。
+
+2026-09-10 执行准备：[E5 批次计划](../project_changes/2026-09-10-e5-ar4-rag-projection/plan.md)补充 SQL/Chroma 非原子失败窗口、过期任务、原文变更、前端异步状态和真实依赖证据。Q1/Q2 已按建议确认；Q3 已选择全量迁移且不考虑旧访问性，上述概要已同步。Q4-Q7 继续确认首次迁移写入、知识/笔记开放粒度、失败文档和日常重建行为。
 
 ### E6：AR-5/S5/SK-1..3 Codex Skill 标准化、授权和发布
 

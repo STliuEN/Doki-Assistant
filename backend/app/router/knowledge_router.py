@@ -128,7 +128,7 @@ async def add_vector_multiple_stream(
         from app.schemas.sse import encode_sse
         result = await knowledge_service.accept_sql_uploads(files, user_id, db)
         async def accepted():
-            yield encode_sse({"event": "accepted", **result})
+            yield encode_sse({"event_type": "accepted", "event": "accepted", **result})
         return StreamingResponse(accepted(), media_type="text/event-stream")
     return StreamingResponse(
         knowledge_service.handle_add_vector_multiple_stream(files, user_id, db),
@@ -169,12 +169,22 @@ async def clean_user_vectors(
 async def clear_user_md5(
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """
     清空用户的MD5记录
     :param delete_documents: 是否同时删除知识库文档（默认True）
     """
+    if uses_business_authority(db):
+        if not delete_documents:
+            raise HTTPException(status_code=410, detail="Sidecar-only writes are retired")
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        count = await get_knowledge_document_service().delete_all(db, user_id)
+        return success_response(
+            message="SQL documents deleted; projection cleanup queued",
+            data={"deleted": count, "job_ids": db.info.get("e4_enqueued_jobs", [])},
+        )
     await knowledge_service.handle_clear_user_md5(user_id, delete_documents)
     if delete_documents:
         return success_response(message="已成功清空用户的MD5记录和知识库文档")
@@ -191,6 +201,7 @@ async def delete_single_md5(
         md5_value: str,
         delete_documents: bool = True,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service)
 ):
     """
@@ -198,6 +209,17 @@ async def delete_single_md5(
     :param md5_value: 要删除的MD5值
     :param delete_documents: 是否同时删除知识库文档（默认True）
     """
+    if uses_business_authority(db):
+        if not delete_documents:
+            raise HTTPException(status_code=410, detail="Sidecar-only writes are retired")
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        document = await get_knowledge_document_service().delete_by_md5(db, user_id, md5_value)
+        if document is None:
+            raise HTTPException(status_code=404, detail="MD5 record not found")
+        return success_response(
+            message="SQL document deleted; projection cleanup queued",
+            data={"job_ids": db.info.get("e4_enqueued_jobs", [])},
+        )
     success = await knowledge_service.handle_delete_single_md5(user_id, md5_value, delete_documents)
     if success:
         if delete_documents:
@@ -250,11 +272,16 @@ async def delete_by_filename(
 )
 async def get_all_md5_records(
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
     """获取用户的所有MD5记录"""
-    records = await knowledge_service.handle_get_all_md5_records(user_id)
+    if uses_business_authority(db):
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        records = await get_knowledge_document_service().list_md5_records(db, user_id)
+    else:
+        records = await knowledge_service.handle_get_all_md5_records(user_id)
     return success_response(data=MD5ListResponse(
         records=records,
         total_count=len(records)
@@ -269,6 +296,7 @@ async def get_all_md5_records(
 async def get_md5_info(
         md5_value: str,
         user_id: str = Depends(get_current_user_id),
+        db: AsyncSession = Depends(get_db, scope="function" if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else "request"),
         knowledge_service: KnowledgeService = Depends(get_knowledge_service),
         _: None = Depends(rate_limit(limit=10, window=60))
 ):
@@ -276,7 +304,11 @@ async def get_md5_info(
     获取MD5对应的文档信息
     :param md5_value: MD5值
     """
-    md5_info = await knowledge_service.handle_get_md5_info(user_id, md5_value)
+    if uses_business_authority(db):
+        from app.services.knowledge_document_service import get_knowledge_document_service
+        md5_info = await get_knowledge_document_service().get_md5_record(db, user_id, md5_value)
+    else:
+        md5_info = await knowledge_service.handle_get_md5_info(user_id, md5_value)
     if md5_info:
         return success_response(data=md5_info)
     else:

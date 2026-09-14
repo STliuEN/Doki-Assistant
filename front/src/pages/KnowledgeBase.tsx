@@ -23,6 +23,7 @@ interface UploadFile {
 const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 
 const progressByEvent: Partial<Record<KnowledgeSSEMessage['event_type'], number>> = {
+  accepted: 10,
   queued: 10,
   processing: 30,
   slicing_completed: 65,
@@ -165,7 +166,9 @@ export default function KnowledgeBase() {
       formData,
       {
         onKnowledgeProgress: (data: KnowledgeSSEMessage) => {
-          if (data.event_type === 'queued') {
+          if (data.event_type === 'accepted') {
+            setUploadFiles((prev) => prev.map((uf) => ({ ...uf, status: 'queued', progress: 10, stage: '已进入索引队列' })))
+          } else if (data.event_type === 'queued') {
             updateUploadFile(data, { status: 'queued' })
           } else if (data.event_type === 'processing' || data.event_type === 'slicing_completed' || data.event_type === 'writing') {
             updateUploadFile(data, { status: 'uploading', chunkCount: data.chunk_count })
@@ -227,7 +230,11 @@ export default function KnowledgeBase() {
       })
       setEmbedding(res.data.embedding)
       await loadDocs()
-      toast.success(`索引已重建：知识库 ${res.data.knowledge_success}/${res.data.knowledge_total}，笔记 ${res.data.note_count}`)
+      if (res.data.status === 'queued' || res.data.job_ids?.length) {
+        toast.success('嵌入模型配置已保存，索引重建已排队')
+      } else {
+        toast.success(`索引重建完成：知识库 ${res.data.knowledge_success ?? 0}/${res.data.knowledge_total ?? 0}，笔记 ${res.data.note_count ?? 0}`)
+      }
     } catch {
       toast.error('切换嵌入模型失败')
     } finally {

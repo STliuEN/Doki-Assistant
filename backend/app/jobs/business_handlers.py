@@ -8,7 +8,7 @@ import json
 import httpx
 from sqlalchemy import select
 
-from app.db.business_authority import BusinessWriteError, canonical_uuid
+from app.db.business_authority import BusinessWriteError, bind_e5_user_scope, canonical_uuid
 from app.db.business_owner import business_owner_filter, business_owner_matches
 from app.db.uow import SqlUnitOfWork
 from app.jobs.repository import JobRepository, payload_digest
@@ -31,8 +31,9 @@ def business_handlers(factory, *, projector=None, tagger=None) -> JobHandlerRegi
         if await context.cancellation_requested():
             raise JobHandlerError('cancel_requested', 'Projection cancelled')
         async with factory() as session:
+            await bind_e5_user_scope(session, owner)
             if projector is not None:
-                await projector(session, context.job_type, payload)
+                return await projector(session, context.job_type, payload, context)
             elif context.job_type == 'e4.note.project':
                 from app.services.note_service import NoteService
                 service = NoteService()
@@ -56,6 +57,15 @@ def business_handlers(factory, *, projector=None, tagger=None) -> JobHandlerRegi
         except (KeyError, BusinessWriteError) as error:
             raise JobHandlerError("invalid_business_job", "Invalid enrichment payload", permanent=True) from error
         async with factory() as session:
+            await bind_e5_user_scope(session, owner)
+            from app.db.business_authority import E5_RAG_ENABLED
+
+            state = session.info.get("e5_rag_state")
+            if E5_RAG_ENABLED and state is not None and state.status == "building":
+                raise JobHandlerError(
+                    "rag_rebuild_in_progress",
+                    "Note enrichment is paused while the owner RAG snapshot is rebuilding",
+                )
             note = await session.scalar(select(Note).where(Note.id == identifier, business_owner_filter(Note, owner)))
             if note is None or (not payload.get('force') and (note.tags is not None or note.category is not None)):
                 return {'schema_version': 1, 'skipped': True}
@@ -97,6 +107,7 @@ def business_handlers(factory, *, projector=None, tagger=None) -> JobHandlerRegi
             raise JobHandlerError('invalid_tag_result', 'Invalid note metadata response')
         async with SqlUnitOfWork(factory) as uow:
             session = uow.require_session()
+            await bind_e5_user_scope(session, owner)
             job = await session.scalar(select(Job).where(Job.id == context.job_id).with_for_update())
             now = await JobRepository(session)._database_now()
             if (

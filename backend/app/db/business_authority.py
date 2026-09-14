@@ -27,6 +27,8 @@ from app.models.note import Note
 from app.models.note_template import NoteTemplate
 from app.models.skill_domain import SkillRunBinding
 
+E5_RAG_ENABLED = __import__("os").getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+
 OWNER_MODELS = (ChatSession, Note, NoteTemplate, MemoryItem, KnowledgeSourceDocument, UserModelConfig, UserEmbeddingConfig, SkillRunBinding)
 BUSINESS_TABLES = frozenset(model.__tablename__ for model in (*OWNER_MODELS, ChatMessage))
 SHADOW_FIELDS = frozenset(
@@ -42,6 +44,17 @@ class BusinessWriteError(ValueError):
 
 class BusinessSession(Session):
     """Only the guarded E4 app and worker use this session class."""
+
+
+async def bind_e5_user_scope(session, owner: str):
+    """Attach only one user's E5 state to this application session."""
+    if not E5_RAG_ENABLED:
+        return None
+    from app.models.rag_runtime import RagUserState
+
+    state = await session.get(RagUserState, owner)
+    session.info["e5_rag_state"] = state
+    return state
 
 
 def uses_business_authority(session) -> bool:
@@ -115,11 +128,58 @@ def _parent(session, row):
 def _projection(row, operation, changed):
     if isinstance(row, Note) and (operation != "updated" or {"title", "content"} & changed):
         return "e4.note.project"
-    if isinstance(row, KnowledgeSourceDocument) and (operation != "updated" or {"content_blob", "filename", "original_filename"} & changed):
+    if isinstance(row, KnowledgeSourceDocument) and (
+        operation != "updated"
+        or {"content_blob", "filename", "original_filename", "file_ext"} & changed
+        or ("status" in changed and "excluded" in (
+            *inspect(row).attrs.status.history.deleted,
+            *inspect(row).attrs.status.history.added,
+        ))
+    ):
         return "e4.knowledge.project"
-    if isinstance(row, UserEmbeddingConfig) and operation != "deleted":
+    if isinstance(row, UserEmbeddingConfig):
         return "e4.embedding.rebuild"
     return None
+
+
+def _enforce_e5_scope_gate(session, owner: str, row, operation: str, changed: set[str]):
+    if not E5_RAG_ENABLED:
+        return
+    if not isinstance(row, (Note, KnowledgeSourceDocument, UserEmbeddingConfig)):
+        return
+    from app.models.rag_runtime import RagUserState
+    from app.rag.projection.contracts import IndexConfig, QueryConfig
+
+    # A per-user row lock serializes source mutations with snapshot publication.
+    # It is acquired here even for tools/workers that never bind an HTTP scope.
+    states = session.info.setdefault("e5_locked_states", {})
+    state = states.get(owner)
+    if state is None:
+        session.scalar(select(User.id).where(User.id == owner).with_for_update())
+        state = session.scalar(select(RagUserState).where(RagUserState.user_id == owner)
+                               .with_for_update().execution_options(populate_existing=True))
+        if state is None:
+            state = RagUserState(user_id=owner, status="failed", revision=1, query_revision=1,
+                                 index_config=IndexConfig().model_dump(), query_config=QueryConfig().model_dump())
+            session.add(state)
+        states[owner] = state
+    transitions = session.info.setdefault("e5_scope_transitions", set())
+    if state.status == "building":
+        if owner not in transitions:
+            raise BusinessWriteError("rag_rebuild_in_progress")
+    elif _projection(row, operation, changed):
+        state.status = "building"
+        state.revision = int(state.revision) + 1
+        state.error_code = None
+        state.job_id = None
+        transitions.add(owner)
+
+
+@event.listens_for(BusinessSession, "after_transaction_end")
+def clear_e5_transaction_state(session, transaction):
+    if transaction.parent is None:
+        for key in ("e5_locked_states", "e5_scope_transitions", "e5_rag_state"):
+            session.info.pop(key, None)
 
 
 def enqueue_business_job(session, row, owner, job_type, correlation, event_id):
@@ -210,6 +270,8 @@ def record_business_writes(session, _context, _instances):
                 if isinstance(column_type, DateTime) and isinstance(value, datetime) and attribute.key in changed:
                     setattr(row, attribute.key, _normalise_datetime(value, column_type, session.get_bind().dialect))
         owner = _owner(session, row) if isinstance(row, OWNER_MODELS) else None
+        if owner is not None:
+            _enforce_e5_scope_gate(session, owner, row, operation, changed)
         if hasattr(row, "canonical_id"):
             _immutable(row, ("id", "canonical_id"))
             if not row.canonical_id:
@@ -268,7 +330,10 @@ def record_business_writes(session, _context, _instances):
         if owner:
             job_type = _projection(row, operation, changed)
             if job_type:
-                enqueue_business_job(session, row, owner, job_type, correlation, event_id)
+                job = enqueue_business_job(session, row, owner, job_type, correlation, event_id)
+                state = session.info.get("e5_locked_states", {}).get(owner)
+                if E5_RAG_ENABLED and state is not None and state.status == "building" and state.job_id is None:
+                    state.job_id = job.id
             if isinstance(row, Note) and operation == "created" and row.tags is None and row.category is None:
                 enqueue_business_job(session, row, owner, "e4.note.enrich", correlation, event_id)
 
