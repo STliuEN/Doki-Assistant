@@ -1,0 +1,201 @@
+{
+  "stage": "E8/AR-6",
+  "status": "preparation_ready_with_gates",
+  "recorded_at": "2026-09-14T23:32:42.928230+00:00",
+  "authorization": "User approved E6/E7 closure and preparation of E8",
+  "scope": "Local Windows single instance; prepare-only; no deletion, shutdown, migration, or gate unlock",
+  "target": {
+    "expected_name": "doki-e4-20260903-mysql",
+    "expected_host": "127.0.0.1",
+    "expected_port": 33427,
+    "expected_database": "doki_e4",
+    "observed": {
+      "id": "35efc06e8a3b377ace2d9ac7e99f9d78ceb8c9a7a73464cc23701413f1d37182",
+      "name": "doki-e4-20260903-mysql",
+      "image": "mysql:8.4",
+      "status": "running",
+      "running": true,
+      "started_at": "2026-09-14T23:23:37.414935554Z",
+      "finished_at": "2026-09-14T23:11:06.354594631Z",
+      "restart_count": 0,
+      "ports": {
+        "3306/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "33427"
+          }
+        ]
+      },
+      "volumes": [
+        "doki-e4-20260903-target-data"
+      ]
+    }
+  },
+  "new_api": {
+    "observed": {
+      "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+      "name": "new-api",
+      "image": "calciumion/new-api:latest",
+      "status": "running",
+      "running": true,
+      "started_at": "2026-09-14T23:17:32.888574869Z",
+      "finished_at": "2026-09-14T23:17:25.029373629Z",
+      "restart_count": 0,
+      "ports": {
+        "3000/tcp": [
+          {
+            "HostIp": "",
+            "HostPort": "11451"
+          }
+        ]
+      },
+      "volumes": [
+        ""
+      ]
+    },
+    "e6e7_historical_baseline": {
+      "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+      "started_at": "2026-09-13T23:07:05.767008989Z",
+      "restart_count": 0,
+      "status": "running"
+    },
+    "historical_delta": {
+      "same_id": true,
+      "started_at_changed": true,
+      "restart_count_changed": false
+    },
+    "action": "observe only; no configuration, permission, or process change"
+  },
+  "service_ports": {
+    "18000": true,
+    "18001": false,
+    "18020": true,
+    "18080": true,
+    "11434": false,
+    "11451": true
+  },
+  "historical_e6e7": {
+    "decision": {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/closure-decision-20260915.json",
+      "sha256": "c100fcc9cd8e7ca7eef96cf343da62f97d86dca125085c9ee1348994ea2a5a21"
+    },
+    "index": {
+      "path": "project_changes/2026-09-14-e6-e7-ar5-joint/artifacts/closure-index-20260915.json",
+      "sha256": "3a10841a1333680336415a47c1e45c6dbfffa4cb9e683cea728e3f4a435561d1"
+    },
+    "status": "closed"
+  },
+  "backup": {
+    "path": ".runtime/e6e7-final-target-backup-20260915/target-current.sql",
+    "exists": true,
+    "bytes": 2901970,
+    "sha256": "f6f95ebbd8476d95ca35589f1761d00ce8a73e8aa2181943939bc4b79d142248",
+    "policy": "retain; do not overwrite during preparation"
+  },
+  "legacy_candidates": [
+    {
+      "path": "DjangoUserService",
+      "exists": true,
+      "files": 9732,
+      "bytes": 170735519
+    },
+    {
+      "path": "backend/data/chromadb",
+      "exists": true,
+      "files": 53,
+      "bytes": 15413332
+    },
+    {
+      "path": "backend/data/extracted_images",
+      "exists": true,
+      "files": 0,
+      "bytes": 0
+    },
+    {
+      "path": "backend/data/md5_hex_store",
+      "exists": true,
+      "files": 1,
+      "bytes": 2133
+    },
+    {
+      "path": "backend/data/skill_packages",
+      "exists": true,
+      "files": 10,
+      "bytes": 5627
+    },
+    {
+      "path": "backend/data/skill_packages/objects",
+      "exists": true,
+      "files": 10,
+      "bytes": 5627
+    },
+    {
+      "path": "images",
+      "exists": true,
+      "files": 0,
+      "bytes": 0
+    },
+    {
+      "path": "extracted_images",
+      "exists": false,
+      "files": 0,
+      "bytes": 0
+    },
+    {
+      "path": "md5_hex_store",
+      "exists": false,
+      "files": 0,
+      "bytes": 0
+    },
+    {
+      "path": "skill_packages",
+      "exists": false,
+      "files": 0,
+      "bytes": 0
+    }
+  ],
+  "disposition": [
+    {
+      "item": "Django runtime chain",
+      "state": "retain_until_E8_deployment_smoke_and_rollback_pass",
+      "delete_enabled": false
+    },
+    {
+      "item": "Redis correctness dependency",
+      "state": "prove_unused_by_business_correctness_then_remove_in_deployment_fixture",
+      "delete_enabled": false
+    },
+    {
+      "item": "legacy YAML/Registry/MD5/directory adapters",
+      "state": "map_each_reference_then remove_by_allowlist",
+      "delete_enabled": false
+    },
+    {
+      "item": "old Chroma generations and filesystem objects",
+      "state": "retain_until_SQL_restore_and_rebuild_are_accepted",
+      "delete_enabled": false
+    },
+    {
+      "item": "new-api",
+      "state": "excluded_external_resource",
+      "delete_enabled": false
+    }
+  ],
+  "required_gates": [
+    "Fresh target preflight and data-only backup with digest recorded immediately before any cutover",
+    "Empty-schema migration, target restore, and populated target restore-forward with FK/digest/audit reconciliation",
+    "FastAPI-only install/start/stop/upgrade/rollback/recover runbook exercised on isolated fixtures",
+    "Core login/session/Skill/RAG/chat/note/export smoke on empty, restored, and current migrated databases",
+    "Measured RPO/RTO and a documented application write pause; no MySQL global read_only or host-wide lock",
+    "Separate explicit user approval for each physical deletion and for SKILL-GATE/ARCH-GATE decisions"
+  ],
+  "blockers": [
+    "E8 destructive execution has not been authorized; this artifact records preparation only",
+    "Django/Redis/legacy filesystem reference graph and deployment runbook still require implementation and isolated proof"
+  ],
+  "observations": [
+    "Target was restarted before this preparation probe and is currently healthy; its start time is recorded above",
+    "new-api is running and was only inspected; its current runtime baseline is recorded separately from historical E6/E7 evidence",
+    "All historical containers, volumes, networks, failed inputs, backups, and private credentials remain retained"
+  ]
+}

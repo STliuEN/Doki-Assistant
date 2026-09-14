@@ -193,7 +193,7 @@ Q4–Q7 已确认：E5 应用层只暂停当前用户相关写入；知识/笔�
 
 ### E8：AR-6/S7-S8 删除过渡依赖、单机部署与恢复验收
 
-入口：E7 关闭，用户批准删除清单。  
+入口：E7 已关闭，用户于 2026-09-15 批准 E8 准备；当前仅完成[E8 准备批次](../project_changes/2026-09-15-e8-ar6-preparation/plan.md)，删除清单尚未批准。
 任务：
 
 1. 先停写、备份、记录 active revision/generation，再删除 Django 运行链路、Redis 正确性依赖、旧 YAML/Registry/MD5/目录 adapter 和旧 Chroma generation。

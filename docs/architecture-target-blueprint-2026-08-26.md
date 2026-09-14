@@ -203,4 +203,4 @@ AR-0 已关闭；AR-2 本批实现与证据已完成并经用户批准关闭。�
 
 ## 9. E6/E7 伴生执行（2026-09-14 用户确认）
 
-用户明确关闭 E5，并指定 E6/E7 联合准备和同批推进。当前[联合计划](../project_changes/2026-09-14-e6-e7-ar5-joint/plan.md)已完成只读盘点、10 包校验、105 项准备回归及接口/恢复设计。两者共享 SQL 包/媒体/权限基础，按技术依赖重叠实施，最终共同验收；不要求先关闭整个 E6 再开始 E7 开发。2026-09-15 已完成业务迁移、实际安全管理员配置和 JV01–JV09 联合退出验收，见[最终关闭判定](../project_changes/2026-09-14-e6-e7-ar5-joint/closure-review.md)：后端 539/前端 29，目标 10 包/10 uploads/0 imports，8 enabled/2 unsupported。`STliuEN-security-admin` 与 `STliuEN` 分别承担安全审批与 Skill 管理；两个账号由同一用户授权操作，不宣称两名自然人独立复核。物理旧输入继续保留，E8/产品工作包/全局门禁未解冻。
+用户明确关闭 E5，并指定 E6/E7 联合准备和同批推进。当前[联合计划](../project_changes/2026-09-14-e6-e7-ar5-joint/plan.md)已于 2026-09-15 关闭；[E8/AR-6 准备批次](../project_changes/2026-09-15-e8-ar6-preparation/plan.md)已建立并仅记录预检、备份和处置清单。E8 仍需 FastAPI-only runbook、三类数据库 smoke、RPO/RTO 和用户批准的删除清单。E6/E7 的业务迁移、实际安全管理员配置和 JV01–JV09 联合退出验收见[最终判定](../project_changes/2026-09-14-e6-e7-ar5-joint/closure-review.md)：后端 539/前端 29，目标 10 包/10 uploads/0 imports，8 enabled/2 unsupported。`STliuEN-security-admin` 与 `STliuEN` 分别承担安全审批与 Skill 管理；两个账号由同一用户授权操作，不宣称两名自然人独立复核。物理旧输入继续保留，E8/产品工作包/全局门禁未解冻。

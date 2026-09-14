@@ -120,4 +120,4 @@ E3/AR-2 已完成实现、验证并经用户批准关闭，以下不可绕过的
 
 ## 10. 2026-09-14 联合批次确认
 
-用户明确“关闭e5,执行e6-e7的准备，两个伴生，一起执行”。E5 明确关闭确认另存[关闭追加记录](../project_changes/2026-09-10-e5-ar4-rag-projection/artifacts/user-closure-confirmation-20260914.json)。[E6/E7 联合计划](../project_changes/2026-09-14-e6-e7-ar5-joint/plan.md)是当前执行入口；两阶段同属 AR-5，共享基础先行，E6 导入/授权与 E7 业务接入可重叠实施，联合退出验收，不设“E6 整阶段关闭后才开发 E7”的新授权步骤。准备记录为历史入口；2026-09-15 已完成迁移、授权启用及联合退出验收，见[最终关闭判定](../project_changes/2026-09-14-e6-e7-ar5-joint/closure-review.md)。旧 E5 哈希是关闭时快照，后续主文档变更归本联合批次，原封存输入 ZIP 可核验。
+用户明确“关闭e5,执行e6-e7的准备，两个伴生，一起执行”。E5 明确关闭确认另存[关闭追加记录](../project_changes/2026-09-10-e5-ar4-rag-projection/artifacts/user-closure-confirmation-20260914.json)。[E6/E7 联合计划](../project_changes/2026-09-14-e6-e7-ar5-joint/plan.md)已于 2026-09-15 关闭；当前 [E8/AR-6 准备批次](../project_changes/2026-09-15-e8-ar6-preparation/plan.md)进入仅准备状态。E8 仍需独立完成依赖引用图、FastAPI-only runbook、三类数据库 smoke、RPO/RTO 和用户批准的删除清单；旧 E5 哈希是关闭时快照，后续主文档变更归本联合批次，原封存输入 ZIP 可核验。
