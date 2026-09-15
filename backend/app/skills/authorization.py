@@ -17,7 +17,9 @@ _AUTHORIZATION_SESSION = ContextVar("skill_authorization_session", default=None)
 
 def live_checks_enabled():
     # Offline test/benchmark callers opt in to integration checks explicitly.
-    return os.getenv("ENV", "dev").casefold() not in {"test", "testing"} or os.getenv("E6E7_ENABLED", "false").lower() == "true"
+    return os.getenv("ENV", "dev").casefold() not in {"test", "testing"} or any(
+        os.getenv(name, "false").lower() == "true" for name in ("E6E7_ENABLED", "E8_ENABLED")
+    )
 
 
 def denied(message="Skill authorization is missing, expired, revoked or changed"):

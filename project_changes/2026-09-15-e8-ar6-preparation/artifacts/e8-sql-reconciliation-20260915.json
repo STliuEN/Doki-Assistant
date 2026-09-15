@@ -1,0 +1,187 @@
+{
+  "stage": "E8",
+  "recorded_at": "2026-09-15T01:52:12.313784+00:00",
+  "target": {
+    "label": "current_target",
+    "revision": "20260915_0011_e8_pending_actions",
+    "tables": 43,
+    "foreign_keys": 58,
+    "global_flags": [
+      0,
+      0
+    ],
+    "counts": {
+      "users": 6,
+      "auth_sessions": 39,
+      "chat_sessions": 29,
+      "chat_messages": 154,
+      "skills": 10,
+      "skill_versions": 10,
+      "skill_installations": 10,
+      "skill_packages": 10,
+      "skill_package_uploads": 10,
+      "knowledge_source_documents": 6,
+      "notes": 9,
+      "rag_user_states": 4,
+      "rag_generations": 10,
+      "rag_artifacts": 10,
+      "rag_generation_heads": 4,
+      "audit_events": 2238,
+      "pending_actions": 0
+    },
+    "package_checks": [
+      {
+        "package_digest": "078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896",
+        "digest_match": true,
+        "size_match": true
+      }
+    ],
+    "source_digest_checks": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "orphan_skill_versions": 0,
+    "orphan_chat_messages": 0
+  },
+  "restored": {
+    "label": "restored_fixture",
+    "revision": "20260915_0011_e8_pending_actions",
+    "tables": 43,
+    "foreign_keys": 58,
+    "global_flags": [
+      0,
+      0
+    ],
+    "counts": {
+      "users": 6,
+      "auth_sessions": 39,
+      "chat_sessions": 28,
+      "chat_messages": 152,
+      "skills": 10,
+      "skill_versions": 10,
+      "skill_installations": 10,
+      "skill_packages": 10,
+      "skill_package_uploads": 10,
+      "knowledge_source_documents": 6,
+      "notes": 8,
+      "rag_user_states": 6,
+      "rag_generations": 22,
+      "rag_artifacts": 22,
+      "rag_generation_heads": 12,
+      "audit_events": 2265,
+      "pending_actions": 0
+    },
+    "package_checks": [
+      {
+        "package_digest": "078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561",
+        "digest_match": true,
+        "size_match": true
+      },
+      {
+        "package_digest": "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896",
+        "digest_match": true,
+        "size_match": true
+      }
+    ],
+    "source_digest_checks": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "orphan_skill_versions": 0,
+    "orphan_chat_messages": 0
+  },
+  "passed": true
+}

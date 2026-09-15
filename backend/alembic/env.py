@@ -25,6 +25,7 @@ from app.models import (
     model_config,
     note,
     note_template,
+    pending_action,
     projection_domain,
     rag_runtime,
     skill_domain,

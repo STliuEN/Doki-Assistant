@@ -26,6 +26,7 @@ from app.utils.prompt_loader import load_prompt
 
 NOTES_COLLECTION_NAME = "notes_collection"
 E5_RAG_ENABLED = __import__("os").getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+E8_ENABLED = __import__("os").getenv("E8_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 class NoteService:
     """
@@ -47,13 +48,15 @@ class NoteService:
         # contract. Keep the argument for the background-init API.
         from app.rag.vector_store import VectorStoreService
 
-        self._notes_store = None if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") else VectorStoreService()._notes_store
+        self._notes_store = None if E4_PROCESS_ENVIRONMENT.get("E4_MIGRATION_ENABLED") or E8_ENABLED else VectorStoreService()._notes_store
 
     @property
     def notes_store(self):
         return self._notes_store
 
     async def _get_user_notes_store(self, db: AsyncSession, user_id: str):
+        if E8_ENABLED:
+            raise RuntimeError("Legacy Chroma note access is disabled in E8; use SQL projection query")
         from app.rag.vector_store import VectorStoreService
 
         return await VectorStoreService().get_user_notes_store(user_id, db=db)
@@ -113,7 +116,7 @@ class NoteService:
         user_provided_meta = payload.tags is not None or payload.category is not None
 
         async def after_commit() -> None:
-            if E5_RAG_ENABLED:
+            if E5_RAG_ENABLED or E8_ENABLED:
                 return
             # Chroma and the LLM review are derived projections. They must not
             # run until the note transaction is durable.
@@ -157,7 +160,7 @@ class NoteService:
         after_commit = None
         if content_changed:
             async def project_after_commit() -> None:
-                if E5_RAG_ENABLED:
+                if E5_RAG_ENABLED or E8_ENABLED:
                     return
                 try:
                     # 先删除旧向量，再写入新向量。
@@ -189,7 +192,7 @@ class NoteService:
         await db.delete(note)
 
         async def delete_vector_after_commit() -> None:
-            if E5_RAG_ENABLED:
+            if E5_RAG_ENABLED or E8_ENABLED:
                 return
             try:
                 await self._delete_note_vector(db, user_id, note_id)
@@ -268,7 +271,7 @@ class NoteService:
         语义搜索笔记：ChromaDB 向量检索 → MySQL 回填完整数据。
         只搜索当前用户的笔记（通过 metadata filter）。
         """
-        if E5_RAG_ENABLED:
+        if E5_RAG_ENABLED or E8_ENABLED:
             from app.rag.projection.query import query_user
 
             result = await query_user(db, user_id, query)
@@ -335,7 +338,7 @@ class NoteService:
         if not note:
             return []
 
-        if E5_RAG_ENABLED:
+        if E5_RAG_ENABLED or E8_ENABLED:
             from app.rag.projection.query import query_user
 
             result = await query_user(db, user_id, note.content)

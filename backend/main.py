@@ -140,8 +140,11 @@ async def lifespan(_app: FastAPI):
     await init_database_session_manager()
     logger.info("数据库会话管理器初始化完成")
 
-    await connect_redis()
-    logger.info("Redis连接初始化完成")
+    try:
+        await connect_redis()
+        logger.info("Redis connection initialized as optional dependency")
+    except Exception as exc:
+        logger.warning("Redis unavailable; continuing with SQL core mode: %s", exc)
 
     await init_manager.start()
     logger.info("部分资源正在初始化（模型加载、ChromaDB初始化等将在后台继续加载）")

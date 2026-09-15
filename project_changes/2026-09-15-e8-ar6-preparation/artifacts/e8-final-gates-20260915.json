@@ -1,0 +1,138 @@
+{
+  "stage": "E8 final gate evidence",
+  "recorded_at": "2026-09-15T01:11:45Z",
+  "empty_schema": {
+    "status": "passed",
+    "revision": "20260915_0011_e8_pending_actions",
+    "container": "doki-e6e7-accept-ce4bd183"
+  },
+  "restored_fixture": {
+    "status": "passed",
+    "source_container": "doki-e4-20260903-mysql",
+    "empty_schema_passed": true,
+    "backup_sha256": "7a29c9fa152ff8c197ee6f3339ff8b5fee4ab44e68fe0886d1847b320ba5206a",
+    "backup_bytes": 2905359,
+    "target_digest": "8c382ff8ad3877e25b0c203eb44426714edfd8506f1a93a881015750c70bdb08",
+    "restored_digest": "8c382ff8ad3877e25b0c203eb44426714edfd8506f1a93a881015750c70bdb08",
+    "table_counts": {
+      "alembic_version": 1,
+      "audit_events": 2218,
+      "auth_session_metadata": 33,
+      "auth_sessions": 33,
+      "authorization_grants": 8,
+      "chat_messages": 150,
+      "chat_sessions": 27,
+      "e4_migration_batches": 1,
+      "e4_migration_entities": 312,
+      "job_attempts": 26,
+      "jobs": 74,
+      "knowledge_source_documents": 6,
+      "media_assets": 0,
+      "memory_items": 53,
+      "migration_maps": 324,
+      "note_templates": 6,
+      "notes": 7,
+      "pending_actions": 1,
+      "rag_artifacts": 10,
+      "rag_generation_heads": 4,
+      "rag_generations": 10,
+      "rag_user_states": 2,
+      "refresh_tokens": 48,
+      "role_bindings": 4,
+      "roles": 3,
+      "skill_aliases": 10,
+      "skill_audit_events": 25,
+      "skill_capability_grants": 10,
+      "skill_imports": 0,
+      "skill_installations": 10,
+      "skill_package_uploads": 10,
+      "skill_packages": 10,
+      "skill_registry_events": 33,
+      "skill_registry_state": 1,
+      "skill_run_bindings": 0,
+      "skill_versions": 10,
+      "skills": 10,
+      "source_media": 0,
+      "token_revocations": 19,
+      "user_embedding_configs": 1,
+      "user_model_configs": 6,
+      "user_profiles": 3,
+      "users": 3
+    },
+    "target": {
+      "id": "doki-e6e7-accept-ce4bd183",
+      "role": "target",
+      "host": "127.0.0.1",
+      "port": 13787,
+      "database": "doki_e4",
+      "server_uuid": "2310d112-b0a2-11f1-9d68-62374fafb4b4",
+      "credential_ref": "e6e7-acceptance-app",
+      "database_username": "doki_e6e7_accept",
+      "read_only": false,
+      "container_name": "doki-e6e7-accept-ce4bd183",
+      "container_id": "c72da0192097c128b5b95bc98991575cdd3d4c46e43b2b405f824fa52e84abca",
+      "image_reference": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "image_id": "sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb",
+      "network": "doki-e6e7-accept-ce4bd183-net"
+    },
+    "new_api_before": {
+      "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+      "started_at": "2026-09-14T23:17:32.888574869Z",
+      "restart_count": 0,
+      "status": "running"
+    },
+    "new_api_after": {
+      "id": "f86eb5f6b495f84c61597d61095c824f286b038bd32860410c6a60d1b58d597b",
+      "started_at": "2026-09-14T23:17:32.888574869Z",
+      "restart_count": 0,
+      "status": "running"
+    },
+    "global_flags": "0\t0",
+    "resource_policy": "retained; never remove historical resources"
+  },
+  "current_smoke": {
+    "status": 200,
+    "ms": 41.51,
+    "body": {
+      "code": 200,
+      "message": "health readiness status",
+      "data": {
+        "status": "ok",
+        "dependencies": {
+          "mysql": "ready",
+          "redis": "ready",
+          "skill_storage": "ready",
+          "chroma_projection": {
+            "status": "owner_scoped",
+            "authority": "sql_generation",
+            "status_endpoint": "/rag/status"
+          }
+        }
+      }
+    }
+  },
+  "recovery_fixture_checks": {
+    "revision": "20260915_0011_e8_pending_actions",
+    "pending_actions_table": "1",
+    "tables": "43",
+    "audit_events": "2218",
+    "fk_constraints": "58"
+  },
+  "rto_seconds": 3.752,
+  "rpo": "backup SHA equality passed in restore.json; no uncommitted write window introduced",
+  "deletion_enabled": false,
+  "new_api": "observe-only",
+  "status": "passed",
+  "completed_at": "2026-09-15T01:56:00Z",
+  "business_smoke": {
+    "current": ".runtime/e8-current-20260915/business-smoke.json",
+    "restored": ".runtime/e8-final-gates-20260915/business-smoke.json",
+    "empty_schema": ".runtime/e8-empty-20260915/business-smoke.json"
+  },
+  "current_rag": ".runtime/e8-final-dev-20260915-v2/e8-current-rag-verify.json",
+  "sql_reconciliation": "artifacts/e8-sql-reconciliation-20260915.json",
+  "chroma_reconciliation": ".runtime/e8-final-gates-20260915/chroma-reconciliation.json",
+  "rpo_rto": "artifacts/e8-rpo-rto-20260915.json",
+  "reference_audit": "artifacts/e8-reference-audit-20260915.json",
+  "final_decision": "closed"
+}

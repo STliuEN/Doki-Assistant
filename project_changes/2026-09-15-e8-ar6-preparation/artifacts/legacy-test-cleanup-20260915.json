@@ -1,0 +1,265 @@
+{
+  "stage": "E8 legacy test cleanup",
+  "authorized_scope": "old business reconciliation and cleanup of old-version test paths",
+  "protected": [
+    "doki-e4-20260903-mysql",
+    "doki-e6e7-dev-redis-20260914",
+    "new-api"
+  ],
+  "containers": [
+    "doki-e1-20260827-mysql",
+    "doki-e1-20260827-mysql-restore",
+    "doki-e2-20260828-mysql",
+    "doki-e2-20260828-mysql-restore",
+    "doki-e3-20260831-mysql",
+    "doki-e3-20260831-mysql-restore",
+    "doki-e4-20260903-mysql-restore",
+    "doki-e4-20260908-redis",
+    "doki-e5-20260914-restore-test-3",
+    "doki-e5-accept-8e33af9a",
+    "doki-e5-accept-d48133c1",
+    "doki-e5-restore-6b23c620",
+    "doki-e6e7-accept-494e71ca",
+    "doki-e6e7-accept-55df5004",
+    "doki-e6e7-accept-5ca007bf",
+    "doki-e6e7-accept-c10d8807",
+    "doki-e6e7-accept-ce4bd183",
+    "doki-e6e7-accept-d23b05ac",
+    "rag-redis"
+  ],
+  "volumes": [
+    "doki-e1-20260827-mysql-data",
+    "doki-e1-20260827-mysql-restore-data",
+    "doki-e2-20260828-mysql-data",
+    "doki-e2-20260828-mysql-restore-data",
+    "doki-e3-20260831-restore-data",
+    "doki-e3-20260831-target-data",
+    "doki-e4-20260903-restore-data",
+    "doki-e5-20260914-restore-test-data-3",
+    "doki-e5-accept-8e33af9a-data",
+    "doki-e5-accept-d48133c1-data",
+    "doki-e5-restore-6b23c620-data",
+    "doki-e6e7-accept-494e71ca-data",
+    "doki-e6e7-accept-55df5004-data",
+    "doki-e6e7-accept-5ca007bf-data",
+    "doki-e6e7-accept-c10d8807-data",
+    "doki-e6e7-accept-ce4bd183-data",
+    "doki-e6e7-accept-d23b05ac-data"
+  ],
+  "networks": [
+    "doki-e1-20260827-net",
+    "doki-e2-20260828-net",
+    "doki-e3-20260831-net",
+    "doki-e6e7-accept-494e71ca-net",
+    "doki-e6e7-accept-55df5004-net",
+    "doki-e6e7-accept-5ca007bf-net",
+    "doki-e6e7-accept-c10d8807-net",
+    "doki-e6e7-accept-ce4bd183-net",
+    "doki-e6e7-accept-d23b05ac-net"
+  ],
+  "runtime_directories": [
+    {
+      "path": ".runtime\\e5-acceptance-20260914",
+      "files": 4,
+      "bytes": 2647326,
+      "manifest_sha256": "b3e8bed6672e6b244715b3e10779a571f946cd455d98f2f080fa1683c779bfcd"
+    },
+    {
+      "path": ".runtime\\e5-acceptance-20260914-v2",
+      "files": 185,
+      "bytes": 12108227,
+      "manifest_sha256": "da0073b8ee8974044f953324e45057a599e97f865ae7d39727cf2d6988b41d76"
+    },
+    {
+      "path": ".runtime\\e5-final-20260914",
+      "files": 23,
+      "bytes": 2799159,
+      "manifest_sha256": "4c81d5fe62e2919d28da83f516e9732ed7102ed719299f98d0ce67932cf1f8df"
+    },
+    {
+      "path": ".runtime\\e6e7-closure-acceptance-20260914",
+      "files": 80,
+      "bytes": 8091631,
+      "manifest_sha256": "5c6c1edb422f24bf18e856bdc96daceac09b086cf6c8db2a0dd5e911f76145c3"
+    },
+    {
+      "path": ".runtime\\e6e7-dev-closure-20260914",
+      "files": 9,
+      "bytes": 7029,
+      "manifest_sha256": "96aa8534bf7029a3fb70ada4989b03e08a016cdb67f2660fa06d64c9507a264d"
+    },
+    {
+      "path": ".runtime\\e6e7-development-20260914",
+      "files": 12,
+      "bytes": 10185,
+      "manifest_sha256": "8c2ebbd81a78dab56ee0c80a790260082cdf2631abed832066b3a3197308db69"
+    },
+    {
+      "path": ".runtime\\e6e7-dev-final-20260915",
+      "files": 9,
+      "bytes": 7073,
+      "manifest_sha256": "fe0f81b2af33f109f4c3a7a8b0f61e284b066e5975346f7c297069261356ac41"
+    },
+    {
+      "path": ".runtime\\e6e7-dev-ready-20260915",
+      "files": 9,
+      "bytes": 6903,
+      "manifest_sha256": "8ae9b6393eeb0521a7b37aba270cce53c65532ad1a181aa1d8698c8983d74cb0"
+    },
+    {
+      "path": ".runtime\\e6-e7-login",
+      "files": 6,
+      "bytes": 13772,
+      "manifest_sha256": "97e25418e6c047755d4fe7e778a68e186de0a4dd4f4105d93c69af1464a47b6a"
+    },
+    {
+      "path": ".runtime\\e6e7-login-replica-20260914",
+      "files": 22,
+      "bytes": 2701264,
+      "manifest_sha256": "a9465da0e797b2bfa24c028ab797e64259d4c62f1b1509f19e863eccd8c6b4ba"
+    },
+    {
+      "path": ".runtime\\e6e7-login-target-20260914",
+      "files": 7,
+      "bytes": 2671465,
+      "manifest_sha256": "1329395c49c1bf232b702431fe014c657cef275f1946bdcbacba2e6920a85805"
+    },
+    {
+      "path": ".runtime\\e6e7-sql-only-restore-20260914",
+      "files": 51,
+      "bytes": 6418511,
+      "manifest_sha256": "3573142bb4fc94e7d55316048e0c4375f0b8976bee7154bc41e5d36d1add8e17"
+    },
+    {
+      "path": ".runtime\\e6e7-target-20260914",
+      "files": 8,
+      "bytes": 2694741,
+      "manifest_sha256": "6bb52938d0c2b9511fc5ebc54bb35f4154f8a4617b070ea5d1a057931ec1a69f"
+    },
+    {
+      "path": ".runtime\\e8-acceptance-20260915",
+      "files": 8,
+      "bytes": 2915314,
+      "manifest_sha256": "78c845bfeb2441a9dcc0b2b8fb159b6b3a60dae1c291600dec4a3fe1f948d0e0"
+    },
+    {
+      "path": ".runtime\\e8-e2e-20260915",
+      "files": 17,
+      "bytes": 11220,
+      "manifest_sha256": "98b6118556d1be1f297d86121f1fac6c80f0d99972d97fb0e1f54f60278d81aa"
+    },
+    {
+      "path": ".runtime\\e8-final-dev-20260915",
+      "files": 9,
+      "bytes": 5635,
+      "manifest_sha256": "f40eff436126b649cc545005e0a1b0934880e887727ac99cd4c2364f4ac238c7"
+    },
+    {
+      "path": ".runtime\\e8-final-dev-20260915-v2",
+      "files": 21,
+      "bytes": 14048,
+      "manifest_sha256": "23f5d79301790157a91493db56601bcf9d418ac746177730bae8f890e659792e"
+    },
+    {
+      "path": ".runtime\\e8-prep-dev-20260915",
+      "files": 19,
+      "bytes": 38119,
+      "manifest_sha256": "4702caea6ef003cfc07b9d7e975370f5f0a7668dd49bc3281d70a22d0f4be1d1"
+    }
+  ],
+  "project_changes_retained": true,
+  "target_database_untouched": true,
+  "new_api_untouched": true,
+  "removal": {
+    "containers": [
+      "doki-e1-20260827-mysql",
+      "doki-e1-20260827-mysql-restore",
+      "doki-e2-20260828-mysql",
+      "doki-e2-20260828-mysql-restore",
+      "doki-e3-20260831-mysql",
+      "doki-e3-20260831-mysql-restore",
+      "doki-e4-20260903-mysql-restore",
+      "doki-e4-20260908-redis",
+      "doki-e5-20260914-restore-test-3",
+      "doki-e5-accept-8e33af9a",
+      "doki-e5-accept-d48133c1",
+      "doki-e5-restore-6b23c620",
+      "doki-e6e7-accept-494e71ca",
+      "doki-e6e7-accept-55df5004",
+      "doki-e6e7-accept-5ca007bf",
+      "doki-e6e7-accept-c10d8807",
+      "doki-e6e7-accept-ce4bd183",
+      "doki-e6e7-accept-d23b05ac",
+      "rag-redis"
+    ],
+    "volumes": [
+      "doki-e1-20260827-mysql-data",
+      "doki-e1-20260827-mysql-restore-data",
+      "doki-e2-20260828-mysql-data",
+      "doki-e2-20260828-mysql-restore-data",
+      "doki-e3-20260831-restore-data",
+      "doki-e3-20260831-target-data",
+      "doki-e4-20260903-restore-data",
+      "doki-e5-20260914-restore-test-data-3",
+      "doki-e5-accept-8e33af9a-data",
+      "doki-e5-accept-d48133c1-data",
+      "doki-e5-restore-6b23c620-data",
+      "doki-e6e7-accept-494e71ca-data",
+      "doki-e6e7-accept-55df5004-data",
+      "doki-e6e7-accept-5ca007bf-data",
+      "doki-e6e7-accept-c10d8807-data",
+      "doki-e6e7-accept-ce4bd183-data",
+      "doki-e6e7-accept-d23b05ac-data"
+    ],
+    "networks": [
+      "doki-e1-20260827-net",
+      "doki-e2-20260828-net",
+      "doki-e3-20260831-net",
+      "doki-e6e7-accept-494e71ca-net",
+      "doki-e6e7-accept-55df5004-net",
+      "doki-e6e7-accept-5ca007bf-net",
+      "doki-e6e7-accept-c10d8807-net",
+      "doki-e6e7-accept-ce4bd183-net",
+      "doki-e6e7-accept-d23b05ac-net"
+    ],
+    "runtime_directories": [
+      ".runtime\\e5-acceptance-20260914",
+      ".runtime\\e5-acceptance-20260914-v2",
+      ".runtime\\e5-final-20260914",
+      ".runtime\\e6e7-closure-acceptance-20260914",
+      ".runtime\\e6e7-dev-closure-20260914",
+      ".runtime\\e6e7-development-20260914",
+      ".runtime\\e6e7-dev-final-20260915",
+      ".runtime\\e6e7-dev-ready-20260915",
+      ".runtime\\e6-e7-login",
+      ".runtime\\e6e7-login-replica-20260914",
+      ".runtime\\e6e7-login-target-20260914",
+      ".runtime\\e6e7-sql-only-restore-20260914",
+      ".runtime\\e6e7-target-20260914",
+      ".runtime\\e8-acceptance-20260915",
+      ".runtime\\e8-e2e-20260915",
+      ".runtime\\e8-final-dev-20260915",
+      ".runtime\\e8-prep-dev-20260915"
+    ],
+    "errors": [
+      {
+        "kind": "runtime_directory",
+        "name": ".runtime\\e8-final-dev-20260915-v2",
+        "error": "[WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\\\codes_projects\\\\Doki-Assistant-main\\\\.runtime\\\\e8-final-dev-20260915-v2\\\\backend.err.log'"
+      }
+    ]
+  },
+  "status": "completed_with_one_active_runtime_retained",
+  "removed_files": [
+    {
+      "path": "DjangoUserService\\test.sqlite3",
+      "bytes": 0,
+      "sha256": null,
+      "authorized": "old-version test path",
+      "removed": true
+    }
+  ],
+  "active_runtime_retained": [
+    ".runtime/e8-final-dev-20260915-v2 (current Doki launcher logs/process records)"
+  ]
+}

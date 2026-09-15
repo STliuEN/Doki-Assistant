@@ -1,0 +1,42 @@
+{
+  "stage": "E8",
+  "recorded_at": "2026-09-15T01:53:35.371486+00:00",
+  "status": "passed",
+  "legacy_symbols": {
+    "legacy_vector": [
+      "backend/app/rag/rag_service.py",
+      "backend/app/rag/vector_store.py",
+      "backend/app/router/health.py",
+      "backend/app/router/knowledge_router.py",
+      "backend/app/router/knowledge_service.py",
+      "backend/app/services/note_service.py"
+    ],
+    "legacy_md5": [
+      "backend/app/rag/vector_store.py",
+      "backend/app/rag/md5_manager/md5_store.py",
+      "backend/app/rag/md5_manager/__init__.py"
+    ],
+    "legacy_skill_files": [
+      "backend/app/router/health.py",
+      "backend/app/skills/resource_tools.py",
+      "backend/app/skills/seed.py",
+      "backend/app/skills/storage.py",
+      "backend/app/skills/__init__.py"
+    ],
+    "legacy_paths": [
+      "backend/app/utils/image_extractor.py",
+      "backend/app/utils/knowledge_image_paths.py",
+      "backend/app/rag/document_handler/processor.py",
+      "backend/app/rag/md5_manager/md5_store.py"
+    ]
+  },
+  "assertions": {
+    "knowledge_write_routes_have_sql_authority_branch": true,
+    "note_query_routes_have_e8_projection_branch": true,
+    "session_query_routes_have_e8_projection_branch": true,
+    "skill_resource_runtime_uses_sql_authority": true,
+    "pending_actions_are_sql_by_default": true,
+    "compatibility_paths_are_fail_closed_by_business_boundary": true
+  },
+  "disposition": "retain source compatibility modules for non-E8 maintenance/import tooling; E8 business authority never falls back to them"
+}

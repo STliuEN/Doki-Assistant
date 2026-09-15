@@ -46,7 +46,8 @@ async def get_health_readiness():
     mysql_status = await check_mysql_connection()
     # 检查redis连接
     redis_status = await check_redis_connection()
-    sql_mode = os.getenv("E6E7_ENABLED", "false").lower() == "true"
+    sql_mode = any(os.getenv(name, "false").lower() in {"1", "true", "yes", "on"}
+                   for name in ("E6E7_ENABLED", "E8_ENABLED"))
     skill_storage_status = await sql_skill_storage_ready() if sql_mode else skill_package_storage.check_health()
     try:
         if os.getenv("E5_RAG_ENABLED", "false").lower() == "true":
@@ -65,7 +66,8 @@ async def get_health_readiness():
             "error_type": type(exc).__name__,
             "error_message": str(exc)[:500],
         }
-    core_ready = mysql_status and redis_status and skill_storage_status
+    # Redis accelerates optional cache/rate limiting. SQL and Skill storage remain the business readiness contract.
+    core_ready = mysql_status and skill_storage_status
     if core_ready:
         return success_response(
             message="health readiness status",
@@ -73,7 +75,7 @@ async def get_health_readiness():
                 "status": "ok" if chroma_projection["status"] in {"ready", "owner_scoped"} else "degraded",
                 "dependencies": {
                     "mysql": "ready",
-                    "redis": "ready",
+                    "redis": "ready" if redis_status else "degraded_optional",
                     "skill_storage": "ready",
                     "chroma_projection": chroma_projection,
                 },

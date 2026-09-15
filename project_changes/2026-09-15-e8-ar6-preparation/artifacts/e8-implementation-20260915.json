@@ -1,0 +1,56 @@
+{
+  "stage": "E8/AR-6 implementation evidence",
+  "status": "implementation_complete_with_final_gates",
+  "scope": "127.0.0.1:33427/doki_e4 only; new-api observe-only",
+  "migration": {
+    "revision": "20260915_0011_e8_pending_actions",
+    "pending_actions_table": 1,
+    "log": ".runtime/e8-prep-dev-20260915/target-e8-migration.log"
+  },
+  "pending_action_sql": {
+    "cross_user_take": null,
+    "owner_first_take": true,
+    "owner_second_take": null
+  },
+  "redis_degraded": {
+    "health_status": 200,
+    "redis": "degraded_optional",
+    "restored": "true 0"
+  },
+  "service": {
+    "health": {
+      "status": 200,
+      "body": {
+        "code": 200,
+        "message": "health readiness status",
+        "data": {
+          "status": "ok",
+          "dependencies": {
+            "mysql": "ready",
+            "redis": "ready",
+            "skill_storage": "ready",
+            "chroma_projection": {
+              "status": "owner_scoped",
+              "authority": "sql_generation",
+              "status_endpoint": "/rag/status"
+            }
+          }
+        }
+      }
+    },
+    "backend_port": 18000,
+    "frontend_port": 18080
+  },
+  "global_mysql_flags": "0 0",
+  "new_api": {
+    "running": "true",
+    "restart_count": "0"
+  },
+  "legacy_resources": "retain; delete_enabled=false",
+  "remaining_final_gates": [
+    "FastAPI-only three fixture smoke",
+    "RPO/RTO measurement",
+    "SQL/Chroma/audit/FK/digest reconciliation",
+    "per-item deletion approval"
+  ]
+}

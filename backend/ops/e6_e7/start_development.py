@@ -36,7 +36,7 @@ def main():
     env.update({key: value for key, value in dotenv_values(ROOT / "backend/.env").items() if value is not None})
     env.update(target_environment(directory))
     env.update(
-        ENV="dev", DEBUG_MODE="false", RATE_LIMIT_ENABLED="true",
+        ENV="dev", DEBUG_MODE="false", E8_ENABLED="true", RATE_LIMIT_ENABLED="true", REDIS_REQUIRED="false",
         REDIS_HOST="127.0.0.1", REDIS_PORT="18020", REDIS_DB="3",
         AUTH_JWT_SECRET=json.loads((ROOT / ".runtime/e4/runtime-auth-secret.json").read_text(encoding="utf-8"))["AUTH_JWT_SECRET"],
         CORS_ALLOWED_ORIGINS="http://127.0.0.1:18080,http://localhost:18080",

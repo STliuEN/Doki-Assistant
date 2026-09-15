@@ -10,6 +10,7 @@ from app.agent.tool_context import (
 from app.rag.rag_service import RagService
 
 E5_RAG_ENABLED = os.getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+E8_ENABLED = os.getenv("E8_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 
 @tool("rag_summary_tools")
@@ -22,7 +23,7 @@ async def rag_summary_tool(query: str, user_id: str = None) -> str:
     if not effective_user_id:
         return "错误: 缺少有效的认证上下文，请重新登录"
 
-    if E5_RAG_ENABLED:
+    if E5_RAG_ENABLED or E8_ENABLED:
         from app.db.db_config import AsyncSessionLocal
         from app.rag.projection.query import query_user
 

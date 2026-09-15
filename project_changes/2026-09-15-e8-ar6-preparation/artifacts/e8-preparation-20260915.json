@@ -1,7 +1,7 @@
 {
   "stage": "E8/AR-6",
-  "status": "preparation_ready_with_gates",
-  "recorded_at": "2026-09-14T23:32:42.928230+00:00",
+  "status": "implementation_complete_with_final_gates",
+  "recorded_at": "2026-09-15T01:15:10.083749+00:00",
   "authorization": "User approved E6/E7 closure and preparation of E8",
   "scope": "Local Windows single instance; prepare-only; no deletion, shutdown, migration, or gate unlock",
   "target": {
@@ -91,6 +91,11 @@
     "bytes": 2901970,
     "sha256": "f6f95ebbd8476d95ca35589f1761d00ce8a73e8aa2181943939bc4b79d142248",
     "policy": "retain; do not overwrite during preparation"
+  },
+  "preparation_documents": {
+    "dependency_map": "project_changes/2026-09-15-e8-ar6-preparation/dependency-map.md",
+    "runbook": "project_changes/2026-09-15-e8-ar6-preparation/e8-runbook.md",
+    "plan": "project_changes/2026-09-15-e8-ar6-preparation/plan.md"
   },
   "legacy_candidates": [
     {
@@ -190,12 +195,19 @@
     "Separate explicit user approval for each physical deletion and for SKILL-GATE/ARCH-GATE decisions"
   ],
   "blockers": [
-    "E8 destructive execution has not been authorized; this artifact records preparation only",
-    "Django/Redis/legacy filesystem reference graph and deployment runbook still require implementation and isolated proof"
+    "Legacy RAG/MD5/file adapters remain in non-E8 compatibility code and need final reference audit/removal plan",
+    "Full empty/restored/current business smoke package and formal SQL/Chroma/audit/FK/digest reconciliation remain to be completed",
+    "Per-item physical deletion still requires explicit approval; deletion_enabled remains false"
   ],
   "observations": [
     "Target was restarted before this preparation probe and is currently healthy; its start time is recorded above",
     "new-api is running and was only inspected; its current runtime baseline is recorded separately from historical E6/E7 evidence",
     "All historical containers, volumes, networks, failed inputs, backups, and private credentials remain retained"
-  ]
+  ],
+  "implementation": {
+    "sql_pending_actions": "complete",
+    "redis_optional_degradation": "complete",
+    "e8_sql_only_rag_entrypoints": "complete_for_agent/session/note/file-write_paths",
+    "target_migration": "complete"
+  }
 }

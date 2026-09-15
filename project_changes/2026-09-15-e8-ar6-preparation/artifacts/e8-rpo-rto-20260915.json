@@ -1,0 +1,31 @@
+{
+  "stage": "E8",
+  "recorded_at": "2026-09-15T01:53:57.684215+00:00",
+  "fixture": ".runtime/e8-final-gates-20260915",
+  "write_pause": {
+    "mode": "application-level-isolated-fixture",
+    "start": "2026-09-15T01:11:45Z",
+    "end": "2026-09-15T01:53:57.684215+00:00",
+    "mysql_global_read_only_changed": false,
+    "host_lock": false
+  },
+  "rpo": {
+    "definition": "last committed SQL state at backup boundary",
+    "result": "0 lost committed writes; backup and restored data-only SHA equality recorded",
+    "backup_sha256": "7a29c9fa152ff8c197ee6f3339ff8b5fee4ab44e68fe0886d1847b320ba5206a",
+    "target_digest": "8c382ff8ad3877e25b0c203eb44426714edfd8506f1a93a881015750c70bdb08",
+    "restored_digest": "8c382ff8ad3877e25b0c203eb44426714edfd8506f1a93a881015750c70bdb08"
+  },
+  "rto": {
+    "seconds": 3.752,
+    "definition": "restore start to API/data reconciliation pass",
+    "result": "passed",
+    "evidence": [
+      "restore.json",
+      "business-smoke.json",
+      "chroma-reconciliation.json",
+      "e8-sql-reconciliation-20260915.json"
+    ]
+  },
+  "passed": true
+}

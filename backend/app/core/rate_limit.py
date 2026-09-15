@@ -56,8 +56,10 @@ def rate_limit(limit: int = 1, window: int = 60):
 
         try:
             allowed = await _consume_rate_limit(key, limit, window)
-        except RedisError as exc:
-            raise HTTPException(status_code=503, detail="Rate limit store unavailable") from exc
+        except RedisError:
+            if os.getenv("REDIS_REQUIRED", "true").lower() != "true":
+                return
+            raise HTTPException(status_code=503, detail="Rate limit store unavailable")
         if not allowed:
             # 限流触发
             raise HTTPException(
@@ -106,6 +108,9 @@ class RateLimitMiddleware:
         try:
             allowed = await _consume_rate_limit(key, self.limit, self.window)
         except RedisError:
+            if os.getenv("REDIS_REQUIRED", "true").lower() != "true":
+                await self.app(scope, receive, send)
+                return
             response = JSONResponse(
                 {"code": 503, "message": "Rate limit store unavailable", "data": None},
                 status_code=503,

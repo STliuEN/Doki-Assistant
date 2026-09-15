@@ -1,9 +1,9 @@
 # E8 / AR-6 准备计划
 
-- 日期：2026-09-15；状态：`实施中`（仅准备）
+- 日期：2026-09-15；状态：`阻塞`（E8 收口前置缺口）
 - 入口：E6/E7 已获用户批准收口；用户现批准 E8 准备。
 - 负责人：Codex；架构和最终关闭决定：用户。
-- 当前结果：E6/E7 关闭证据已核验，E8 预检与处置清单已建立。E8 的删除、下线、最终部署切换、RPO/RTO 正式验收和门禁解冻尚未执行。
+- 当前结果：E6/E7 关闭证据已核验，E8 预检、引用图和候选运行手册已建立。E8 收口被 Redis 正确性依赖和旧文件/RAG 运行时引用阻塞；删除、下线、最终部署切换、RPO/RTO 正式验收和门禁解冻尚未完成。
 
 ## 目标
 
@@ -15,8 +15,8 @@
 
 | 面 | 准备内容 | 当前状态 |
 |---|---|---|
-| S7 过渡依赖 | Django、Redis、旧 YAML/Registry/MD5/目录 adapter 的引用图和替代路径 | 待实施 isolated proof |
-| S7 单机运行 | FastAPI-only install/start/stop/upgrade/rollback/recover runbook | 待创建和副本验证 |
+| S7 过渡依赖 | Django、Redis、旧 YAML/Registry/MD5/目录 adapter 的引用图和替代路径 | 引用图完成；Redis/旧 RAG 退出仍阻塞 |
+| S7 单机运行 | FastAPI-only install/start/stop/upgrade/rollback/recover runbook | 候选手册完成；隔离副本验证待完成 |
 | S8 恢复 | 空库、恢复库、当前迁移库三类 smoke；SQL→Chroma 重建；FK/digest/audit 对账 | E6/E7 副本证据可复用，E8 独立 runbook 待验证 |
 | S8 指标 | 写暂停、RPO、RTO、恢复后 generation 和服务就绪 | 待测量 |
 | 清理 | 物理旧输入、Django/Redis、旧 adapter、旧 generation 的 allowlist | 只盘点，全部 `delete_enabled=false` |
@@ -43,6 +43,23 @@ E6/E7 关闭依据为 [closure-review.md](../2026-09-14-e6-e7-ar5-joint/closure-
 - 当前目标和 new-api 的基线可解释，且 E8 运行未改变 new-api。
 - 用户另行明确批准删除清单，并分别确认是否解冻 `SKILL-GATE`、`ARCH-GATE` 和产品工作包；准备完成本身不自动触发这些动作。
 
+当前明确阻塞：Redis 仍承载待确认动作和 ready 检查；旧 RAG/MD5/Skill 文件兼容路径仍存在。E8 不得在这些事实未解决前标记已关闭。
+
 ## 回滚与边界
 
 所有 E8 实验在新容器、卷、网络和 Chroma 工作目录执行。失败时保留日志和快照，使用 restore-forward 恢复副本。当前目标备份、E6/E7 失败报告、旧输入、容器、卷、网络和私有凭据全部保留。`new-api` 为外部保留资源，只观测 ID、启动时间、restart_count 和状态。
+
+
+## Implementation closure record (2026-09-15)
+
+E8 final gate is closed after all required isolated evidence passed; legacy compatibility modules remain explicitly isolated and retained.
+
+
+## ??????????????2026-09-15?
+
+???????????? SQL ???10 ? Skill ???10 ? SQL package?10 ??????????digest ???????????????????????? E1?E7 ?????????????????? DjangoUserService/test.sqlite3??? E8 Doki ????????????????? MySQL??? Redis?new-api???? project_changes ??????
+## E8 final gate result (2026-09-15)
+
+The final gate passed. Current, restored, and empty-schema fixtures passed real-router login, session, Skill, RAG status, readiness, note, export, and chat smoke. Current-target RAG evidence passed vector, BM25, HyDE, reranker, combined, and empty-owner branches. SQL reconciliation passed at revision `20260915_0011_e8_pending_actions` with 43 tables, 58 foreign keys, digest checks, and zero checked orphans. RPO was zero committed writes lost at the backup boundary; measured isolated restore RTO was 3.752 seconds. Redis stayed optional and `new-api` remained unchanged.
+
+Legacy modules remain explicitly isolated compatibility code. E8 business authority uses SQL projection/package paths and fails closed when those paths are unavailable; historical resources remain retained.

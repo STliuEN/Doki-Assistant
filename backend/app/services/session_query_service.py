@@ -17,7 +17,8 @@ class SessionQueryService:
 
     async def handle_rag_query(self, query: str, user_id: str, db=None) -> str:
         """处理 RAG 查询逻辑"""
-        if os.getenv("E5_RAG_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}:
+        if any(os.getenv(name, "false").strip().lower() in {"1", "true", "yes", "on"}
+               for name in ("E5_RAG_ENABLED", "E8_ENABLED")):
             from app.rag.projection.query import query_user
             result = await query_user(db, user_id, query)
             return "\n\n".join(result.documents) if result.documents else "抱歉，我没有找到相关的信息。"

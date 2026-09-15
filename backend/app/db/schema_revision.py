@@ -5,8 +5,11 @@ E3_DATABASE_SCHEMA_REVISION = "20260901_0007_e3_auth"
 E4_DATABASE_SCHEMA_REVISION = "20260905_0008_e4_business_shadow"
 E5_DATABASE_SCHEMA_REVISION = "20260914_0009_e5_rag_runtime"
 E6E7_DATABASE_SCHEMA_REVISION = "20260914_0010_e6e7_sql_authority"
+E8_DATABASE_SCHEMA_REVISION = "20260915_0011_e8_pending_actions"
 DATABASE_SCHEMA_REVISION = (
-    E6E7_DATABASE_SCHEMA_REVISION
+    E8_DATABASE_SCHEMA_REVISION
+    if os.getenv("E8_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
+    else E6E7_DATABASE_SCHEMA_REVISION
     if os.getenv("E6E7_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
     else E5_DATABASE_SCHEMA_REVISION
     if os.getenv("E5_RAG_ENABLED", "false").lower() in {"1", "true", "yes", "on"}

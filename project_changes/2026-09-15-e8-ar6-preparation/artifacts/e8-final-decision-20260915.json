@@ -1,0 +1,40 @@
+{
+  "stage": "E8/AR-6",
+  "status": "closed",
+  "implementation": "complete_for_e8_sql_authority_and_final_gates",
+  "target": "127.0.0.1:33427/doki_e4",
+  "schema_revision": "20260915_0011_e8_pending_actions",
+  "validation": {
+    "backend_tests": "539 passed, 1 warning",
+    "ruff": "passed",
+    "compileall": "passed",
+    "empty_and_restore_fixture": "passed",
+    "redis_outage_health": "passed",
+    "new_api_changed": false,
+    "mysql_global_read_only": "0",
+    "mysql_global_super_read_only": "0",
+    "full_backend_tests": "539 passed, 1 warning",
+    "current_rag": "6 branches passed: vector, bm25, hyde, rerank, combined, empty_owner",
+    "business_smoke": "current, restored, empty-schema passed",
+    "sql_reconciliation": "43 tables, 58 FKs, package/source digests passed, zero checked orphans",
+    "chroma_reconciliation": "6 owners, 12 artifacts passed",
+    "rpo_rto": "RPO 0 committed writes lost; RTO 3.752 seconds",
+    "reference_audit": "passed"
+  },
+  "remaining_blockers": [],
+  "deletion_enabled": false,
+  "new_api": "observe-only",
+  "post_authorization_cleanup": "completed_with_current_runtime_retained",
+  "closed_at": "2026-09-15T01:56:00Z",
+  "compatibility_disposition": "legacy modules retained as explicit non-E8 compatibility/maintenance paths; E8 business authority is SQL-only and fail-closed",
+  "evidence": {
+    "current_rag": ".runtime/e8-final-dev-20260915-v2/e8-current-rag-verify.json",
+    "current_business": ".runtime/e8-current-20260915/business-smoke.json",
+    "restored_business": ".runtime/e8-final-gates-20260915/business-smoke.json",
+    "empty_business": ".runtime/e8-empty-20260915/business-smoke.json",
+    "sql": "artifacts/e8-sql-reconciliation-20260915.json",
+    "chroma": ".runtime/e8-final-gates-20260915/chroma-reconciliation.json",
+    "rpo_rto": "artifacts/e8-rpo-rto-20260915.json",
+    "reference_audit": "artifacts/e8-reference-audit-20260915.json"
+  }
+}

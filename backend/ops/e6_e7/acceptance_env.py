@@ -60,7 +60,7 @@ def dump(name, password, user, *, data_only=False):
     return docker("exec", "--env", "MYSQL_PWD", name, "mysqldump", "-u" + user, *flags, "doki_e4", env=dict(os.environ, MYSQL_PWD=password))
 
 
-def prepare(destination, *, source_directory=None, empty_schema=False):
+def prepare(destination, *, source_directory=None, empty_schema=False, restore_data=True):
     destination = destination.resolve()
     if not destination.is_relative_to(ROOT / ".runtime") or destination.exists():
         raise ValueError("Use a new directory under workspace .runtime")
@@ -196,8 +196,21 @@ def prepare(destination, *, source_directory=None, empty_schema=False):
         if migrated.returncode:
             raise RuntimeError("Fresh empty schema migration failed; see empty-schema.log")
         revision = sql(name, private["password"], "SELECT version_num FROM alembic_version", private["username"], "doki_e4")
-        assert revision == "20260914_0010_e6e7_sql_authority"
+        assert revision == "20260915_0011_e8_pending_actions"
         save(destination / "empty-schema.json", {"status": "passed", "revision": revision, "container": name})
+    if not restore_data:
+        save(destination / "restore.json", {
+            "status": "empty_schema_ready",
+            "source_container": source_name,
+            "empty_schema_passed": empty_schema,
+            "target": target,
+            "new_api_before": before,
+            "new_api_after": protected_state(),
+            "global_flags": sql(TARGET, credentials["target_password"], "SELECT @@global.read_only, @@global.super_read_only", "doki_e4_app"),
+            "resource_policy": "retained; isolated empty-schema fixture",
+        })
+        print(json.dumps({"replica": name, "port": private["port"], "empty_schema": True}), flush=True)
+        return
     # This destination was created in this invocation and contains no user data.
     docker(
         "exec", "-i", "--env", "MYSQL_PWD", name, "mysql", "-uroot", "doki_e4", env=dict(os.environ, MYSQL_PWD=private["root_password"]), data=content
@@ -259,6 +272,7 @@ def environment(directory):
         E4_RUNNER_ENABLED="true",
         E5_RAG_ENABLED="true",
         E6E7_ENABLED="true",
+        E8_ENABLED="true",
         E5_CHROMA_PERSIST_DIRECTORY=value["chroma"],
         HF_HUB_OFFLINE="1",
         TRANSFORMERS_OFFLINE="1",
@@ -314,5 +328,11 @@ if __name__ == "__main__":
     parser.add_argument("directory", type=Path)
     parser.add_argument("--source-directory", type=Path)
     parser.add_argument("--empty-schema", action="store_true")
+    parser.add_argument("--empty-only", action="store_true")
     arguments = parser.parse_args()
-    prepare(arguments.directory, source_directory=arguments.source_directory, empty_schema=arguments.empty_schema)
+    prepare(
+        arguments.directory,
+        source_directory=arguments.source_directory,
+        empty_schema=arguments.empty_schema,
+        restore_data=not arguments.empty_only,
+    )

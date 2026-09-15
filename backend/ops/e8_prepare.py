@@ -91,6 +91,11 @@ def main():
                    "bytes": backup.stat().st_size if backup.exists() else 0,
                    "sha256": sha(backup) if backup.exists() else None,
                    "policy": "retain; do not overwrite during preparation"},
+        "preparation_documents": {
+            "dependency_map": (BATCH / "dependency-map.md").relative_to(ROOT).as_posix(),
+            "runbook": (BATCH / "e8-runbook.md").relative_to(ROOT).as_posix(),
+            "plan": (BATCH / "plan.md").relative_to(ROOT).as_posix(),
+        },
         "legacy_candidates": [path_inventory(ROOT / relative) for relative in (
             "DjangoUserService", "backend/data/chromadb", "backend/data/extracted_images",
             "backend/data/md5_hex_store", "backend/data/skill_packages", "backend/data/skill_packages/objects",

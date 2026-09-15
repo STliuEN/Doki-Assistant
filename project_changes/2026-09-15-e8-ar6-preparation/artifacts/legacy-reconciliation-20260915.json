@@ -1,0 +1,104 @@
+{
+  "status": "passed",
+  "target": "127.0.0.1:33427/doki_e4",
+  "counts": {
+    "users": 3,
+    "skills": 10,
+    "skill_versions": 10,
+    "skill_installations": 10,
+    "skill_packages": 10,
+    "skill_package_uploads": 10,
+    "skill_imports": 0,
+    "migration_maps": 324,
+    "knowledge_source_documents": 6,
+    "notes": 7,
+    "audit_events": 2218,
+    "pending_actions": 0
+  },
+  "skill_versions": [
+    {
+      "version_id": "101fe52c-8256-46d0-83a8-a6c6091b1f5b",
+      "package_id": "bcdc1e82-ad58-5c5a-828a-fa789f475ddc",
+      "storage_key": "objects/07/078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001.zip",
+      "package_digest": "078a6c34a935ba8bc85c7b65eb9a90bb89acc3916b3ffd59ad8abcf88bab0001",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "1544aaf7-5a31-4bbe-929e-96609a983cd4",
+      "package_id": "c64a2211-8ca2-5dec-993b-ef8bc14737e3",
+      "storage_key": "objects/1f/1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f.zip",
+      "package_digest": "1f508637260187f4efa672b48eaaf46748f3b7ebd7e0bf006080c212d717ac4f",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "512a6fe8-9e89-4bea-8940-0d67283536a8",
+      "package_id": "1e1f0a4c-4cf3-56c2-8867-9bd7db79ba02",
+      "storage_key": "objects/68/68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912.zip",
+      "package_digest": "68d1cac711fc5950d3eae34e6dbf202091cc1c60631936d8b2c259f4cec44912",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "83730af5-4939-41d7-aef9-a64aa4fbd995",
+      "package_id": "d8eb9604-2821-5a47-85eb-0be227d5ac41",
+      "storage_key": "objects/fe/fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896.zip",
+      "package_digest": "fee357f6cbdae744a7e3d6f8746e8396e41508dc76e2f18bee83d330f2ca5896",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "9c1041b5-6c1e-49a6-a563-cbd044e5383d",
+      "package_id": "e935305c-52d3-5515-894d-4a3b75e498e4",
+      "storage_key": "objects/92/92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1.zip",
+      "package_digest": "92502e32f8896e072c17ab9cc91a8156eadaf00122e17ae7773c1a9e06477ce1",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "a65a25af-bf53-4e63-a5cb-549c97a9e683",
+      "package_id": "b2d0a33e-6774-5d3c-9faa-69da76236647",
+      "storage_key": "objects/76/76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78.zip",
+      "package_digest": "76660f4a66e83f2f19d0532661b923c5c351e7986ebf2456a0397e39b731fc78",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "c38f2903-69f5-4e32-92c2-2f25f2305b43",
+      "package_id": "acee915d-6d79-561f-896d-03ed46a8fb96",
+      "storage_key": "objects/80/80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2.zip",
+      "package_digest": "80d8b75260b0fc2e8b56c7ae3716f7b3f349f367fe697a2a86e53f1fe2008ad2",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "d871ce8f-35eb-4cae-9efb-62155786ee39",
+      "package_id": "90cb2df9-41f0-55cf-a942-0ad6b8ce13dc",
+      "storage_key": "objects/df/dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561.zip",
+      "package_digest": "dfd2b954a451415e1bf8b60605211bf69a63fd21b332fba2fe802f06760e2561",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "eed65768-e605-47c3-8b44-e222bee36b2d",
+      "package_id": "aede4582-3a7f-50b0-8bcc-6f0d0431afb7",
+      "storage_key": "objects/88/88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f.zip",
+      "package_digest": "88a9cdb197006010b117d99931df595d4712836720342d8ec84f63db0cfc1d5f",
+      "package_present": true,
+      "package_digest_match": true
+    },
+    {
+      "version_id": "f30d4945-ffcc-47b5-b73f-612c517bc04f",
+      "package_id": "9af633b8-fe76-54fb-aa06-7cd00607ca90",
+      "storage_key": "objects/a2/a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b.zip",
+      "package_digest": "a2e99f142068435256e3cd3d1868f25800f9a282cf5ce478bc2ca11729536c4b",
+      "package_present": true,
+      "package_digest_match": true
+    }
+  ],
+  "migration_maps": 10,
+  "legacy_sqlite_test_db_bytes": 0,
+  "legacy_filesystem": "retained_until_explicit_cleanup_step",
+  "post_cleanup_pending_actions": 0
+}
