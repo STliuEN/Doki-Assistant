@@ -1,20 +1,10 @@
-# E3 isolated MySQL topology
+# E3 隔离 MySQL 拓扑
 
-This directory is the only compose definition allowed for the E3 auth batch.
-It creates `doki-e3-20260831-mysql`, `doki-e3-20260831-mysql-restore`, and
-`doki-e3-20260831-net` on loopback ports `33327` and `33328`.
+E3 是历史阶段的隔离数据库拓扑，仅用于重演 E3 证据，不是当前 E8 业务入口。
 
-Set the two local-only environment variables before starting the topology;
-they are consumed by Compose and must never be committed or pasted into logs.
-E1/E2 resources are intentionally absent from this compose file.
+- 使用 E3 专用容器、网络和 loopback 端口。
+- 密码仅通过本机环境变量传入，不写入日志或提交。
+- 不连接主机 3306，不修改主机级 MySQL 设置。
+- E3 记录不能覆盖 E8 最终判定。
 
-```powershell
-$env:E3_MYSQL_ROOT_PASSWORD = '<local-only-root-password>'
-$env:E3_MYSQL_PASSWORD = '<local-only-app-password>'
-docker compose up -d
-docker compose ps
-```
-
-Use `E3_DATABASE_URL` with the dedicated `doki_e3_app` user only after both
-health checks are green. The application migration guard remains responsible
-for checking the exact server UUID, SQL mode, packet size, and isolation.
+当前运行规则和最终证据见 [E8 运行手册](../../../project_changes/2026-09-15-e8-ar6-preparation/e8-runbook.md)。
